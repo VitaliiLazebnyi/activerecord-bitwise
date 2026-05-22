@@ -223,63 +223,6 @@ user.errors[:roles] # => ["contains invalid values: hacker"]
 ```
 
 > **The `validate: false` DB Defense:** If a developer forcibly invokes `user.save(validate: false)` or a background worker invokes `.update_column` while an invalid uncoercible payload (`"hacker"`) is held, the underlying Typecaster permanently **drops** the invalid string during the database serialization phase to prevent catastrophic `ActiveRecord::SerializationFailure`. It will continuously and safely persist only the valid subsets.
-
-## Architecture & Safety Guarantees
-
-Building an enterprise-grade bitmask gem involves navigating several Ruby and Rails edge cases. `activerecord-bitwise` is structurally protected against the following vulnerabilities:
-
-### 1. Non-Destructive "Forgotten Bits" Masking
-In multi-node environments, destroying a legacy mapped bit from the codebase config might accidentally destroy its presence universally if a user saves a profile update. The Typecaster strictly memos the `@_bitwise_raw_value` on load. A `#save` securely overlays active code configurations over legacy configurations (`(raw_value & ~known_mask) | new_mask`) guaranteeing unknown database bit flags survive round-trips untouched.
-
-### 2. Single Table Inheritance (STI) Isolation
-STI architectures (`class Admin < User`) can silently pollute bitwise class-attributes if subclasses map identical columns differently. The load-phase strictly isolates configuration profiles using nested `class_attribute` closures ensuring STI children cannot globally mutate their parents' hardware shifts.
-
-### 3. Fuzzer Immunization inside Scopes (HTTP 500 Defense)
-Passing a malicious query like `.with_roles(params[:roles])` via automated URL fuzzing will often pass invalid payloads like `"SELECT DROP *"` into query internals. If a gem strictly validates input and raises `ArgumentError` when constructing queries, it forces the Rails controller to inherently panic causing an `HTTP 500`. ActiveRecord::Bitwise strictly drops unrecognized query keys; querying only an unrecognized key dynamically builds `where("1=0")` safely resolving to `none` over exploding natively.
-
-### 4. Nil Database Coalescence
-If deployed on legacy tables without `null: false` constraints, standard databases inject `NULL`. If `nil & 1` reaches Ruby arithmetic layers, it triggers `NoMethodError for nil:NilClass`. The initialization boot checks entirely coerce missing underlying values to `0` bridging logic faults.
-
-### 5. Symbol Denial of Service (DoS) Prevention
-It is a severe security vulnerability to execute `.to_sym` on unverified HTTP form payloads, as malicious users could exhaust server RAM by spamming randomized strings. The `ActiveRecord::Bitwise` engine enforces **Strict Stringification** internally during initialization. It never casts unverified internet payloads to symbols during assignment.
-
-### 6. Guarding Dirty Tracking (Frozen Arrays)
-Native Rails Dirty Tracking is completely blind to in-place array manipulation (e.g., `user.roles << :author`). To prevent `#save` from silently dropping these mutations, `ActiveRecord::Bitwise` explicitly returns **frozen arrays**. This completely disables `<<`, explicitly forcing you to safely reassign (`user.roles += [:author]`) to guarantee 100% Dirty Tracking reliability.
-
-### 7. Colossal Column Type Introspection
-If a developer accidentally points `bitwise :data` onto a schema column mapped to `jsonb` or `text`, Native ActiveRecord implementations dynamically crash resolving hardware Bit-Shifts. `ActiveRecord::Bitwise` hooks into Rails boots utilizing `columns_hash[attribute].type` structurally preventing assignment over structurally incompatible schema sets.
-
-### 8. Sorbet / Static Analysis Bundling
-Metaprogramming dynamically generates methods (`#admin?`, `#author=`) at runtime, which static analysis tools like **Sorbet** cannot see. Instead of merely pretending support exists, the gem physically bundles and registers a Tapioca abstraction hook `Tapioca::Dsl::Compilers::ActiveRecordBitwise` internal to its package structure. Requiring the module properly exposes all dynamic method generations directly into your Host CI environment.
-
-### 9. The `.where` Clause Poisoning
-If a developer manually queries `User.where.not(roles: [:admin])`, standard ActiveRecord casts the array to an integer (`WHERE roles != 1`). Because bitmasks represent inclusive subsets, querying standard equality mathematically breaks the entire engine (a user with roles=3 is not equal to 1, thus the user leaks through the negation). `ActiveRecord::Bitwise` defensively throws `NotSupportedError` on generic Hash queries overriding ActiveRecord entirely, forcing `.without_roles()` isolation rules.
-
-### 10. The Boot-Deadlock Trap (`rails db:migrate` Failure)
-If `ActiveRecord::Bitwise` introspects `columns_hash[attribute].type` at the class macro level (`bitwise :roles`), it will violently crash CI pipelines building empty environments because the `users` table doesn't exist yet! Introspection is lazily evaluated utilizing `Rails.application.config.after_initialize` or actively rescuing `ActiveRecord::NoDatabaseError` resolving cold-boot deployment deadlocks natively.
-
-### 11. ActiveRecord Life-Cycle Bricking
-If a developer configures `bitwise :states, { destroyed: 0, valid: 1 }`, the macro will generate `#destroyed?`, physically overwriting core `ActiveRecord::Base` instance methods locking the model entirely! The Method-Collision engine explicitly asserts against the entire `ActiveRecord::Base.instance_methods` manifest bypassing catastrophic model corruption.
-
-### 12. Object Clone Bleeding (`#dup` Integrity)
-Executing `user2 = user1.dup` cleanly shallow-copies instances. However, because `user1` holds a hidden `@_bitwise_raw_value` cache defending "Forgotten Bits" (Point 1), saving `user2` secretly copies the ghost bits of the original user! The engine safely intercepts `initialize_dup` to surgically sever cache pointers guaranteeing green-field duplications.
-
-### 13. The Zero-State Scope Compilation Bug
-Generating queries manually on unchecked form structures (e.g. `User.with_exact_roles([])`) naturally passes a `0` value. If compiled iteratively via standard maps (`WHERE (roles & 0) = 0`), this evaluates mathematically to `TRUE` universally retrieving the entire database! ActiveRecord::Bitwise rigorously bounds empty array resolutions dynamically executing strict zero-bounds `WHERE roles = 0` nullifying logic-vacuum bleeding.
-
-### 14. Multi-Tenant ETL Schema Extrapolation
-At enterprise limits, pipelines typically mirror Postgres tables into Snowflake or Redshift environments where an integer value `3` loses its semantic map. `ActiveRecord::Bitwise` introduces an external native `.bitwise_schema(:roles)` API dynamically exporting the raw structural Ruby map ensuring external downstream Python pipeline decoders stay synchronously updated exactly with the Gem's assignments.
-
-
-### 15. SQLite Raw String Coercion
-While Postgres deserializes table formats statically, SQLite bindings natively mutate `Integer` pulls as String outputs (`"5"`). Firing binary interactions like `"5" & 1` explicitly crashes Ruby with `NoMethodError`. Global `#to_i` wrappers aggressively override adapter bindings shielding logical mutations.
-
-### 16. ActiveRecord `update_all` Interception
-Executing `User.update_all(roles: [:admin])` normally bypasses ActiveRecord memory layer serializers, violently crashing the database by sending an Array directly into the adapter string payload. The gem natively hooks into `ActiveRecord::Relation#update_all` to dynamically execute Ruby bitmask serialization inline, allowing developers to execute batch mutations securely using Arrays natively.
-
-### 17. "Over-Shift" Schema Disconnect Execution Halt
-Because Ruby converts arbitrarily large numbers into `Bignum` instances in memory, developers might accidentally configure 35 roles against an `integer` column that physically traps at 31 bits. During the `after_initialize` hook, the gem actively queries `columns_hash[attribute]` to detect physical hardware mismatches. If the memory assignment out-scales the schema bounds, it intentionally issues a fatal `ArgumentError` preventing catastrophic data misalignments from quietly booting.
-
 ## Known Limitations & Mitigation Strategies
 
 While highly defensive, this architecture introduces inherent physical and systemic limitations. You must design around the following constraints to prevent data corruption or catastrophic failure.
@@ -368,11 +311,7 @@ While highly defensive, this architecture introduces inherent physical and syste
 
 ### Bootstrapping the Project
 
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-2. Install dependencies:
+1. Install dependencies:
    ```bash
    bundle install
    ```
