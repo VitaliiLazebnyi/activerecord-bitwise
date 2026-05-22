@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'sorbet-runtime'
 require 'active_model'
 
 # Custom validator supporting validates :attribute, bitwise: true

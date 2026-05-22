@@ -13,6 +13,7 @@ AllCops:
     - 'vendor/**/*'
     - 'coverage/**/*'
     - 'sorbet/**/*'
+    - 'tmp/**/*'
 
 Style/FrozenStringLiteralComment:
   Enabled: true
@@ -93,9 +94,12 @@ RSpec/SpecFilePathFormat:
   Exclude:
     - 'spec/activerecord_bitwise_spec.rb'
     - 'spec/activerecord_bitwise_real_life_spec.rb'
+    - 'spec/activerecord_bitwise_user_perspective_spec.rb'
 
 RSpec/DescribeMethod:
   Exclude:
     - 'spec/activerecord_bitwise_real_life_spec.rb'
+    - 'spec/activerecord_bitwise_user_perspective_spec.rb'
+
 
 

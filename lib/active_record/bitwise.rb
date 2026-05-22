@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'sorbet-runtime'
 require 'active_record/bitwise/version'
 require 'active_record/bitwise/bitwise_validator'
 require 'active_record'
