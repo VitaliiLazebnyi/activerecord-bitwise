@@ -1,0 +1,101 @@
+require:
+  - rubocop-md
+
+plugins:
+  - rubocop-performance
+  - rubocop-thread_safety
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.2
+  Exclude:
+    - 'vendor/**/*'
+    - 'coverage/**/*'
+    - 'sorbet/**/*'
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+  EnforcedStyle: always
+
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec
+
+Layout/LineLength:
+  Max: 200
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Metrics/ModuleLength:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Naming/VariableNumber:
+  Enabled: false
+
+RSpec/ExampleLength:
+  Enabled: false
+
+RSpec/MultipleExpectations:
+  Enabled: false
+
+RSpec/VerifiedDoubles:
+  Enabled: false
+
+RSpec/AnyInstance:
+  Enabled: false
+
+RSpec/BeforeAfterAll:
+  Enabled: false
+
+RSpec/MessageSpies:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Lint/DuplicateBranch:
+  Enabled: false
+
+Style/MultilineBlockChain:
+  Enabled: false
+
+Style/IfUnlessModifier:
+  Enabled: false
+
+Style/OneClassPerFile:
+  Exclude:
+    - '**/*.md'
+    - 'spec/**/*'
+
+ThreadSafety/NewThread:
+  Exclude:
+    - 'spec/activerecord_bitwise_real_life_spec.rb'
+
+Naming/FileName:
+  Exclude:
+    - 'lib/activerecord-bitwise.rb'
+    - '**/*.md'
+
+RSpec/SpecFilePathFormat:
+  Exclude:
+    - 'spec/activerecord_bitwise_spec.rb'
+    - 'spec/activerecord_bitwise_real_life_spec.rb'
+
+RSpec/DescribeMethod:
+  Exclude:
+    - 'spec/activerecord_bitwise_real_life_spec.rb'
+
+

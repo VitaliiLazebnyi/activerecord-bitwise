@@ -1,0 +1,31 @@
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Ruby / Bundler
+/*.gem
+/.bundle/
+/vendor/bundle/
+/vendor/ruby/
+Gemfile.lock
+
+# Logs and Output
+/log/*
+/tmp/*
+
+# Coverage
+/coverage/
+
+# Documentation
+/.yardoc/
+/_yardoc/
+/doc/
+
+# RSpec
+.rspec_status
+
+# Environment manager configurations
+.mise.toml
+mise.toml
+

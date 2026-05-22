@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Pre-commit hook: runs tests, linting, and type-checking.
+# Install: git config core.hooksPath .githooks
+set -euo pipefail
+
+echo "==> Running RSpec..."
+bundle exec rspec --format progress
+
+echo "==> Running RuboCop..."
+bundle exec rubocop
+
+echo "==> Running Sorbet type-check..."
+bundle exec srb tc
+
+echo "==> All checks passed."

@@ -1,0 +1,43 @@
+name: Automated Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "4.0"
+        bundler-cache: true
+    
+    - name: Recover Private Key
+      env:
+        GEM_PRIVATE_KEY: ${{ secrets.GEM_PRIVATE_KEY }}
+      run: |
+        mkdir -p ~/.gem
+        printf '%s\n' "$GEM_PRIVATE_KEY" > ~/.gem/gem-private_key.pem
+        chmod 0600 ~/.gem/gem-private_key.pem
+        
+    - run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+    - run: sed -i "s/VERSION = '.*'/VERSION = '$VERSION'/" lib/active_record/bitwise/version.rb
+        
+    - run: gem build activerecord-bitwise.gemspec
+      
+    - uses: softprops/action-gh-release@v2
+      with:
+        files: activerecord-bitwise-${{ env.VERSION }}.gem
+        
+    - uses: rubygems/configure-rubygems-credentials@main
+ 
+    - run: gem push activerecord-bitwise-$VERSION.gem
