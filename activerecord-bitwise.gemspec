@@ -46,7 +46,7 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency 'rspec', '~> 3.13'
   spec.add_development_dependency 'rubocop', '~> 1.88'
-  spec.add_development_dependency 'rubocop-md', '~> 1.2'
+  spec.add_development_dependency 'rubocop-md', '~> 2.0'
   spec.add_development_dependency 'rubocop-performance', '~> 1.26'
   spec.add_development_dependency 'rubocop-rspec', '~> 3.10'
   spec.add_development_dependency 'rubocop-thread_safety', '~> 0.7'
