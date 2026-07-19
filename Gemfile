@@ -9,5 +9,5 @@ gemspec
 gem 'activerecord', ENV['AR_VERSION'] if ENV['AR_VERSION']
 
 # Alternate database adapters for running the suite against a real server (see spec_helper)
-gem 'pg', '~> 1.6' if ENV.fetch('DATABASE_URL', '').start_with?('postgres') # matches postgres:// and postgresql://
 gem 'mysql2', '~> 0.5' if ENV.fetch('DATABASE_URL', '').start_with?('mysql2')
+gem 'pg', '~> 1.6' if ENV.fetch('DATABASE_URL', '').start_with?('postgres') # matches postgres:// and postgresql://

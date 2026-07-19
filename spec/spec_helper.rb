@@ -14,10 +14,16 @@ end
 
 SimpleCov.start do
   enable_coverage :branch
-  # The 100% line+branch gate is enforced on the canonical SQLite run; alternate
-  # adapters (DATABASE_URL set) cannot reach adapter-specific branches such as
-  # SQLite's string coercion of raw integer values.
-  minimum_coverage line: 100, branch: 100 unless ENV['DATABASE_URL']
+  # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
+  # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
+  # adapter-specific branches (e.g. PostgreSQL widens limit: 1 columns to
+  # smallint, making the tinyint limit branch unreachable), but a 99% gate still
+  # fails the run if real coverage regresses.
+  if ENV['DATABASE_URL']
+    minimum_coverage line: 99, branch: 99
+  else
+    minimum_coverage line: 100, branch: 100
+  end
   add_filter '/spec/'
   add_filter '/vendor/'
 
