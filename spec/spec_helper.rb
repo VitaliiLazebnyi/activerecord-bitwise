@@ -14,7 +14,10 @@ end
 
 SimpleCov.start do
   enable_coverage :branch
-  minimum_coverage line: 100, branch: 100
+  # The 100% line+branch gate is enforced on the canonical SQLite run; alternate
+  # adapters (DATABASE_URL set) cannot reach adapter-specific branches such as
+  # SQLite's string coercion of raw integer values.
+  minimum_coverage line: 100, branch: 100 unless ENV['DATABASE_URL']
   add_filter '/spec/'
   add_filter '/vendor/'
 
@@ -27,21 +30,30 @@ end
 require 'sorbet-runtime'
 
 require 'fileutils'
-require 'sqlite3'
 require 'active_record'
 
-# Establish a shared file-based SQLite database to support multi-threaded test isolation
-db_dir = File.expand_path('../tmp', __dir__)
-FileUtils.mkdir_p(db_dir)
-db_file = File.join(db_dir, 'test.sqlite3')
+# By default the suite runs on a shared file-based SQLite database (file-based to
+# support multi-threaded test isolation). Set DATABASE_URL (e.g. to a PostgreSQL
+# server, as CI does) to exercise the gem against a production-grade adapter where
+# row locking (`FOR UPDATE`) is real rather than a SQLite no-op.
+database_url = ENV.fetch('DATABASE_URL', nil)
+if database_url
+  ActiveRecord::Base.establish_connection(database_url)
+else
+  require 'sqlite3'
 
-ActiveRecord::Base.establish_connection(
-  adapter: 'sqlite3',
-  database: db_file
-)
+  db_dir = File.expand_path('../tmp', __dir__)
+  FileUtils.mkdir_p(db_dir)
+  db_file = File.join(db_dir, 'test.sqlite3')
 
-at_exit do
-  FileUtils.rm_f(db_file) if defined?(db_file) && File.exist?(db_file)
+  ActiveRecord::Base.establish_connection(
+    adapter: 'sqlite3',
+    database: db_file
+  )
+
+  at_exit do
+    FileUtils.rm_f(db_file)
+  end
 end
 
 # Set up testing database schema
@@ -71,6 +83,12 @@ ActiveRecord::Schema.define do
   create_table :etl_records, force: true do |t|
     t.string :external_id, null: false
     t.integer :legacy_flags, default: 0, null: false
+  end
+
+  create_table :singular_models, force: true do |t|
+    t.integer :status, default: 0, null: false
+    t.integer :fish, default: 0, null: false
+    t.string :name
   end
 end
 

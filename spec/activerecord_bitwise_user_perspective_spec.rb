@@ -140,13 +140,22 @@ RSpec.describe ActiveRecord::Bitwise, 'User Perspective Integration Specs' do
     end
   end
 
-  describe 'Section E: Negation & Query Poisoning Defense' do
-    it 'raises NotSupportedError on direct where query on bitwise attribute' do
-      expect { UserPerspectiveUser.where(roles: [:admin]) }.to raise_error(ActiveRecord::Bitwise::NotSupportedError)
+  describe 'Section E: Hash Query Serialization' do
+    let!(:u_admin) { UserPerspectiveUser.create!(roles: [:admin]) }
+    let!(:u_both)  { UserPerspectiveUser.create!(roles: %i[admin editor]) }
+
+    it 'serializes direct where queries on bitwise attributes (exact bitmask match)' do
+      expect(UserPerspectiveUser.where(roles: [:admin])).to contain_exactly(u_admin)
+      expect(UserPerspectiveUser.where(roles: %i[admin editor])).to contain_exactly(u_both)
+      expect(UserPerspectiveUser.find_by(roles: [:admin])).to eq(u_admin)
     end
 
-    it 'raises NotSupportedError on direct where.not query on bitwise attribute' do
-      expect { UserPerspectiveUser.where.not(roles: [:admin]) }.to raise_error(ActiveRecord::Bitwise::NotSupportedError)
+    it 'serializes direct where.not queries on bitwise attributes' do
+      expect(UserPerspectiveUser.where.not(roles: [:admin])).to contain_exactly(u_both)
+    end
+
+    it 'raises UnknownValueError for unmapped values in hash queries' do
+      expect { UserPerspectiveUser.where(roles: [:hacker]) }.to raise_error(ActiveRecord::Bitwise::UnknownValueError)
     end
   end
 
@@ -194,10 +203,11 @@ RSpec.describe ActiveRecord::Bitwise, 'User Perspective Integration Specs' do
           self.table_name = 'users'
           extend ActiveRecord::Bitwise::Model
 
-          # custom_limits has limit 1, which allows up to 7 flags (shifts 0..6). Position 16 fails.
+          # custom_limits has limit 1, which allows up to 7 flags (shifts 0..6; PostgreSQL
+          # widens it to smallint / 15 flags). Position 16 fails on every adapter.
           bitwise :custom_limits, { super_role: 16 }
         end.new
-      end.to raise_error(ArgumentError, /has limit of 1 bytes/)
+      end.to raise_error(ArgumentError, /has limit of \d+ bytes/)
     end
 
     it 'invalidates raw values cache upon model reload' do

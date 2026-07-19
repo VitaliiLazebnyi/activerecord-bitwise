@@ -8,7 +8,7 @@ class TestUser < ActiveRecord::Base
 
   bitwise :roles, { admin: 0, _deprecated_role_1: 1, author: 2, subscriber: 3 }
   bitwise :permissions, { read: 0, manage: 1 }, default: [:read]
-  bitwise :legacy_roles, %i[admin moderator author subscriber]
+  bitwise :legacy_roles, %i[admin moderator author subscriber], prefix: :legacy
 
   validates :roles, bitwise: true
 end
@@ -231,8 +231,15 @@ RSpec.describe ActiveRecord::Bitwise do
     end
 
     it '2. Enforces Single Table Inheritance (STI) isolation' do
-      # STI class isolation
-      expect(TestSTIAdmin.bitwise_definitions[:roles]).to eq(TestUser.bitwise_definitions[:roles])
+      # Subclasses inherit the same configuration...
+      expect(TestSTIAdmin.bitwise_definitions[:roles][:mapping]).to eq(TestUser.bitwise_definitions[:roles][:mapping])
+      expect(TestSTIAdmin.bitwise_definitions[:roles][:default]).to eq(TestUser.bitwise_definitions[:roles][:default])
+
+      # ...but hold their own deep copies, so mutating one class can never leak
+      # state into the parent or into sibling subclasses.
+      expect(TestSTIAdmin.bitwise_definitions[:roles]).not_to equal(TestUser.bitwise_definitions[:roles])
+      expect(TestSTIAdmin.bitwise_definitions[:roles][:mapping]).not_to equal(TestUser.bitwise_definitions[:roles][:mapping])
+      expect(TestSTIAdmin.bitwise_definitions[:roles]).not_to equal(TestSTICustomer.bitwise_definitions[:roles])
     end
 
     it '3. Performs fuzzer immunization inside scopes' do
@@ -267,7 +274,9 @@ RSpec.describe ActiveRecord::Bitwise do
     end
 
     it '7. Checks column type compatibility during lazy initialization' do
-      # Table table exists check, column exists, column is integer
+      # Instantiate first: validation runs lazily on the first after_initialize,
+      # so this example must not depend on test execution order.
+      TestUser.new
       expect(TestUser.bitwise_definitions[:roles][:validated]).to be true
     end
 
@@ -275,9 +284,24 @@ RSpec.describe ActiveRecord::Bitwise do
       expect(File.exist?(File.expand_path('../lib/tapioca/dsl/compilers/activerecord_bitwise.rb', __dir__))).to be true
     end
 
-    it '9. Prevents where clause poisoning' do
-      expect { TestUser.where(roles: [:admin]) }.to raise_error(ActiveRecord::Bitwise::NotSupportedError)
-      expect { TestUser.where.not(roles: [:admin]) }.to raise_error(ActiveRecord::Bitwise::NotSupportedError)
+    it '9. Transparently serializes bitwise values in where/where.not hash conditions' do
+      user_admin = TestUser.create!(roles: [:admin])
+      user_both = TestUser.create!(roles: %i[admin author])
+
+      # Exact bitmask match semantics (like Rails' native enum)
+      expect(TestUser.where(roles: [:admin])).to contain_exactly(user_admin)
+      expect(TestUser.where('roles' => [:admin])).to contain_exactly(user_admin)
+      expect(TestUser.where(roles: %i[admin author])).to contain_exactly(user_both)
+      expect(TestUser.where.not(roles: [:admin])).to contain_exactly(user_both)
+      expect(TestUser.find_by(roles: [:admin])).to eq(user_admin)
+
+      # Raw integers pass through untouched
+      expect(TestUser.where(roles: 1)).to contain_exactly(user_admin)
+      expect(TestUser.where(roles: [1, 5])).to contain_exactly(user_admin, user_both)
+
+      # Unknown flag values raise instead of silently matching mask 0
+      expect { TestUser.where(roles: [:bogus]) }.to raise_error(ActiveRecord::Bitwise::UnknownValueError)
+      expect { TestUser.where.not(roles: [:bogus]) }.to raise_error(ActiveRecord::Bitwise::UnknownValueError)
     end
 
     it '10. Prevents boot-deadlocks' do
@@ -350,10 +374,11 @@ RSpec.describe ActiveRecord::Bitwise do
           self.table_name = 'over_shifted_models'
           extend ActiveRecord::Bitwise::Model
 
-          # limit: 1 byte signed allows up to 7 flags (max position 6)
-          bitwise :custom_limits, { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7 }
+          # custom_limits is declared limit: 1 (7 flags max; PostgreSQL widens it to
+          # smallint / 15 flags), so position 16 over-shifts on every adapter.
+          bitwise :custom_limits, { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 16 }
         end.new
-      end.to raise_error(ArgumentError, /has limit of 1 bytes/)
+      end.to raise_error(ArgumentError, /has limit of \d+ bytes/)
     end
 
     it 'handles update_all with raw SQL string' do
@@ -538,14 +563,14 @@ RSpec.describe ActiveRecord::Bitwise do
       large_arr = Array.new(101) { :admin }
       expect { type.cast(large_arr) }.to raise_error(ArgumentError, /cannot exceed 100/)
 
-      # 5. Type#deserialize with and without default
+      # 5. Type#deserialize(nil) is always an empty array; defaults apply only to
+      # new records via the attribute API, never to persisted NULLs.
       type_with_default = TestUser.attribute_types['permissions']
-      expect(type_with_default.deserialize(nil)).to eq([:read])
+      expect(type_with_default.deserialize(nil)).to eq([])
 
       type_no_default = TestUser.attribute_types['roles']
       expect(type_no_default.deserialize(nil)).to eq([])
 
-      # Add custom type with nil default to cover the absent default branch
       custom_type = ActiveRecord::Bitwise::Type.new(:roles, { admin: 0 }, nil)
       expect(custom_type.deserialize(nil)).to eq([])
 
@@ -727,13 +752,13 @@ RSpec.describe ActiveRecord::Bitwise do
     end
   end
 
-  describe 'BUG-DESER-001: Deserialize nil with unmapped default values' do
-    it 'skips unmapped values in default array gracefully' do
-      # Create a type with a default containing a value not in the mapping
-      type_with_bad_default = ActiveRecord::Bitwise::Type.new(:test_col, { admin: 0 }, %i[admin nonexistent])
-      result = type_with_bad_default.deserialize(nil)
-      # Should include only the mapped default value
-      expect(result).to eq([:admin])
+  describe 'BUG-DESER-001: Deserialize nil never resurrects defaults' do
+    it 'returns a frozen, raw-marked empty array for NULL regardless of defaults' do
+      type_with_default = ActiveRecord::Bitwise::Type.new(:test_col, { admin: 0 }, %i[admin])
+      result = type_with_default.deserialize(nil)
+      expect(result).to eq([])
+      expect(result).to be_frozen
+      expect(result.instance_variable_get(:@_bitwise_raw_value)).to eq(0)
     end
   end
 
@@ -829,15 +854,13 @@ RSpec.describe ActiveRecord::Bitwise do
   end
 
   describe 'Extra Coverage Boosters' do
-    it 'deserializes with nil value when default is present or empty' do
+    it 'deserializes nil to an empty array whether or not a default is configured' do
       type_with_default = TestUser.attribute_types['permissions']
-      expect(type_with_default.deserialize(nil)).to eq([:read])
+      expect(type_with_default.deserialize(nil)).to eq([])
+      expect(type_with_default.default).to eq([:read])
 
       type_without_default = TestUser.attribute_types['roles']
-      original_default = type_without_default.default
-      type_without_default.instance_variable_set(:@default, [])
       expect(type_without_default.deserialize(nil)).to eq([])
-      type_without_default.instance_variable_set(:@default, original_default)
     end
 
     it 'covers the invalid mapping type else branch in bitwise definition' do

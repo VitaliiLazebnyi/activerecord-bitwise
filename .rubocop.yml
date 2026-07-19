@@ -95,11 +95,13 @@ RSpec/SpecFilePathFormat:
     - 'spec/activerecord_bitwise_spec.rb'
     - 'spec/activerecord_bitwise_real_life_spec.rb'
     - 'spec/activerecord_bitwise_user_perspective_spec.rb'
+    - 'spec/activerecord_bitwise_regression_spec.rb'
 
 RSpec/DescribeMethod:
   Exclude:
     - 'spec/activerecord_bitwise_real_life_spec.rb'
     - 'spec/activerecord_bitwise_user_perspective_spec.rb'
+    - 'spec/activerecord_bitwise_regression_spec.rb'
 
 
 

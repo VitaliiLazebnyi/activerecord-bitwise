@@ -7,10 +7,22 @@ module ActiveModel
 
     sig { params(record: T.untyped, attribute: Symbol, value: T.untyped).void }
     def validate_each(record, attribute, value); end
+
+    sig { returns(T::Hash[Symbol, T.untyped]) }
+    def options; end
+  end
+
+  module Type
+    class Boolean
+      sig { params(value: T.untyped).returns(T.untyped) }
+      def cast(value); end
+    end
   end
 end
 
 module ActiveRecord
+  class ActiveRecordError < StandardError; end
+
   class Base
     sig { returns(T::Class[T.anything]) }
     def class; end
@@ -48,4 +60,9 @@ end
 module Arel
   sig { params(sql: String).returns(T.untyped) }
   def self.sql(sql); end
+
+  module Nodes
+    class Node; end
+    class SqlLiteral < String; end
+  end
 end
