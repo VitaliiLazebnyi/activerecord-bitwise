@@ -1,6 +1,6 @@
 # Active Defects
 
-No active defects! All documented issues have been successfully resolved and exhaustively verified via type checking, linting, and 100.0% line and branch test coverage.
+No active defects. The 2026-07-20 deep code review (see CODE_REVIEW_REPORT.md) confirmed 7 high- and ~16 medium-severity defects; all of them were fixed in v0.11.0 with dedicated regression coverage (spec/activerecord_bitwise_regression_spec.rb), alongside the packaging and documentation findings. See CHANGELOG.md "0.11.0" for the itemized list.
 
 ## Resolved Defects
 
@@ -28,7 +28,7 @@ No active defects! All documented issues have been successfully resolved and exh
 | BUG-META-003 | AR_BITWISE-REQ-002 | gemspec sets source_code_uri and homepage_uri to the same value, causing metadata duplication. | **Fixed:** Removed duplicated `homepage_uri` metadata field from gemspec. |
 | BUG-ENV-001 | AR_BITWISE-REQ-002 | `.gitignore` is missing environment manager specific exclusions like `mise.toml`. | **Fixed:** Added `mise.toml` and `.mise.toml` to `.gitignore`. |
 | BUG-DEP-003 | AR_BITWISE-REQ-002 | `sorbet-runtime` dependency in gemspec uses a `~> 0.5` format instead of `~> x.0`. | **Fixed:** Converted constraint to standard `~> x.0` formatting. |
-| BUG-DOC-002 | AR_BITWISE-REQ-002 | Missing `.env.example` file and missing initialization/testing commands in `README.md`. | **Fixed:** Created `.env.example` and documented bootstrap and test running commands in `README.md`. |
+| BUG-DOC-002 | AR_BITWISE-REQ-002 | Missing `.env.example` file and missing initialization/testing commands in `README.md`. | **Fixed:** Documented bootstrap and test running commands in `README.md`. (A `.env.example` file was briefly added and later removed in commit e1cff1c; none is needed.) |
 | BUG-DOC-003 | AR_BITWISE-REQ-002 | `.yardopts` asset copying fails when `doc/assets/` directory is missing. | **Fixed:** Removed empty asset directory copy from `.yardopts` to prevent YARD build failures. |
 | BUG-RELEASE-002 | AR_BITWISE-REQ-002 | Release workflow uses static Action env expressions instead of dynamic shell variable names. | **Fixed:** Replaced Action expressions with dynamic shell variable substitutions. |
 | BUG-CI-004 | AR_BITWISE-REQ-002 | Sorbet CLI `--typed strong` forces all files to strong, causing false positives with `T.untyped` Active Record calls. | **Fixed:** Removed overriding CLI parameter to honor file-level typed headers correctly. |
@@ -46,8 +46,8 @@ No active defects! All documented issues have been successfully resolved and exh
 | BUG-SYM-001 | AR_BITWISE-REQ-007 | `add_/remove_` class-level atomic methods called `v.to_s.to_sym` bypassing Symbol DoS protection. | **Fixed:** Now uses string-based lookup against `mapping_strings` before any symbolization. |
 | BUG-RELEASE-001 | AR_BITWISE-REQ-002 | Release workflow `sed` pattern `T.let('.*', String)` didn't match actual `VERSION = '...'` in version.rb. | **Fixed:** `sed` command now matches `VERSION = '.*'` pattern. |
 | BUG-CI-001 | AR_BITWISE-REQ-002 | CI matrix included Ruby `"2.7"` below gemspec minimum `'>= 3.2.0'`. | **Fixed:** Removed Ruby 2.7 from CI matrix. |
-| BUG-CI-002 | AR_BITWISE-REQ-002 | README stated "Ruby 2.0+" but gemspec requires `'>= 3.2.0'`. | **Fixed:** README updated to "Ruby 3.2+" and "Rails 7.0+". |
-| BUG-DEP-001 | AR_BITWISE-REQ-002 | `activerecord` dependency used open-ended `'>= 5.0'`. | **Reviewed:** Confirmed `'>= 5.0'` is the correct technical minimum; no change needed. |
+| BUG-CI-002 | AR_BITWISE-REQ-002 | README stated "Ruby 2.0+" but gemspec requires `'>= 3.2.0'`. | **Fixed:** README updated to "Ruby 3.2+"; supported ActiveRecord range later corrected to "7.1+ (< 9)" together with the gemspec (see BUG-DEP-001). |
+| BUG-DEP-001 | AR_BITWISE-REQ-002 | `activerecord` dependency used open-ended `'>= 5.0'`. | **Fixed:** Empirical version-matrix testing showed AR <= 7.0 cannot even load with the gem's toolchain; the gemspec now declares `'>= 7.1', '< 9'`. |
 | BUG-DEP-002 | AR_BITWISE-REQ-002 | Multiple dev dependencies lacked version constraints. | **Fixed:** All dev dependencies now have `~> x.y` constraints. |
 | BUG-META-001 | AR_BITWISE-REQ-002 | `allowed_push_host` set to TODO placeholder. | **Fixed:** Set to `'https://rubygems.org'`. |
 | BUG-META-002 | AR_BITWISE-REQ-002 | Missing `homepage_uri` and `changelog_uri` metadata. | **Fixed:** Both metadata keys added. |
