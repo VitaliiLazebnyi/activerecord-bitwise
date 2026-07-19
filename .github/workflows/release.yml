@@ -7,7 +7,22 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Gate the release on the full verification suite so a broken tagged commit
+  # can never ship.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "3.4"
+        bundler-cache: true
+    - run: bundle exec rspec
+    - run: bundle exec rubocop
+    - run: bundle exec srb tc
+
   build_and_release:
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,26 +33,54 @@ jobs:
         fetch-depth: 0
     - uses: ruby/setup-ruby@v1
       with:
-        ruby-version: "4.0"
+        ruby-version: "3.4"
         bundler-cache: true
-    
+
+    # Validate the tag format and require it to match the committed version.rb.
+    # The version file is the single source of truth; a mistyped tag (the cause
+    # of the accidental 0.10.0 release) fails loudly instead of publishing.
+    - name: Validate tag against version.rb
+      run: |
+        TAG_NAME="${GITHUB_REF_NAME}"
+        if ! printf '%s' "$TAG_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "::error::Tag '$TAG_NAME' does not match the required vX.Y.Z format." >&2
+          exit 1
+        fi
+        VERSION="${TAG_NAME#v}"
+        FILE_VERSION="$(ruby -r ./lib/active_record/bitwise/version -e 'puts ActiveRecord::Bitwise::VERSION')"
+        if [ "$VERSION" != "$FILE_VERSION" ]; then
+          echo "::error::Tag version '$VERSION' does not match lib/active_record/bitwise/version.rb ('$FILE_VERSION'). Update version.rb, commit, then re-tag." >&2
+          exit 1
+        fi
+        echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
     - name: Recover Private Key
       env:
         GEM_PRIVATE_KEY: ${{ secrets.GEM_PRIVATE_KEY }}
       run: |
+        if [ -z "$GEM_PRIVATE_KEY" ]; then
+          echo "::error::GEM_PRIVATE_KEY secret is missing or empty; refusing to publish an unsigned gem." >&2
+          exit 1
+        fi
         mkdir -p ~/.gem
         printf '%s\n' "$GEM_PRIVATE_KEY" > ~/.gem/gem-private_key.pem
         chmod 0600 ~/.gem/gem-private_key.pem
-        
-    - run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-    - run: sed -i "s/VERSION = '.*'/VERSION = '$VERSION'/" lib/active_record/bitwise/version.rb
-        
+
     - run: gem build activerecord-bitwise.gemspec
-      
+
+    - name: Verify the built gem is signed
+      run: |
+        gem spec "activerecord-bitwise-${VERSION}.gem" cert_chain | grep -q 'BEGIN CERTIFICATE' || {
+          echo "::error::Built gem is not signed." >&2
+          exit 1
+        }
+
     - uses: softprops/action-gh-release@v2
       with:
         files: activerecord-bitwise-${{ env.VERSION }}.gem
-        
-    - uses: rubygems/configure-rubygems-credentials@main
- 
-    - run: gem push activerecord-bitwise-$VERSION.gem
+
+    # Pinned to the v2.1.0 release SHA (credential-handling step; never track a
+    # mutable ref here).
+    - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
+    - run: gem push "activerecord-bitwise-${VERSION}.gem"

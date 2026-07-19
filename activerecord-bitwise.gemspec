@@ -28,26 +28,32 @@ Gem::Specification.new do |spec|
     spec.signing_key = private_key_path if File.exist?(private_key_path) && File.size(private_key_path) > 100
   end
 
-  # Use native globbing to avoid git requirement
-  spec.files         = Dir.glob('{lib,certs}/**/*') + %w[README.md LICENSE.txt CHANGELOG.md BUGS.md REQUIREMENTS.md]
+  # Use native globbing to avoid git requirement.
+  # Internal development documents (BUGS.md, REQUIREMENTS.md) are intentionally
+  # NOT shipped in the packaged gem.
+  spec.files         = Dir.glob('{lib,certs}/**/*') + %w[README.md LICENSE.txt CHANGELOG.md]
   spec.bindir        = 'exe'
   spec.executables   = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
-  # Enforce targeted active record combinations
-  spec.add_dependency 'activerecord', '>= 5.0'
+  # ActiveRecord 7.1 is the oldest release the gem actually loads and passes its
+  # suite against (older releases fail to resolve alongside the required Ruby
+  # 3.2+ / sqlite3 2.x toolchain). The < 9 ceiling exists because the gem
+  # patches ActiveRecord internals (Relation#update_all/#where) and must be
+  # re-verified per major release.
+  spec.add_dependency 'activerecord', '>= 7.1', '< 9'
   spec.add_dependency 'sorbet-runtime', '~> 0.6'
 
-  spec.add_development_dependency 'rspec', '~> 3.12'
-  spec.add_development_dependency 'rubocop', '~> 1.50'
+  spec.add_development_dependency 'rspec', '~> 3.13'
+  spec.add_development_dependency 'rubocop', '~> 1.88'
   spec.add_development_dependency 'rubocop-md', '~> 1.2'
-  spec.add_development_dependency 'rubocop-performance', '~> 1.21'
-  spec.add_development_dependency 'rubocop-rspec', '~> 3.0'
-  spec.add_development_dependency 'rubocop-thread_safety', '~> 0.6'
+  spec.add_development_dependency 'rubocop-performance', '~> 1.26'
+  spec.add_development_dependency 'rubocop-rspec', '~> 3.10'
+  spec.add_development_dependency 'rubocop-thread_safety', '~> 0.7'
   spec.add_development_dependency 'simplecov', '~> 0.22'
   spec.add_development_dependency 'simplecov-ai', '~> 0.10'
-  spec.add_development_dependency 'sorbet', '~> 0.5'
-  spec.add_development_dependency 'sqlite3', '~> 2.1'
+  spec.add_development_dependency 'sorbet', '~> 0.6'
+  spec.add_development_dependency 'sqlite3', '~> 2.9'
   spec.add_development_dependency 'yard', '~> 0.9'
-  spec.add_development_dependency 'yard-sorbet', '~> 0.6'
+  spec.add_development_dependency 'yard-sorbet', '~> 0.9'
 end
