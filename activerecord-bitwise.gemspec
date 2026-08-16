@@ -50,7 +50,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rubocop-performance', '~> 1.26'
   spec.add_development_dependency 'rubocop-rspec', '~> 3.10'
   spec.add_development_dependency 'rubocop-thread_safety', '~> 0.7'
-  spec.add_development_dependency 'simplecov', '~> 0.22'
+  spec.add_development_dependency 'simplecov', '~> 1.1'
   spec.add_development_dependency 'simplecov-ai', '~> 0.10'
   spec.add_development_dependency 'sorbet', '~> 0.6'
   spec.add_development_dependency 'sqlite3', '~> 2.9'
