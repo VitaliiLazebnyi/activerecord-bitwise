@@ -9,7 +9,14 @@ includes:
 matcher:
   subjects:
     - ActiveRecord::Bitwise*
+    - BitwiseValidator*
 mutation:
   timeout: 20.0
+  # Sorbet type annotations (`sig { ... }` and `T.let(value, Type)`) are enforced by
+  # the static checker (`srb tc`), not by behavior; mutating the declared types
+  # produces survivors that no behavioral spec can or should kill.
+  ignore_patterns:
+    - block{receiver=send{selector=sig}}
+    - send{selector=let}
 coverage_criteria:
   process_abort: true
