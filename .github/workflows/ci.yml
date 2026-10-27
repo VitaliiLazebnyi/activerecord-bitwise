@@ -1,44 +1,60 @@
 name: CI
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-permissions:
-  contents: read
+  workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# Nothing is writable by default; every job re-declares the (read-only) permissions it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: RSpec (Ruby ${{ matrix.ruby }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         ruby: ["3.2", "3.3", "3.4", "4.0"]
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
     # SimpleCov enforces minimum_coverage 100 (line + branch) and fails the run below it.
-    - name: RSpec (100% line + branch coverage gate)
+    - name: RSpec with the 100% line + branch coverage gate
       run: bundle exec rspec
 
   # Verify every supported ActiveRecord minor, not only the newest resolvable one.
   test-activerecord:
+    name: RSpec (ActiveRecord ${{ matrix.activerecord }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        activerecord: ["~> 7.1.0", "~> 7.2.0", "~> 8.0.0"]
+        activerecord: ["~> 7.1.0", "~> 7.2.0", "~> 8.0.0", "~> 8.1.0"]
     env:
       AR_VERSION: ${{ matrix.activerecord }}
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "3.3"
         bundler-cache: true
@@ -47,10 +63,13 @@ jobs:
   # Run the suite against a real PostgreSQL server so row locking (FOR UPDATE)
   # in the atomic methods is actually exercised (it is a no-op on SQLite).
   test-postgres:
+    name: RSpec (PostgreSQL)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
         env:
           POSTGRES_PASSWORD: postgres
         ports:
@@ -63,18 +82,24 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "3.4"
         bundler-cache: true
     - run: bundle exec rspec
 
   test-mysql:
+    name: RSpec (MySQL)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       mysql:
-        image: mysql:8
+        image: mysql:8@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: bitwise_test
@@ -88,51 +113,91 @@ jobs:
     env:
       DATABASE_URL: mysql2://root:root@127.0.0.1:3306/bitwise_test
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "3.4"
         bundler-cache: true
     - run: bundle exec rspec
 
   lint:
+    name: RuboCop
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "4.0"
         bundler-cache: true
-    - run: bundle exec rubocop
+    - run: bundle exec rake rubocop
 
   typecheck:
+    name: Sorbet
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "4.0"
         bundler-cache: true
-    - run: bundle exec srb tc
+    - run: bundle exec rake typecheck
 
   docs:
+    name: YARD (100% documented)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "4.0"
         bundler-cache: true
-    - run: |
-        bundle exec yard stats --list-undoc > yard_stats.txt
-        cat yard_stats.txt
-        grep -q "100.00% documented" yard_stats.txt
+    - run: bundle exec rake yard
+
+  smells:
+    name: Reek and Flay
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: "4.0"
+        bundler-cache: true
+    - run: bundle exec rake reek flay
 
   build:
+    name: Build gem
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "4.0"
         bundler-cache: true

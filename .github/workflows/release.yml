@@ -1,40 +1,56 @@
 name: Automated Release
+
 on:
   push:
     tags:
       - 'v*.*.*'
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions: {}
+
+# Never cancel a release in flight.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   # Gate the release on the full verification suite so a broken tagged commit
   # can never ship.
   verify:
+    name: Verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "3.4"
-        bundler-cache: true
-    - run: bundle exec rspec
-    - run: bundle exec rubocop
-    - run: bundle exec srb tc
+        persist-credentials: false
+
+    # No dependency cache in the release pipeline: a poisoned cache must never reach a published gem.
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: "4.0"
+        bundler-cache: false
+    - run: bundle install --jobs 4 --retry 3
+    - run: bundle exec rake spec rubocop typecheck yard reek flay audit
 
   build_and_release:
+    name: Build and release
     needs: verify
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      id-token: write
+      contents: write # create the GitHub release and attach the gem
+      id-token: write # RubyGems trusted publishing (OIDC)
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: ruby/setup-ruby@v1
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "3.4"
-        bundler-cache: true
+        ruby-version: "4.0"
+        bundler-cache: false
+    - run: bundle install --jobs 4 --retry 3
 
     # Validate the tag format and require it to match the committed version.rb.
     # The version file is the single source of truth; a mistyped tag (the cause
@@ -75,9 +91,10 @@ jobs:
           exit 1
         }
 
-    - uses: softprops/action-gh-release@v2
-      with:
-        files: activerecord-bitwise-${{ env.VERSION }}.gem
+    - name: Create the GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release create "$GITHUB_REF_NAME" "activerecord-bitwise-${VERSION}.gem" --title "$GITHUB_REF_NAME" --generate-notes
 
     # Pinned to the v2.1.0 release SHA (credential-handling step; never track a
     # mutable ref here).

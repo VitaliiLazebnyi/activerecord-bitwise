@@ -1,9 +1,17 @@
 name: Mutation testing
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   LANG: C.UTF-8
@@ -11,20 +19,25 @@ env:
 
 jobs:
   mutant:
+    name: Mutant
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: ruby/setup-ruby@v1
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: "4.0"
         bundler-cache: true
     # Pull requests only mutate subjects touched since the base branch (fast feedback);
-    # pushes to main run the complete suite of mutations.
+    # pushes to main run the complete set of mutations. Any alive mutation fails the build.
     - name: Mutant (changed subjects)
       if: github.event_name == 'pull_request'
       run: bundle exec mutant run --since origin/main
-    - name: Mutant (full)
-      if: github.event_name == 'push'
+    - name: Mutant (full run)
+      if: github.event_name != 'pull_request'
       run: bundle exec mutant run
