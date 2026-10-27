@@ -44,10 +44,13 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'activerecord', '>= 7.1', '< 9'
   spec.add_dependency 'sorbet-runtime', '~> 0.6'
 
+  spec.add_development_dependency 'bundler-audit', '~> 0.9'
+  spec.add_development_dependency 'mutant-rspec', '~> 0.15'
   spec.add_development_dependency 'rspec', '~> 3.13'
   spec.add_development_dependency 'rubocop', '~> 1.88'
   spec.add_development_dependency 'rubocop-md', '~> 1.2'
   spec.add_development_dependency 'rubocop-performance', '~> 1.26'
+  spec.add_development_dependency 'rubocop-rake', '~> 0.7'
   spec.add_development_dependency 'rubocop-rspec', '~> 3.10'
   spec.add_development_dependency 'rubocop-thread_safety', '~> 0.7'
   spec.add_development_dependency 'simplecov', '~> 0.22'

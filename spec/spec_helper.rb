@@ -12,7 +12,11 @@ SimpleCov::Formatter::AIFormatter.configure do |config|
   config.include_bypasses = true
 end
 
+# Mutation runs execute the suite thousands of times against deliberately broken
+# code; the coverage gate is meaningless (and noisy) there.
 SimpleCov.start do
+  next if defined?(Mutant)
+
   enable_coverage :branch
   # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
   # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
@@ -59,6 +63,24 @@ else
 
   at_exit do
     FileUtils.rm_f(db_file)
+  end
+
+  # Mutant runs mutations in parallel forked workers that all inherit the connection
+  # opened above. Give every worker its own copy of the freshly built database so
+  # concurrent suites never contend for one SQLite file.
+  parent_pid = Process.pid
+  RSpec.configure do |config|
+    worker_file = nil
+
+    config.before(:suite) do
+      next if Process.pid == parent_pid
+
+      worker_file = File.join(db_dir, "test-#{Process.pid}.sqlite3")
+      FileUtils.cp(db_file, worker_file)
+      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: worker_file)
+    end
+
+    config.after(:suite) { FileUtils.rm_f(worker_file) if worker_file }
   end
 end
 
