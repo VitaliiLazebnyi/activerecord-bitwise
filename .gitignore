@@ -32,3 +32,6 @@ mise.toml
 
 # Never commit local environment files
 .env
+
+# Mutant
+/.mutant/
