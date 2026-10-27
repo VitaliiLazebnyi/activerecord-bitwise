@@ -61,14 +61,15 @@ else
     database: db_file
   )
 
+  parent_pid = Process.pid
   at_exit do
-    FileUtils.rm_f(db_file)
+    # Forked workers (mutant) inherit this hook; only the owning process may delete the file.
+    FileUtils.rm_f(db_file) if Process.pid == parent_pid
   end
 
   # Mutant runs mutations in parallel forked workers that all inherit the connection
   # opened above. Give every worker its own copy of the freshly built database so
   # concurrent suites never contend for one SQLite file.
-  parent_pid = Process.pid
   RSpec.configure do |config|
     worker_file = nil
 
