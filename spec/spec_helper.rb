@@ -1,4 +1,8 @@
+# typed: false
 # frozen_string_literal: true
+
+# Must come first: it has to see warnings emitted while lib/ and spec/ are loaded.
+require_relative 'support/warning_guard'
 
 require 'simplecov'
 require 'simplecov-ai'
@@ -28,8 +32,10 @@ SimpleCov.start do
   else
     minimum_coverage line: 100, branch: 100
   end
-  add_filter '/spec/'
-  add_filter '/vendor/'
+  # SimpleCov renamed add_filter to skip and warns about the old name on newer releases.
+  [%r{/spec/}, %r{/vendor/}].each do |ignored|
+    SimpleCov.respond_to?(:skip) ? SimpleCov.skip(ignored) : SimpleCov.add_filter(ignored)
+  end
 
   self.formatters = SimpleCov::Formatter::MultiFormatter.new([
                                                                SimpleCov::Formatter::HTMLFormatter,
@@ -37,10 +43,10 @@ SimpleCov.start do
                                                              ])
 end
 
-require 'sorbet-runtime'
-
-require 'fileutils'
 require 'active_record'
+require 'fileutils'
+require 'securerandom'
+require 'sorbet-runtime'
 
 # By default the suite runs on a shared file-based SQLite database (file-based to
 # support multi-threaded test isolation). Set DATABASE_URL (e.g. to a PostgreSQL
@@ -56,10 +62,8 @@ else
   FileUtils.mkdir_p(db_dir)
   db_file = File.join(db_dir, 'test.sqlite3')
 
-  ActiveRecord::Base.establish_connection(
-    adapter: 'sqlite3',
-    database: db_file
-  )
+  # A busy timeout lets the concurrency examples queue on SQLite's single writer lock.
+  ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: db_file, timeout: 10_000)
 
   parent_pid = Process.pid
   at_exit do
@@ -78,53 +82,21 @@ else
 
       worker_file = File.join(db_dir, "test-#{Process.pid}.sqlite3")
       FileUtils.cp(db_file, worker_file)
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: worker_file)
+      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: worker_file, timeout: 10_000)
     end
 
     config.after(:suite) { FileUtils.rm_f(worker_file) if worker_file }
   end
 end
 
-# Set up testing database schema
-ActiveRecord::Schema.define do
-  create_table :users, force: true do |t|
-    t.string :type
-    t.integer :roles, default: 0, null: true
-    t.integer :permissions, default: 0, null: false
-    t.integer :legacy_roles, default: 0, null: false
-    t.integer :custom_limits, limit: 1, default: 0, null: false
-  end
-
-  create_table :over_shifted_models, force: true do |t|
-    t.integer :custom_limits, limit: 1, default: 0, null: false
-  end
-
-  create_table :collision_models, force: true do |t|
-    t.integer :states, default: 0, null: false
-  end
-
-  create_table :saas_users, force: true do |t|
-    t.string :name, null: false
-    t.integer :roles, default: 0, null: false
-    t.integer :features, default: 0, null: false
-  end
-
-  create_table :etl_records, force: true do |t|
-    t.string :external_id, null: false
-    t.integer :legacy_flags, default: 0, null: false
-  end
-
-  create_table :singular_models, force: true do |t|
-    t.integer :status, default: 0, null: false
-    t.integer :fish, default: 0, null: false
-    t.string :name
-  end
-end
+require_relative 'support/schema'
 
 # Flush the WAL into the main database file so per-worker copies (see above) are complete.
 ActiveRecord::Base.connection.execute('PRAGMA wal_checkpoint(TRUNCATE)') unless database_url
 
 require 'activerecord-bitwise'
+
+Dir[File.join(__dir__, 'support', '**', '*.rb')].each { |support_file| require support_file }
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -139,5 +111,39 @@ RSpec.configure do |config|
 
   config.mock_with :rspec do |mocks|
     mocks.verify_partial_doubles = true
+  end
+
+  config.include DatabaseHelpers
+  config.include ModelFactory
+  config.include RawMarker
+  config.include ErrorCapture
+  config.include QuietWarnings
+  config.include SqlCapture
+  config.include RowLockSpy
+  config.include ConcurrentRunner
+
+  # Every example starts from empty tables. Rows are deleted (not rolled back) because
+  # the concurrency examples need data that is committed and visible to other threads.
+  config.before { DatabaseHelpers.truncate_all }
+
+  # Ruby warnings from lib/ or spec/ are failures, never noise.
+  config.before(:suite) do
+    load_time_warnings = WarningGuard.drain
+    raise "Ruby warnings while loading:\n#{load_time_warnings.join}" unless load_time_warnings.empty?
+  end
+
+  config.after do
+    warnings = WarningGuard.drain
+    raise "Ruby warnings emitted by this example:\n#{warnings.join}" unless warnings.empty?
+  end
+
+  # Pending and skipped examples hide missing behavior: the suite must not contain any.
+  config.after(:suite) do
+    unfinished = RSpec.world.all_examples.select do |example|
+      example.execution_result.status == :pending || example.skipped? || example.pending?
+    end
+    unless unfinished.empty?
+      raise "Pending or skipped examples are not allowed:\n#{unfinished.map(&:full_description).join("\n")}"
+    end
   end
 end
