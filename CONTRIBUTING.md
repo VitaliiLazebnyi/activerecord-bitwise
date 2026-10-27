@@ -11,20 +11,27 @@ bundle install
 
 ## Before opening a pull request
 
-Run the full verification suite (all four gates are enforced in CI):
+Every gate below runs in CI and fails the build on any violation (no warnings-only mode).
+The quality tooling needs Ruby 3.3+ (the Ruby 3.2 job only runs the test suite):
 
 ```bash
-bundle exec rspec     # tests; 100% line AND branch coverage is enforced
-bundle exec rubocop   # style
-bundle exec srb tc    # Sorbet type checking
-bundle exec yard stats --list-undoc  # docs; must stay 100% documented
+bundle exec rspec          # tests; 100% line AND branch coverage is enforced
+bundle exec rake rubocop   # style (maximum strictness, all plugins)
+bundle exec rake typecheck # Sorbet (lib/ is `typed: strict`)
+bundle exec rake yard      # docs; must stay 100% documented
+bundle exec rake reek flay # code smells and duplication
+bundle exec rake audit     # bundler-audit: known vulnerabilities in dependencies
+bundle exec rake mutant    # mutation testing; zero alive mutations (slow)
 ```
 
-Or simply:
+Or run everything except mutation testing with:
 
 ```bash
 bundle exec rake
 ```
+
+On pull requests CI mutates only the subjects you touched
+(`bundle exec mutant run --since origin/main`); pushes to `main` run the full set.
 
 To test against a specific ActiveRecord release:
 
@@ -35,8 +42,11 @@ AR_VERSION="~> 7.1.0" bundle exec rspec
 
 ## Guidelines
 
-- Every behavioral fix needs a regression spec (see
-  `spec/activerecord_bitwise_regression_spec.rb` for the pattern).
+- Every behavioral fix needs a spec. Specs describe one behavior each
+  (`describe` the unit, `context` the condition, `it` the expected outcome), assert
+  exact values, and exercise the public API.
+- Fix RuboCop, Reek and Flay findings in the code. Configuration relaxations and
+  inline `# rubocop:disable` comments need a written justification.
 - Treat bit mappings as append-only in examples and docs; never suggest
   re-indexing existing bit positions.
 - The gem is `# typed: strict`: inside modules use `Kernel.raise` /

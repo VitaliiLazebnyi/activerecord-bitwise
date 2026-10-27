@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Internal refactor of `lib/` into small single-purpose modules (types, mapping,
+  collisions, definers, instance-method concerns). Public behavior is unchanged.
+- Development dependencies upgraded to their latest releases (SimpleCov 1.x,
+  rubocop-md 2.x, ...); the repository now targets Ruby 4.0.6 (`.ruby-version`) while the
+  gem still supports Ruby 3.2+ and ActiveRecord 7.1 to 8.x.
+- Quality tooling moved from the gemspec into the Gemfile's `:quality` group (Ruby 3.3+).
+
+### Added
+
+- Mutation testing (mutant), Reek, Flay, bundler-audit, CodeQL (security-extended and
+  security-and-quality), dependency review, gitleaks, OpenSSF Scorecard, actionlint and
+  zizmor; all CI actions are pinned to commit SHAs with least-privilege permissions.
+
+### Removed
+
+- Two unreachable defensive branches (`Type#deserialize` "Casting failed" guard and the
+  non-Hash/Array mapping guard, which Sorbet's signature already rejects) and the unused
+  internal `#_bitwise_coerce_raw`.
+
 ## [0.11.0] - 2026-07-20
 
 Version note: a tag typo previously published `0.10.0` to RubyGems from the

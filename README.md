@@ -381,16 +381,16 @@ AR_VERSION="~> 7.1.0" bundle install
 AR_VERSION="~> 7.1.0" bundle exec rspec
 ```
 
-### Static Analysis and Type Checking
+### Static Analysis, Type Checking and Security
 
-Run the Sorbet static type-checker:
-```bash
-bundle exec srb tc
-```
+The quality tooling requires Ruby 3.3 or newer. Every task fails on any violation:
 
-Run RuboCop to verify style guidelines:
 ```bash
-bundle exec rubocop
+bundle exec rake rubocop    # RuboCop with rubocop-rspec, -performance, -rake, -sorbet, -thread_safety, -md
+bundle exec rake typecheck  # Sorbet; lib/ is `typed: strict`
+bundle exec rake reek flay  # code smells and structural duplication
+bundle exec rake audit      # bundler-audit
+bundle exec rake mutant     # mutation testing (mutant, free for open source)
 ```
 
 ### Generating Documentation
