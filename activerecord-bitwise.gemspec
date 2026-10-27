@@ -9,7 +9,8 @@ Gem::Specification.new do |spec|
   spec.email         = ['vitalii.lazebnyi.github@gmail.com']
 
   spec.summary       = 'Store multiple boolean values as a single integer bitmask.'
-  spec.description   = 'A Ruby gem that extends ActiveRecord to support bitwise enum mapping, allowing multiple states to be saved in a single database column.'
+  spec.description   = 'A Ruby gem that extends ActiveRecord to support bitwise enum mapping, ' \
+                       'allowing multiple states to be saved in a single database column.'
   spec.homepage      = 'https://github.com/VitaliiLazebnyi/activerecord-bitwise'
   spec.license       = 'MIT'
   spec.required_ruby_version = '>= 3.2.0'
@@ -45,13 +46,16 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'sorbet-runtime', '~> 0.6'
 
   spec.add_development_dependency 'bundler-audit', '~> 0.9'
+  spec.add_development_dependency 'flay', '~> 2.13'
   spec.add_development_dependency 'mutant-rspec', '~> 0.15'
+  spec.add_development_dependency 'reek', '~> 6.4'
   spec.add_development_dependency 'rspec', '~> 3.13'
   spec.add_development_dependency 'rubocop', '~> 1.88'
   spec.add_development_dependency 'rubocop-md', '~> 1.2'
   spec.add_development_dependency 'rubocop-performance', '~> 1.26'
   spec.add_development_dependency 'rubocop-rake', '~> 0.7'
   spec.add_development_dependency 'rubocop-rspec', '~> 3.10'
+  spec.add_development_dependency 'rubocop-sorbet', '~> 0.10'
   spec.add_development_dependency 'rubocop-thread_safety', '~> 0.7'
   spec.add_development_dependency 'simplecov', '~> 0.22'
   spec.add_development_dependency 'simplecov-ai', '~> 0.10'

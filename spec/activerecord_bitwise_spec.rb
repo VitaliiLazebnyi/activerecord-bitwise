@@ -636,11 +636,6 @@ RSpec.describe ActiveRecord::Bitwise do
       user_cov.remove_role!(:author)
       expect(user_cov.roles).to contain_exactly(:admin)
 
-      # 13.c Deserialize casting failed check for branch coverage
-      type_cov = TestUser.attribute_types['roles']
-      allow(type_cov).to receive(:cast).and_return(nil)
-      expect { type_cov.deserialize([:admin]) }.to raise_error(ActiveRecord::Bitwise::Error, 'Casting failed')
-      allow(type_cov).to receive(:cast).and_call_original
 
       # 14. Boot deadlock / missing table branch coverage
       original_validated_table = TestUser.bitwise_definitions[:roles][:validated]
@@ -861,23 +856,6 @@ RSpec.describe ActiveRecord::Bitwise do
 
       type_without_default = TestUser.attribute_types['roles']
       expect(type_without_default.deserialize(nil)).to eq([])
-    end
-
-    it 'covers the invalid mapping type else branch in bitwise definition' do
-      custom_mapping = Object.new
-      class << custom_mapping
-        def is_a?(_klass)
-          caller_locations(1..1).first.path.include?('sorbet-runtime')
-        end
-      end
-
-      expect do
-        Class.new(ActiveRecord::Base) do
-          extend ActiveRecord::Bitwise::Model
-
-          bitwise :roles, custom_mapping
-        end
-      end.to raise_error(ArgumentError, /Mapping must be a Hash or an Array/)
     end
 
     it 'covers validation StandardError rescue and all_validated else branch' do

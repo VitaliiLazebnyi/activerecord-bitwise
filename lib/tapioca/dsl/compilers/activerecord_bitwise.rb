@@ -1,94 +1,12 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'active_record/bitwise'
+
 begin
   require 'tapioca/dsl'
 rescue LoadError
-  # Namespace for Tapioca integration.
-  module Tapioca
-    # Namespace for Tapioca DSL.
-    module Dsl
-      # Stub class for Compiler under environments where Tapioca is not loaded.
-      class Compiler
-        extend T::Sig
-
-        # The model constant being compiled.
-        # @return [T.untyped]
-        sig { returns(T.untyped) }
-        attr_reader :constant
-
-        # The root node of the generated RBI tree.
-        # @return [T.untyped]
-        sig { returns(T.untyped) }
-        attr_reader :root
-
-        # Initializes a new compiler.
-        # @param constant [T.untyped]
-        sig { params(constant: T.untyped).void }
-        def initialize(constant)
-          @constant = T.let(constant, T.untyped)
-          @root = T.let(nil, T.untyped)
-        end
-
-        # Stub for type member definition.
-        # @param args [T.untyped]
-        # Sorbet's runtime signature verification requires the block argument to be named in the method definition
-        # (i.e. matching the `blk` name in `sig { params(blk: ...) }`) and raises `RuntimeError` if anonymous `&` is used.
-        # rubocop:disable Naming/BlockForwarding
-        sig { params(args: T.untyped, blk: T.nilable(T.proc.returns(T.untyped))).returns(T.untyped) }
-        def self.type_member(*args, &blk)
-          # Stub for environments without Tapioca
-        end
-        # rubocop:enable Naming/BlockForwarding
-
-        # Returns descendants of a class.
-        # @param klass [T.untyped]
-        # @return [T::Array[T.untyped]]
-        sig { params(klass: T.untyped).returns(T::Array[T.untyped]) }
-        def self.descendants_of(klass)
-          ObjectSpace.each_object(Class).select { |c| c < klass }
-        end
-
-        # Stub for gathering constants.
-        # @return [T.untyped]
-        sig { returns(T.untyped) }
-        def self.gather_constants
-          # Stub for override verification
-        end
-
-        # Stub for decorating model RBI.
-        # @return [void]
-        sig { void }
-        def decorate
-          # Stub for override verification
-        end
-
-        # Stub for creating method parameter.
-        # @param name [String]
-        # @param type [String]
-        sig { params(name: String, type: String).returns(T.untyped) }
-        def create_param(name, type:)
-          # Stub
-        end
-
-        # Stub for creating method rest parameter.
-        # @param name [String]
-        # @param type [String]
-        sig { params(name: String, type: String).returns(T.untyped) }
-        def create_rest_param(name, type:)
-          # Stub
-        end
-
-        # Stub for creating method keyword parameter.
-        # @param name [String]
-        # @param type [String]
-        sig { params(name: String, type: String).returns(T.untyped) }
-        def create_kw_param(name, type:)
-          # Stub
-        end
-      end
-    end
-  end
+  require 'tapioca/dsl/compiler_stub'
 end
 
 # Namespace for Tapioca integration.
@@ -103,7 +21,18 @@ module Tapioca
 
         # The fixed constant type that this compiler is responsible for.
         ConstantType = type_member { { fixed: T.class_of(ActiveRecord::Base) } }
+        public_constant :ConstantType
 
+        # Sorbet type of one flag name.
+        FLAG_NAME = 'T.any(Symbol, String)'
+        private_constant :FLAG_NAME
+
+        # Sorbet type of a list of flag names.
+        FLAG_LIST = 'T::Array[T.any(Symbol, String)]'
+        private_constant :FLAG_LIST
+
+        # Models that declare at least one bitwise column.
+        # @return [T::Enumerable[T::Module[T.anything]]]
         sig { override.returns(T::Enumerable[T::Module[T.anything]]) }
         def self.gather_constants
           descendants_of(ActiveRecord::Base).select do |klass|
@@ -111,95 +40,117 @@ module Tapioca
           end
         end
 
+        # Generates the RBI for the schema reader and every bitwise column.
+        # @return [void]
         sig { override.void }
         def decorate
-          T.unsafe(root).create_path(constant) do |model|
-            model.create_method('bitwise_schema',
-                                parameters: [create_param('col', type: 'T.any(Symbol, String)')],
-                                return_type: 'T.nilable(T::Hash[Symbol, Integer])',
-                                class_method: true)
+          T.unsafe(root).create_path(constant) { |model| decorate_schema(model) }
+          T.unsafe(constant).bitwise_definitions.each { |column_name, config| decorate_path(column_name, config) }
+        end
+
+        private
+
+        # Generates everything one bitwise column adds to the model, inside the model's RBI path.
+        # @param column_name [Symbol]
+        # @param config [T::Hash[Symbol, T.untyped]] The column's definition.
+        # @return [void]
+        sig { params(column_name: Symbol, config: T::Hash[Symbol, T.untyped]).void }
+        def decorate_path(column_name, config)
+          T.unsafe(root).create_path(constant) { |model| decorate_column(model, column_name, config) }
+        end
+
+        # Generates `bitwise_schema`.
+        # @param model [T.untyped] The RBI class node.
+        # @return [void]
+        sig { params(model: T.untyped).void }
+        def decorate_schema(model)
+          model.create_method('bitwise_schema',
+                              parameters: [create_param('col', type: FLAG_NAME)],
+                              return_type: 'T.nilable(T::Hash[Symbol, Integer])',
+                              class_method: true)
+        end
+
+        # Generates everything one bitwise column adds to the model.
+        # @param model [T.untyped] The RBI class node.
+        # @param column_name [Symbol]
+        # @param config [T::Hash[Symbol, T.untyped]] The column's definition.
+        # @return [void]
+        sig { params(model: T.untyped, column_name: Symbol, config: T::Hash[Symbol, T.untyped]).void }
+        def decorate_column(model, column_name, config)
+          decorate_accessors(model, column_name)
+          decorate_flags(model, column_name, config)
+          decorate_atomics(model, column_name)
+          decorate_scopes(model, column_name)
+        end
+
+        # Generates the column reader and writer.
+        # @param model [T.untyped]
+        # @param column_name [Symbol]
+        # @return [void]
+        sig { params(model: T.untyped, column_name: Symbol).void }
+        def decorate_accessors(model, column_name)
+          model.create_method(column_name.to_s, return_type: FLAG_LIST)
+          model.create_method("#{column_name}=", parameters: [create_param('val', type: FLAG_LIST)],
+                                                 return_type: FLAG_LIST)
+        end
+
+        # Generates `flag?`, `flag=` and `flag!` for every mapped flag.
+        # @param model [T.untyped]
+        # @param column_name [Symbol]
+        # @param config [T::Hash[Symbol, T.untyped]]
+        # @return [void]
+        sig { params(model: T.untyped, column_name: Symbol, config: T::Hash[Symbol, T.untyped]).void }
+        def decorate_flags(model, column_name, config)
+          prefix = ActiveRecord::Bitwise::Model::Mapping.prefix(column_name, config[:prefix])
+          suffix = ActiveRecord::Bitwise::Model::Mapping.suffix(column_name, config[:suffix])
+          config[:mapping].each_key do |key|
+            name = "#{prefix}#{key}#{suffix}"
+            model.create_method("#{name}?", return_type: 'T::Boolean')
+            model.create_method("#{name}=", parameters: [create_param('val', type: 'T::Boolean')], return_type: 'T::Boolean')
+            model.create_method("#{name}!", return_type: 'TrueClass')
           end
+        end
 
-          T.unsafe(constant).bitwise_definitions.each do |column_name, config|
-            T.unsafe(root).create_path(constant) do |model|
-              model.create_method(column_name.to_s, return_type: 'T::Array[T.any(Symbol, String)]')
-              model.create_method("#{column_name}=",
-                                  parameters: [create_param('val', type: 'T::Array[T.any(Symbol, String)]')], return_type: 'T::Array[T.any(Symbol, String)]')
-
-              prefix = config[:prefix]
-              suffix = config[:suffix]
-              mapping = config[:mapping]
-
-              prefix_str = case prefix
-                           when true then "#{T.unsafe(column_name.to_s).singularize}_"
-                           when Symbol, String then "#{prefix}_"
-                           else ''
-                           end
-
-              suffix_str = case suffix
-                           when true then "_#{T.unsafe(column_name.to_s).singularize}"
-                           when Symbol, String then "_#{suffix}"
-                           else ''
-                           end
-
-              mapping.each_key do |key|
-                method_name = "#{prefix_str}#{key}#{suffix_str}"
-                model.create_method("#{method_name}?", return_type: 'T::Boolean')
-                model.create_method("#{method_name}=", parameters: [create_param('val', type: 'T::Boolean')],
-                                                       return_type: 'T::Boolean')
-                model.create_method("#{method_name}!", return_type: 'TrueClass')
-              end
-
-              # Instance-level atomic methods
-              singular_col = T.unsafe(column_name.to_s).singularize
-              model.create_method("add_#{singular_col}!",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'void')
-              model.create_method("add_#{column_name}!",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'void')
-              model.create_method("remove_#{singular_col}!",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'void')
-              model.create_method("remove_#{column_name}!",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'void')
-
-              # Class-level atomic methods
-              model.create_method("add_#{column_name}!",
-                                  parameters: [
-                                    create_rest_param('values', type: 'T.any(Symbol, String)'),
-                                    create_kw_param('records', type: 'T.untyped')
-                                  ],
-                                  return_type: 'void',
-                                  class_method: true)
-              model.create_method("remove_#{column_name}!",
-                                  parameters: [
-                                    create_rest_param('values', type: 'T.any(Symbol, String)'),
-                                    create_kw_param('records', type: 'T.untyped')
-                                  ],
-                                  return_type: 'void',
-                                  class_method: true)
-
-              # Scopes
-              model.create_method("with_#{column_name}",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'ActiveRecord::Relation',
-                                  class_method: true)
-              model.create_method("with_any_#{column_name}",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'ActiveRecord::Relation',
-                                  class_method: true)
-              model.create_method("with_exact_#{column_name}",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'ActiveRecord::Relation',
-                                  class_method: true)
-              model.create_method("without_#{column_name}",
-                                  parameters: [create_rest_param('values', type: 'T.any(Symbol, String)')],
-                                  return_type: 'ActiveRecord::Relation',
-                                  class_method: true)
-            end
+        # Generates the instance-level and class-level atomic add/remove methods.
+        # @param model [T.untyped]
+        # @param column_name [Symbol]
+        # @return [void]
+        sig { params(model: T.untyped, column_name: Symbol).void }
+        def decorate_atomics(model, column_name)
+          singular = T.unsafe(column_name.to_s).singularize
+          %w[add remove].each do |operation|
+            model.create_method("#{operation}_#{singular}!", parameters: [flag_values], return_type: 'void')
+            model.create_method("#{operation}_#{column_name}!", parameters: [flag_values], return_type: 'void')
+            model.create_method("#{operation}_#{column_name}!", parameters: [flag_values, records_keyword],
+                                                                return_type: 'void', class_method: true)
           end
+        end
+
+        # Generates the four query scopes.
+        # @param model [T.untyped]
+        # @param column_name [Symbol]
+        # @return [void]
+        sig { params(model: T.untyped, column_name: Symbol).void }
+        def decorate_scopes(model, column_name)
+          ["with_#{column_name}", "with_any_#{column_name}", "with_exact_#{column_name}",
+           "without_#{column_name}"].each do |scope|
+            model.create_method(scope, parameters: [flag_values], return_type: 'ActiveRecord::Relation',
+                                       class_method: true)
+          end
+        end
+
+        # The `*values` parameter shared by the atomic methods and scopes.
+        # @return [T.untyped]
+        sig { returns(T.untyped) }
+        def flag_values
+          create_rest_param('values', type: FLAG_NAME)
+        end
+
+        # The `records:` keyword parameter of the class-level atomic methods.
+        # @return [T.untyped]
+        sig { returns(T.untyped) }
+        def records_keyword
+          create_kw_param('records', type: 'T.untyped')
         end
       end
     end
