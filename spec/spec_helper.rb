@@ -120,6 +120,9 @@ ActiveRecord::Schema.define do
   end
 end
 
+# Flush the WAL into the main database file so per-worker copies (see above) are complete.
+ActiveRecord::Base.connection.execute('PRAGMA wal_checkpoint(TRUNCATE)') unless database_url
+
 require 'activerecord-bitwise'
 
 RSpec.configure do |config|
