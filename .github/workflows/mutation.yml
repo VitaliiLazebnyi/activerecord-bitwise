@@ -1,0 +1,30 @@
+name: Mutation testing
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+
+jobs:
+  mutant:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "4.0"
+        bundler-cache: true
+    # Pull requests only mutate subjects touched since the base branch (fast feedback);
+    # pushes to main run the complete suite of mutations.
+    - name: Mutant (changed subjects)
+      if: github.event_name == 'pull_request'
+      run: bundle exec mutant run --since origin/main
+    - name: Mutant (full)
+      if: github.event_name == 'push'
+      run: bundle exec mutant run

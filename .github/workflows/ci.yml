@@ -4,6 +4,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+permissions:
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -20,7 +23,9 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
-    - run: bundle exec rspec
+    # SimpleCov enforces minimum_coverage 100 (line + branch) and fails the run below it.
+    - name: RSpec (100% line + branch coverage gate)
+      run: bundle exec rspec
 
   # Verify every supported ActiveRecord minor, not only the newest resolvable one.
   test-activerecord:
