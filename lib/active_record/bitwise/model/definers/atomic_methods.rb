@@ -7,6 +7,7 @@ require 'sorbet-runtime'
 module ActiveRecord
   module Bitwise
     module Model
+      # Generators of the methods defined for each bitwise column.
       module Definers
         # Defines the class-level and instance-level atomic add/remove methods.
         module AtomicMethods

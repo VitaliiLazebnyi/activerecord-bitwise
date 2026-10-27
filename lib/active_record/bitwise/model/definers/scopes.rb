@@ -7,6 +7,7 @@ require 'sorbet-runtime'
 module ActiveRecord
   module Bitwise
     module Model
+      # Generators of the methods defined for each bitwise column.
       module Definers
         # Defines the four query scopes. Column references are table-qualified so the
         # scopes remain unambiguous under joins.

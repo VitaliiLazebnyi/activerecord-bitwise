@@ -8,6 +8,7 @@ require 'sorbet-runtime'
 module ActiveRecord
   module Bitwise
     module Model
+      # Generators of the methods defined for each bitwise column.
       module Definers
         # Defines the column getter, which stamps returned arrays with the raw bitmask.
         module Getter
