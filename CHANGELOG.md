@@ -22,8 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   like ActiveModel's own Integer type; `where` with such a value matches nothing.
 - Array mappings did not check their bit positions: an Array of more than 63 flags was accepted
   at definition time. Positions are now validated exactly like Hash mappings (0 to 62).
-- `without_<column>`, `with_exact_<column>` with no flags and `with_<column>(0)` ignored rows whose
-  column is NULL, although the getter reads NULL as "no flags". They now treat NULL as 0.
+- **Behavior change:** `without_<column>`, `with_exact_<column>` with no flags and `with_<column>(0)`
+  ignored rows whose column is NULL, although the getter reads NULL as "no flags". They now treat NULL
+  as 0 (`(col = 0 OR col IS NULL)` for the equality cases, so an index on the column stays usable;
+  `COALESCE(col, 0) & mask = 0` for `without_`).
 
 ### Added
 

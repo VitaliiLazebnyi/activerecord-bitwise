@@ -998,7 +998,7 @@ module ActiveRecord
           cleaned = values.flatten.reject { |v| v.nil? || v == '' }
           quoted_col = qualified_col.call(self)
           if cleaned.include?(0) || cleaned.include?('0') || cleaned.empty?
-            return T.unsafe(self).where("COALESCE(#{quoted_col}, 0) = 0")
+            return T.unsafe(self).where("(#{quoted_col} = 0 OR #{quoted_col} IS NULL)")
           end
 
           valid = cleaned.select { |v| mapping_strings.include?(v.to_s) }.map { |v| v.to_s.to_sym }
@@ -1023,7 +1023,7 @@ module ActiveRecord
           cleaned = values.flatten.reject { |v| v.nil? || v == '' }
           quoted_col = qualified_col.call(self)
 
-          return T.unsafe(self).where("COALESCE(#{quoted_col}, 0) = 0") if cleaned.empty?
+          return T.unsafe(self).where("(#{quoted_col} = 0 OR #{quoted_col} IS NULL)") if cleaned.empty?
 
           valid = cleaned.select { |v| mapping_strings.include?(v.to_s) }.map { |v| v.to_s.to_sym }
 

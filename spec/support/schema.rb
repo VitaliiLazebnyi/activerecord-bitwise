@@ -13,6 +13,7 @@ ActiveRecord::Schema.define do
     t.integer :permissions, default: 0, null: true
     t.integer :legacy_roles, default: 0, null: false
     t.integer :custom_limits, limit: 1, default: 0, null: false
+    t.index :roles
   end
 
   create_table :capacity_records, force: true do |t|

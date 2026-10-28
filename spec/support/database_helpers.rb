@@ -52,6 +52,12 @@ module DatabaseHelpers
     ActiveRecord::Base.connection.adapter_name.match?(/mysql|trilogy|maria/i)
   end
 
+  # Whether the examples run against PostgreSQL.
+  # @return [Boolean]
+  def self.postgres_adapter?
+    ActiveRecord::Base.connection.adapter_name.match?(/postg/i)
+  end
+
   # Makes SQL comparable across adapters: ActiveRecord's MySQL adapter quotes every bound
   # number as a string (+& '5' > 0+), the other adapters leave it bare (+& 5 > 0+). The gem
   # binds plain Integers through ActiveRecord in both cases, so the quotes carry no meaning.

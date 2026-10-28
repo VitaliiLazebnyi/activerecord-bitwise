@@ -96,7 +96,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_roles' do
     end
 
     it 'tests for zero when no flag is given' do
-      expect(model.with_roles([]).to_sql).to include("COALESCE(#{column}, 0) = 0")
+      expect(model.with_roles([]).to_sql).to include("(#{column} = 0 OR #{column} IS NULL)")
     end
 
     it 'matches nothing when every flag is unknown' do
