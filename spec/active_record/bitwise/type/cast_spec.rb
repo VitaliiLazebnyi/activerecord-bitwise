@@ -10,6 +10,12 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#cast' do
     end
   end
 
+  context 'with a plain Array' do
+    it 'does not attach a raw bitmask marker' do
+      expect(type.cast([:admin]).instance_variables).to be_empty
+    end
+  end
+
   context 'with an Integer bitmask' do
     {
       0 => [],

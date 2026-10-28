@@ -4,6 +4,17 @@
 RSpec.describe ActiveRecord::Bitwise::Model, '.with_roles' do
   include_context 'with scope fixtures'
 
+  context 'with a flag whose name is numeric' do
+    let(:model) { build_model { bitwise :roles, { '5': 0, other: 1 } } }
+
+    it 'finds records by a numeric argument' do
+      flagged = model.create!(roles: [:'5'])
+      model.create!(roles: [:other])
+
+      expect(model.with_roles(5).to_a).to eq([flagged])
+    end
+  end
+
   # Decision table: arguments -> fixtures returned (records having ALL the given flags).
   [
     [[:admin], %i[admin both three]],

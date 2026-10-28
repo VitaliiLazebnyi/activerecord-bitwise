@@ -7,6 +7,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.add_roles!' do
   let!(:admin) { model.create!(roles: [:admin]) }
   let!(:author) { model.create!(roles: [:author]) }
 
+  context 'when a flag is named more than once' do
+    it 'sets it once' do
+      model.add_roles!(:subscriber, :subscriber, records: admin)
+
+      expect(raw_value(admin)).to eq(0b1001)
+    end
+  end
+
   context 'when choosing the records' do
     it 'updates a single record' do
       model.add_roles!(:subscriber, records: admin)

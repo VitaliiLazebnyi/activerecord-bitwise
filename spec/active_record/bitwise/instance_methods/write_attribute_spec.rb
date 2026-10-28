@@ -37,6 +37,14 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       expect(raw_value(ghosted)).to eq(0b1_0100)
     end
 
+    it 'adopts a raw bitmask marker given as a numeric String' do
+      record = plant_raw_value(model.create!, 0b1)
+      record.write_attribute(:roles, with_raw_marker([:admin], '17'))
+      record.save!
+
+      expect(raw_value(record)).to eq(0b1_0001)
+    end
+
     it 'rejects more than 100 flags' do
       expect { model.new.write_attribute(:roles, Array.new(101) { :admin }) }
         .to raise_error(ArgumentError, 'Array size cannot exceed 100')

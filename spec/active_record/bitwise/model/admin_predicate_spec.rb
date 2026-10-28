@@ -22,6 +22,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#admin?' do
     end
   end
 
+  context 'when the getter returns nil' do
+    it 'returns false' do
+      allow(record).to receive(:roles).and_return(nil)
+
+      expect(record.admin?).to be(false)
+    end
+  end
+
   context 'when no flag is set' do
     it 'returns false' do
       expect(record.admin?).to be(false)

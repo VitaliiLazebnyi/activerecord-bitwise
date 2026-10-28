@@ -17,6 +17,10 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect(define.call({ a: '3' }).bitwise_schema(:roles)).to eq(a: 3)
     end
 
+    it 'accepts a multi-digit numeric String position' do
+      expect(define.call({ a: '12' }).bitwise_schema(:roles)).to eq(a: 12)
+    end
+
     it 'symbolizes String keys' do
       string_keyed = { a: 1 }.transform_keys(&:to_s)
 

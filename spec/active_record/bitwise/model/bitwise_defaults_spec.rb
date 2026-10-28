@@ -5,6 +5,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   let(:define) { ->(default) { build_model { bitwise :roles, { admin: 0, author: 1 }, default: default } } }
 
   context 'with a default' do
+    it 'exposes it on the attribute type' do
+      expect(define.call([:admin]).attribute_types.fetch('roles').default).to eq([:admin])
+    end
+
+    it 'records it in the column definition' do
+      expect(define.call([:admin]).bitwise_definitions.fetch(:roles)).to include(default: [:admin], validated: false)
+    end
+
     it 'applies it to new records' do
       expect(define.call([:admin]).new.roles).to eq([:admin])
     end
