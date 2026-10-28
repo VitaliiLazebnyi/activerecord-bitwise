@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+# Used by the Sorbet job and `rake typecheck` only: Tapioca generates the RBI files Sorbet checks against.
+# It lives apart from the main Gemfile because loading Tapioca changes how
+# lib/tapioca/dsl/compilers/activerecord_bitwise.rb is loaded (the specs exercise its stand-in for
+# Tapioca's compiler base class).
+source 'https://rubygems.org'
+
+gemspec path: '..'
+
+gem 'tapioca', '~> 0.20', require: false

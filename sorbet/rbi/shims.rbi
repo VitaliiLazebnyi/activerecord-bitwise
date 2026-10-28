@@ -1,73 +1,20 @@
-# typed: strong
+# typed: strict
 
-module ActiveModel
-  class EachValidator
-    sig { params(options: T::Hash[Symbol, T.untyped]).void }
-    def initialize(options); end
+# What the gem adds to ActiveRecord::Base when ActiveSupport loads it (see lib/active_record/bitwise.rb).
+class ActiveRecord::Base
+  extend ActiveRecord::Bitwise::Model
 
-    sig { params(record: T.untyped, attribute: Symbol, value: T.untyped).void }
-    def validate_each(record, attribute, value); end
+  # The bitwise columns declared on the class, defined with +class_attribute+ by Model.extended.
+  sig { returns(T::Hash[Symbol, ActiveRecord::Bitwise::Declaration::Definition]) }
+  def self.bitwise_definitions; end
 
-    sig { returns(T::Hash[Symbol, T.untyped]) }
-    def options; end
+  sig do
+    params(value: T::Hash[Symbol, ActiveRecord::Bitwise::Declaration::Definition])
+      .returns(T::Hash[Symbol, ActiveRecord::Bitwise::Declaration::Definition])
   end
+  def self.bitwise_definitions=(value); end
 
-  module Type
-    class Boolean
-      sig { params(value: T.untyped).returns(T.untyped) }
-      def cast(value); end
-    end
-  end
-end
-
-module ActiveRecord
-  class ActiveRecordError < StandardError; end
-
-  class Base
-    sig { returns(T::Class[T.anything]) }
-    def class; end
-  end
-
-  class Relation
-    sig { returns(T::Class[T.anything]) }
-    def klass; end
-  end
-
-  module QueryMethods
-    class WhereChain
-    end
-  end
-
-  module Type
-    class Value
-      sig { params(value: T.untyped).returns(T.untyped) }
-      def cast(value); end
-
-      sig { params(value: T.untyped).returns(T.untyped) }
-      def deserialize(value); end
-
-      sig { params(value: T.untyped).returns(T.untyped) }
-      def serialize(value); end
-    end
-  end
-end
-
-module ActiveSupport
-  sig { params(name: Symbol, options: T.untyped, block: T.untyped).void }
-  def self.on_load(name, options = nil, &block); end
-end
-
-module Arel
-  sig { params(sql: String).returns(T.untyped) }
-  def self.sql(sql); end
-
-  module Nodes
-    class Node; end
-    class SqlLiteral < String; end
-  end
-end
-
-# ActiveModel's range error, raised for bitmasks beyond 64 bits (the gem RBIs are skipped for srb tc).
-module ActiveModel
-  class RangeError < ::RangeError; end
+  # Instances report their model class, which carries the macros above.
+  sig { returns(T.class_of(ActiveRecord::Base)) }
+  def class; end
 end

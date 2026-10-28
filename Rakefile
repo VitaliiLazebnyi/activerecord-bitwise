@@ -17,9 +17,9 @@ task :rubocop do
   sh 'bundle exec rubocop'
 end
 
-desc 'Run the Sorbet type checker (gem-shipped RBIs are skipped: they are not part of this gem)'
+desc 'Generate the gem RBIs with Tapioca, then run the Sorbet type checker'
 task :typecheck do
-  ENV['SRB_SKIP_GEM_RBIS'] = '1'
+  sh({ 'BUNDLE_GEMFILE' => 'gemfiles/typecheck.gemfile' }, 'bundle install --quiet && bundle exec tapioca gem')
   sh 'bundle exec srb tc'
 end
 
@@ -30,7 +30,7 @@ task :yard do
   abort 'YARD: undocumented API objects found' unless output.include?(FULLY_DOCUMENTED)
 end
 
-desc 'Fail on any code smell (see .reek.yml)'
+desc 'Fail on any code smell (default Reek configuration, no exclusions)'
 task :reek do
   sh 'bundle exec reek lib'
 end
