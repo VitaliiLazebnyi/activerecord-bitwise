@@ -32,10 +32,8 @@ SimpleCov.start do
   else
     minimum_coverage line: 100, branch: 100
   end
-  # SimpleCov renamed add_filter to skip and warns about the old name on newer releases.
-  [%r{/spec/}, %r{/vendor/}].each do |ignored|
-    SimpleCov.respond_to?(:skip) ? SimpleCov.skip(ignored) : SimpleCov.add_filter(ignored)
-  end
+  SimpleCov.skip(%r{/spec/})
+  SimpleCov.skip(%r{/vendor/})
 
   self.formatters = SimpleCov::Formatter::MultiFormatter.new([
                                                                SimpleCov::Formatter::HTMLFormatter,

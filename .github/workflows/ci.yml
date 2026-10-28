@@ -14,16 +14,21 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RUBYOPT: -W:deprecated -W:performance
+
 jobs:
   test:
     name: RSpec (Ruby ${{ matrix.ruby }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         ruby: ["3.3.13", "3.4.12", "4.0.9"]
+    env:
+      RUBYOPT: -w -W:deprecated -W:performance
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -44,7 +49,7 @@ jobs:
   # Verify every supported ActiveRecord minor, not only the newest resolvable one.
   test-activerecord:
     name: RSpec (ActiveRecord ${{ matrix.activerecord }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     strategy:
@@ -52,6 +57,7 @@ jobs:
       matrix:
         activerecord: ["~> 7.1.0", "~> 7.2.0", "~> 8.0.0", "~> 8.1.0"]
     env:
+      RUBYOPT: -w -W:deprecated -W:performance
       AR_VERSION: ${{ matrix.activerecord }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -70,7 +76,7 @@ jobs:
   # in the atomic methods is actually exercised (it is a no-op on SQLite).
   test-postgres:
     name: RSpec (PostgreSQL)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     services:
@@ -86,6 +92,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      RUBYOPT: -w -W:deprecated -W:performance
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -102,7 +109,7 @@ jobs:
 
   test-mysql:
     name: RSpec (MySQL ${{ matrix.name }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     strategy:
@@ -127,6 +134,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      RUBYOPT: -w -W:deprecated -W:performance
       DATABASE_URL: mysql2://root:root@127.0.0.1:3306/bitwise_test
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,7 +151,7 @@ jobs:
 
   lint:
     name: RuboCop
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -163,7 +171,7 @@ jobs:
 
   typecheck:
     name: Sorbet
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -181,7 +189,7 @@ jobs:
 
   docs:
     name: YARD (100% documented)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -199,7 +207,7 @@ jobs:
 
   smells:
     name: Reek and Flay
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -219,9 +227,11 @@ jobs:
   # still pass against the current lib/ (see script/legacy_suite.rb for the few justified exceptions).
   legacy-suite:
     name: Original spec suite
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
+    env:
+      RUBYOPT: -w -W:deprecated -W:performance
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -240,7 +250,7 @@ jobs:
   # (script/outdated_holds.yml), which quotes the upstream constraint that blocks each one.
   outdated:
     name: Outdated gems
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -258,7 +268,7 @@ jobs:
 
   build:
     name: Build gem
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -273,3 +283,22 @@ jobs:
     - name: Check the Ruby version
       run: script/check_ruby.sh
     - run: gem build activerecord-bitwise.gemspec
+
+  warning-gate:
+    name: Warning gate
+    if: ${{ !cancelled() }}
+    needs: [test, test-activerecord, test-postgres, test-mysql, lint, typecheck, docs, smells, legacy-suite, outdated, build]
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read # reads the logs of the other jobs of this run
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Fail on any warning or deprecation in the logs of this run
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GATE_JOB_NAME: Warning gate
+      run: script/warning_gate.sh

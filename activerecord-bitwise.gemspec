@@ -47,7 +47,7 @@ Gem::Specification.new do |spec|
 
   # Test suite.
   spec.add_development_dependency 'rspec', '~> 3.13'
-  spec.add_development_dependency 'simplecov', '>= 1.3'
+  spec.add_development_dependency 'simplecov', '~> 1.3'
   spec.add_development_dependency 'simplecov-ai', '~> 0.11'
   spec.add_development_dependency 'sqlite3', '~> 2.10'
 

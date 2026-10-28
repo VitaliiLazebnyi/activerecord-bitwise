@@ -14,13 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  RUBYOPT: -W:deprecated -W:performance
   LANG: C.UTF-8
   LC_ALL: C.UTF-8
 
 jobs:
   mutant:
     name: Mutant
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -43,3 +44,22 @@ jobs:
     - name: Mutant (full run)
       if: github.event_name != 'pull_request'
       run: bundle exec mutant run
+
+  warning-gate:
+    name: Warning gate
+    if: ${{ !cancelled() }}
+    needs: [mutant]
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read # reads the logs of the other jobs of this run
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Fail on any warning or deprecation in the logs of this run
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GATE_JOB_NAME: Warning gate
+      run: script/warning_gate.sh
