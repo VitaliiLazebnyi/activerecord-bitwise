@@ -63,12 +63,11 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
 
     it 'rejects another bitwise column' do
       model = build_model(missing_table) { bitwise :legacy_roles, { admin: 0 } }
+      message = 'Bitwise column roles mapping key legacy_roles would shadow the database column or attribute ' \
+                "'legacy_roles'. #{shadow_hint}"
 
-      expect { model.bitwise :roles, { legacy_roles: 0 } }.to raise_error(
-        ActiveRecord::Bitwise::ConfigurationError,
-        "Bitwise column roles mapping key legacy_roles would shadow the database column or attribute " \
-        "'legacy_roles'. #{shadow_hint}"
-      )
+      expect { model.bitwise :roles, { legacy_roles: 0 } }
+        .to raise_error(ActiveRecord::Bitwise::ConfigurationError, message)
     end
   end
 

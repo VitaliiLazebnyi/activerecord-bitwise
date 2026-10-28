@@ -15,15 +15,6 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   # column of the size the database actually reports (PostgreSQL widens 1 byte to 2) can hold.
   let(:flags_per_byte_size) { { 1 => 7, 2 => 15, 8 => 63 } }
 
-  context 'with an empty mapping' do
-    it 'marks the definition as validated' do
-      model = build_model('capacity_records') { bitwise :tiny, {} }
-      model.new
-
-      expect(model.bitwise_definitions.fetch(:tiny)).to include(validated: true)
-    end
-  end
-
   [
     { column: :tiny, limit: 1 },
     { column: :small, limit: 2 },
@@ -149,6 +140,13 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   context 'with an empty mapping' do
     it 'needs no capacity' do
       expect(build_model('capacity_records') { bitwise :tiny, {} }.new.tiny).to eq([])
+    end
+
+    it 'marks the definition as validated' do
+      model = build_model('capacity_records') { bitwise :tiny, {} }
+      model.new
+
+      expect(model.bitwise_definitions.fetch(:tiny)).to include(validated: true)
     end
   end
 

@@ -10,6 +10,11 @@ matcher:
   subjects:
     - ActiveRecord::Bitwise*
     - BitwiseValidator*
+  ignore:
+    # Its two mutations replace the "other columns' methods" list for the column being declared
+    # with `nil`/`[]`-equivalents: `flat_map` over `[nil]` vs `[]` never changes `include?` of a
+    # String, so nothing observable depends on them.
+    - ActiveRecord::Bitwise::Model::Collisions.other_generated
 mutation:
   timeout: 20.0
   # Mutations that cannot change observable behavior, grouped by reason. Each pattern is
@@ -77,6 +82,10 @@ mutation:
     # `args[0] = ...` vs `args[-1] = ...` differ only for `where(hash, extra)`, which ActiveRecord
     # does not define.
     - send{receiver=lvar{value=args} selector=[]=}
+    - indexasgn{receiver=lvar{value=args}}
+    # `Model#bitwise` ends with an explicit `nil`, but its `sig` declares `void`, so the value is
+    # replaced by Sorbet's void marker before any caller sees it.
+    - nil
     # `x&.dup` on nil vs `x.dup`: nil.dup is nil.
     - csend{selector=dup}
 coverage_criteria:

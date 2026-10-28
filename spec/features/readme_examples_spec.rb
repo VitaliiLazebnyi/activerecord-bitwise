@@ -70,7 +70,9 @@ RSpec.describe 'README examples' do
     end
 
     it 'raises ConfigurationError for accessors that collide with another bitwise column' do
-      expect { build_model { bitwise(:roles, { admin: 0 }) && bitwise(:legacy_roles, { admin: 0 }) } }
+      model = build_model { bitwise(:roles, { admin: 0 }) }
+
+      expect { model.bitwise(:legacy_roles, { admin: 0 }) }
         .to raise_error(ActiveRecord::Bitwise::ConfigurationError)
     end
 
@@ -426,7 +428,8 @@ RSpec.describe 'README examples' do
     end
 
     it 'supports the :message option' do
-      custom = build_model { bitwise(:roles, { admin: 0 }) && validates(:roles, bitwise: { message: 'is wrong' }) }
+      custom = build_model { bitwise(:roles, { admin: 0 }) }
+      custom.validates(:roles, bitwise: { message: 'is wrong' })
       record = custom.new(roles: [:nope])
       record.valid?
 
