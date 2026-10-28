@@ -15,8 +15,8 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect(bitwise_callbacks.call(model._initialize_callbacks).size).to eq(1)
     end
 
-    it 'registers one save callback' do
-      expect(bitwise_callbacks.call(model._save_callbacks).size).to eq(1)
+    it 'registers no save callback' do
+      expect(bitwise_callbacks.call(model._save_callbacks)).to be_empty
     end
   end
 
@@ -25,10 +25,6 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
 
     it 'does not register the initialization callback again' do
       expect(bitwise_callbacks.call(child._initialize_callbacks).size).to eq(1)
-    end
-
-    it 'does not register the save callback again' do
-      expect(bitwise_callbacks.call(child._save_callbacks).size).to eq(1)
     end
   end
 end

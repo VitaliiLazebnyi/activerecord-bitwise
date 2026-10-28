@@ -67,31 +67,21 @@ module ActiveRecord
           typecaster if typecaster in ActiveRecord::Bitwise::Type
         end
 
-        # Casts +value+ and synchronizes the raw bitmask cache:
-        # * arrays carrying a raw marker (e.g. cast from an Integer) update the cache;
-        # * plain arrays are stamped with the currently cached raw bitmask;
-        # * nil clears the cached raw bitmask (assigning nil intentionally drops ghost bits).
+        # Casts +value+ and keeps the raw bitmask in step:
+        # * arrays carrying a raw marker (e.g. cast from an Integer) replace the raw bitmask;
+        # * plain arrays are stamped with the current raw bitmask;
+        # * nil is stored as NULL (assigning nil intentionally drops ghost bits).
         # @param column_name [Symbol]
         # @param typecaster [ActiveRecord::Bitwise::Type]
         # @param value [T.untyped]
         # @return [T.untyped] The value to store in the attribute set.
         sig { params(column_name: Symbol, typecaster: ActiveRecord::Bitwise::Type, value: T.untyped).returns(T.untyped) }
         def _bitwise_prepare_value(column_name, typecaster, value)
-          current_raw = _bitwise_hydrate_raw_cache(column_name)
           casted = typecaster.cast(value)
-          return _bitwise_forget_raw(column_name) if casted.nil?
+          return nil if casted.nil?
           return _bitwise_adopt_raw(column_name, casted) if RawMask.stamped?(casted)
 
-          RawMask.stamp(casted.dup, current_raw).freeze
-        end
-
-        # Assigning nil clears the cached raw bitmask (intentionally dropping ghost bits).
-        # @param column_name [Symbol]
-        # @return [NilClass]
-        sig { params(column_name: Symbol).returns(NilClass) }
-        def _bitwise_forget_raw(column_name)
-          _bitwise_raw_cache[column_name] = 0
-          nil
+          RawMask.stamp(casted.dup, _bitwise_raw(column_name)).freeze
         end
 
         # Adopts the raw marker carried by +casted+ (e.g. cast from an Integer). An integer
@@ -102,11 +92,9 @@ module ActiveRecord
         # @return [T::Array[T.untyped]] +casted+.
         sig { params(column_name: Symbol, casted: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
         def _bitwise_adopt_raw(column_name, casted)
-          cache = _bitwise_raw_cache
           new_raw = RawMask.coerce(RawMask.read(casted))
           # A non-zero difference means the integer assignment changed at least one bit.
-          attribute_will_change!(column_name) if (new_raw ^ cache.fetch(column_name)).nonzero?
-          cache[column_name] = new_raw
+          attribute_will_change!(column_name) if (new_raw ^ _bitwise_raw(column_name)).nonzero?
           casted
         end
 
@@ -117,11 +105,7 @@ module ActiveRecord
         # @return [T.untyped]
         sig { params(attrs: T.untyped).returns(T.untyped) }
         def update_columns(attrs)
-          result = super(attrs.to_h { |key, value| [key, _bitwise_update_value(key, value)] })
-          attrs.each_key do |key|
-            _bitwise_sync_raw_after_update(key.to_sym) if _bitwise_typecaster(key.to_sym)
-          end
-          result
+          super(attrs.to_h { |key, value| [key, _bitwise_update_value(key, value)] })
         end
 
         # The value to persist for +key+ in {#update_columns}: values of bitwise columns go through
@@ -138,14 +122,25 @@ module ActiveRecord
           _bitwise_prepare_value(key.to_sym, typecaster, value)
         end
 
-        # Refreshes the raw cache of +column_name+ from the value just written.
+        # Duplicated records intentionally drop the source record's unmapped
+        # ("forgotten") bits: a dup is a new record and should only carry the flags
+        # visible in Ruby, never invisible legacy bits.
+        # @param other [T.untyped]
+        # @return [T.untyped]
+        sig { params(other: T.untyped).returns(T.untyped) }
+        def initialize_dup(other)
+          result = super
+          _bitwise_model.bitwise_definitions.each_key { |column_name| _bitwise_drop_unmapped_bits(column_name) }
+          result
+        end
+
+        # Re-assigns +column_name+ as the bitmask of its visible flags only.
         # @param column_name [Symbol]
         # @return [void]
         sig { params(column_name: Symbol).void }
-        def _bitwise_sync_raw_after_update(column_name)
-          typecaster = T.must(_bitwise_typecaster(column_name))
-          written = typecaster.serialize(read_attribute(column_name))
-          _bitwise_raw_cache[column_name] = RawMask.coerce(written)
+        def _bitwise_drop_unmapped_bits(column_name)
+          flags = read_attribute(column_name)
+          write_attribute(column_name, T.must(_bitwise_typecaster(column_name)).serialize([*flags])) if flags in Array
         end
       end
     end

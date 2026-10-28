@@ -191,7 +191,6 @@ module ActiveRecord
 
         T.unsafe(self).include(ActiveRecord::Bitwise::InstanceMethods)
         T.unsafe(self).after_initialize :_validate_bitwise_column_type_and_bounds
-        T.unsafe(self).after_save :_reset_bitwise_raw_value_caches
       end
     end
   end
