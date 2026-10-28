@@ -99,7 +99,7 @@ module ActiveRecord
       sig { params(value: T.untyped).returns(Integer) }
       def self.lenient(value)
         integer(value)
-      rescue ArgumentError, TypeError, RangeError
+      rescue ArgumentError, TypeError, ::RangeError
         0
       end
 

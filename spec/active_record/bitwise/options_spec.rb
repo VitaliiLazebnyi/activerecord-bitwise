@@ -45,4 +45,16 @@ RSpec.describe ActiveRecord::Bitwise::Options do
         .to raise_error(ArgumentError, 'unknown keyword: :colour')
     end
   end
+
+  describe '.affix' do
+    [nil, true, false, :can, 'can'].each do |value|
+      it "returns #{value.inspect} unchanged" do
+        expect(described_class.affix(:prefix, value)).to eq(value)
+      end
+    end
+
+    it 'returns a String as a String' do
+      expect(described_class.affix(:suffix, 'can')).to be_a(String)
+    end
+  end
 end
