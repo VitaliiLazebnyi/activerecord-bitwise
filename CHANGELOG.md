@@ -5,7 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.0] - 2026-10-28
+
+### Changed (breaking)
+
+- **The minimum supported Ruby is now 3.3** (`required_ruby_version >= 3.3.0`); Ruby 3.2 is no
+  longer supported or tested. ActiveRecord 7.1 to 8.x remain supported.
+
+### Fixed
+
+- A 3-byte integer column (MySQL `MEDIUMINT`, 23 usable signed bits) was validated as if it held
+  31 flags, so a mapping with a flag at position 23..30 was accepted and could overflow when
+  written. The capacity of a 3-byte column is now 23 flags.
+- A bitmask outside the signed 64-bit range (for example `record.roles = 2**70`) was stored by
+  SQLite as a lossy floating-point number. `Type#serialize` now raises `ActiveModel::RangeError`,
+  like ActiveModel's own Integer type; `where` with such a value matches nothing.
+- Array mappings did not check their bit positions: an Array of more than 63 flags was accepted
+  at definition time. Positions are now validated exactly like Hash mappings (0 to 62).
+- **Behavior change:** `without_<column>`, `with_exact_<column>` with no flags and `with_<column>(0)`
+  ignored rows whose column is NULL, although the getter reads NULL as "no flags". They now treat NULL
+  as 0 (`(col = 0 OR col IS NULL)` for the equality cases, so an index on the column stays usable;
+  `COALESCE(col, 0) & mask = 0` for `without_`).
+- Declaring a column again on the same class (for example after reloading a model in development)
+  made Ruby print a "method redefined" warning for every generated method and scope in verbose mode
+  (`ruby -w`). The earlier generated methods are now replaced without a warning.
+
+### Added
+
+- Mutation testing (mutant), Reek, Flay, bundler-audit, CodeQL (security-extended and
+  security-and-quality), dependency review, gitleaks, OpenSSF Scorecard, actionlint and
+  zizmor; all CI actions are pinned to commit SHAs with least-privilege permissions.
+- A much larger, behavior-oriented spec suite (100% line and branch coverage).
+
+### Changed
+
+- Development dependencies upgraded to their latest releases (SimpleCov 1.x, rubocop-md 2.x, ...)
+  and declared as ordinary development dependencies in the gemspec; the repository develops on
+  Ruby 4.0.9 (`.ruby-version`) and CI tests Ruby 3.3, 3.4 and 4.0.
+- The internal code is split into small typed classes. Two duck-typing checks are now made on the
+  class instead of with `respond_to?`: an object passed to `records:` counts as a record when its
+  class has a public `id` method, and the bitwise validator looks for a public class method
+  `bitwise_definitions`. Only objects that answer those methods through `method_missing` (or a
+  singleton method) behave differently.
+- The private record helpers behind the generated methods (`_bitwise_read`,
+  `_bitwise_flag_enabled?`, `_bitwise_flag_assign`, `_bitwise_flag_save`, `_bitwise_atomic_update!`)
+  are now private.
 
 ## [0.11.0] - 2026-07-20
 

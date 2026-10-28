@@ -9,7 +9,10 @@ bundle exec rspec --format progress
 echo "==> Running RuboCop..."
 bundle exec rubocop
 
+echo "==> Checking for inline suppressions..."
+script/forbidden_suppressions.sh
+
 echo "==> Running Sorbet type-check..."
-bundle exec srb tc
+bundle exec rake typecheck
 
 echo "==> All checks passed."
