@@ -91,17 +91,17 @@ RSpec.describe ActiveRecord::Bitwise::RawMask do
     end
   end
 
-  describe '.digits?' do
-    %w[0 12 007].each do |text|
-      it("accepts #{text.inspect}") { expect(described_class.digits?(text)).to be(true) }
+  describe '.decimal' do
+    [['0', 0], ['12', 12], ['007', 7], ['010', 10]].each do |text, number|
+      it("reads #{text.inspect} as #{number}") { expect(described_class.decimal(text)).to eq(number) }
     end
 
-    it 'accepts a String subclass' do
-      expect(described_class.digits?(Class.new(String).new('12'))).to be(true)
+    it 'reads a String subclass' do
+      expect(described_class.decimal(Class.new(String).new('12'))).to eq(12)
     end
 
-    ['', '-1', '1 ', 'a1', 12, nil, :'1'].each do |value|
-      it("rejects #{value.inspect}") { expect(described_class.digits?(value)).to be(false) }
+    ['', '-1', '1 ', 'a1', '1a', 12, nil, :'1'].each do |value|
+      it("is nil for #{value.inspect}") { expect(described_class.decimal(value)).to be_nil }
     end
   end
 

@@ -48,8 +48,8 @@ module ActiveRecord
       # @return [Array<Symbol, String>]
       sig { params(value: Object).returns(Types::Flags) }
       def flags(value)
-        flags = items(value).map! { |item| symbolize(item) }
-        flags.uniq!(&:to_s)
+        flags = items(value).map { |item| symbolize(item) }
+        flags.uniq!
         RawMask.carry(flags, value).freeze
       end
 
@@ -66,7 +66,8 @@ module ActiveRecord
       # @return [Integer]
       sig { params(value: Object).returns(Integer) }
       def merge(value)
-        (RawMask.mask_of(value) & ~known_mask) | mask(Array(value))
+        # The unmapped bits of the marker and the mapped bits of the flags never overlap.
+        (RawMask.mask_of(value) & ~known_mask) + mask(Array(value))
       end
 
       # The bitmask of the mapped flags among +values+; names that are not mapped contribute nothing.
@@ -85,12 +86,12 @@ module ActiveRecord
         names.include?(item.to_s)
       end
 
-      # Whether +value+ is a bare numeric String that is not itself a flag name.
+      # The bitmask that +value+ spells when it is a bare numeric String that is not itself a flag name.
       # @param value [Object]
-      # @return [Boolean]
-      sig { params(value: Object).returns(T::Boolean) }
-      def bitmask_string?(value)
-        RawMask.digits?(value) && !names.include?(value)
+      # @return [Integer, nil] Nil for anything else.
+      sig { params(value: Object).returns(T.nilable(Integer)) }
+      def bitmask(value)
+        RawMask.decimal(value) unless names.include?(value)
       end
 
       private

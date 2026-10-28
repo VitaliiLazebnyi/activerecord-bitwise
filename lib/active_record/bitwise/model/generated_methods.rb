@@ -144,11 +144,18 @@ module ActiveRecord
           plural = column_name.to_s
           singular = plural.singularize
           implementation = :"#{operation}_#{singular}!"
-          column = column_name.to_sym
-          define_method(_bitwise_release(implementation)) do |*values|
-            __send__(ATOMIC_UPDATE, column, operation, values)
-          end
-          _bitwise_define_atomic_alias(:"#{operation}_#{plural}!", implementation) unless singular.eql?(plural)
+          _bitwise_define_atomic_implementation(implementation, operation, column_name.to_sym)
+          _bitwise_define_atomic_alias(:"#{operation}_#{plural}!", implementation) unless singular == plural
+        end
+
+        # Defines the instance-level atomic method +name+.
+        # @param name [Symbol] The method to define.
+        # @param operation [Symbol] Either :add or :remove.
+        # @param column [Symbol] The database column name.
+        # @return [void]
+        sig { params(name: Symbol, operation: Symbol, column: Symbol).void }
+        def _bitwise_define_atomic_implementation(name, operation, column)
+          define_method(_bitwise_release(name)) { |*values| __send__(ATOMIC_UPDATE, column, operation, values) }
         end
 
         # Defines +name+ as an alias of +implementation+.

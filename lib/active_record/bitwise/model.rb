@@ -4,6 +4,7 @@
 require 'active_record'
 require 'active_record/bitwise/collisions'
 require 'active_record/bitwise/declaration'
+require 'active_record/bitwise/definitions'
 require 'active_record/bitwise/errors'
 require 'active_record/bitwise/instance_methods'
 require 'active_record/bitwise/layout'
@@ -104,7 +105,7 @@ module ActiveRecord
       # @return [void]
       sig { params(base: T::Class[T.anything]).void }
       def self.extended(base)
-        return if base.respond_to?(:bitwise_definitions)
+        return if Definitions.bitwise?(base)
 
         base.class_attribute :bitwise_definitions, default: {}
       end

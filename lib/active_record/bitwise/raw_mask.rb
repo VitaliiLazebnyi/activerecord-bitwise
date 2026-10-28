@@ -61,7 +61,7 @@ module ActiveRecord
       # @return [Array] +target+.
       sig { type_parameters(:Item).params(target: T::Array[T.type_parameter(:Item)], source: Object).returns(T::Array[T.type_parameter(:Item)]) }
       def self.carry(target, source)
-        marker = read(source) if source.is_a?(Array) && stamped?(source)
+        marker = read(source) if source.is_a?(Array)
         marker ? stamp(target, marker) : target
       end
 
@@ -72,12 +72,12 @@ module ActiveRecord
         stamp([], 0).freeze
       end
 
-      # Whether +value+ is a String of decimal digits only.
+      # The Integer that +value+ spells when it is a String of decimal digits only ("007" is 7).
       # @param value [Object] Any object.
-      # @return [Boolean]
-      sig { params(value: Object).returns(T::Boolean) }
-      def self.digits?(value)
-        value.is_a?(String) && value.match?(/\A\d+\z/)
+      # @return [Integer, nil] Nil for anything else.
+      sig { params(value: Object).returns(T.nilable(Integer)) }
+      def self.decimal(value)
+        Integer(value, 10) if value.is_a?(String) && value.match?(/\A\d+\z/)
       end
 
       # Integer value of +value+: a String contributes its leading digits like +String#to_i+ does ("12abc" is
@@ -90,7 +90,7 @@ module ActiveRecord
       # @return [Integer]
       sig { params(value: T.untyped).returns(Integer) }
       def self.integer(value)
-        value.is_a?(String) ? Integer(value[LEADING_INTEGER] || '0', 10) : Integer(value)
+        value.is_a?(String) ? Integer(value.slice(LEADING_INTEGER) || '0', 10) : Integer(value)
       end
 
       # Like {integer}, but anything that cannot be converted (including nil) is 0.
@@ -108,7 +108,7 @@ module ActiveRecord
       # @return [Integer]
       sig { params(value: Object).returns(Integer) }
       def self.mask_of(value)
-        lenient(value.is_a?(Array) && stamped?(value) ? read(value) : 0)
+        value.is_a?(Array) ? lenient(read(value)) : 0
       end
     end
   end

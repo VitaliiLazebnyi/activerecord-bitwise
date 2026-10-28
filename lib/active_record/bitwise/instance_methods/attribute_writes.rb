@@ -159,7 +159,7 @@ module ActiveRecord
           # An integer assignment can change only unmapped bits, leaving the flag
           # array equal to the old one; force dirty tracking so the raw value is
           # actually persisted on save.
-          attribute_will_change!(column_name) unless new_raw.eql?(cache.fetch(column_name))
+          attribute_will_change!(column_name) unless new_raw == cache.fetch(column_name)
           cache[column_name] = new_raw
           casted
         end

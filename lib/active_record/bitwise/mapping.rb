@@ -22,10 +22,7 @@ module ActiveRecord
       def self.normalize(column_name, mapping)
         pairs = entries(mapping)
         normalized = pairs.to_h { |key, value| [key.to_sym, position(column_name, key, value)] }
-        if normalized.size != pairs.size
-          raise ConfigurationError, "Bitwise column #{column_name} mapping contains duplicate keys after symbolization"
-        end
-
+        unique_names!(column_name, pairs)
         unique_positions!(column_name, normalized)
       end
 
@@ -37,7 +34,7 @@ module ActiveRecord
       # @return [Integer]
       sig { params(column_name: Types::Name, key: Object, value: Object).returns(Integer) }
       def self.position(column_name, key, value)
-        position = value.is_a?(Integer) ? value : (Integer(value.to_s, 10) if RawMask.digits?(value))
+        position = value.instance_of?(Integer) ? value : RawMask.decimal(value)
         return position if position&.between?(0, MAX_BIT_POSITION)
 
         raise ConfigurationError,
@@ -49,16 +46,39 @@ module ActiveRecord
       # The declared (name, position) pairs; an Array declares positions by index.
       # @param mapping [Object] The declared mapping.
       # @raise [ArgumentError] When +mapping+ is neither a Hash nor an Array.
-      # @return [Array<Array<Object>>]
-      sig { params(mapping: Object).returns(T::Array[[Types::Name, Object]]) }
+      # @return [Enumerable<Array<Object>>]
+      sig { params(mapping: Object).returns(T::Enumerable[[Types::Name, Object]]) }
       def self.entries(mapping)
         case mapping
-        in Array => names then names.each_with_index.to_a
-        in Hash => positions then positions.to_a
+        in Array => names then names.each_with_index
+        in Hash => positions then positions
         else raise ArgumentError, 'Mapping must be a Hash or an Array'
         end
       end
       private_class_method :entries
+
+      # The highest bit position of +mapping+, or -1 when it is empty: the positions are distinct, so the bit
+      # length of the mask they form is the highest position plus one.
+      # @param mapping [Hash{Symbol => Integer}] A normalized mapping.
+      # @return [Integer]
+      sig { params(mapping: Types::Positions).returns(Integer) }
+      def self.highest_position(mapping)
+        mapping.each_value.sum { |position| 1 << position }.bit_length - 1
+      end
+
+      # Fails when two keys name the same flag once symbolized (:admin and "admin").
+      # @param column_name [Symbol, String]
+      # @param pairs [Enumerable<Array<Object>>] The declared (name, position) pairs.
+      # @raise [ConfigurationError]
+      # @return [void]
+      sig { params(column_name: Types::Name, pairs: T::Enumerable[[Types::Name, Object]]).void }
+      def self.unique_names!(column_name, pairs)
+        # uniq! returns nil when it finds no duplicate to remove.
+        return unless pairs.map { |key, _position| key.to_sym }.uniq!
+
+        raise ConfigurationError, "Bitwise column #{column_name} mapping contains duplicate keys after symbolization"
+      end
+      private_class_method :unique_names!
 
       # Fails when two flags share a bit position.
       # @param column_name [Symbol, String]

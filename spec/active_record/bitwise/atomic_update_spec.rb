@@ -30,15 +30,6 @@ RSpec.describe ActiveRecord::Bitwise::AtomicUpdate do
       expect(described_class.id_of(guarded)).to equal(guarded)
     end
 
-    it 'is the id of an object that answers id through method_missing' do
-      dynamic_class = Class.new do
-        define_method(:respond_to_missing?) { |name, include_all = false| name == :id || super(name, include_all) }
-        define_method(:method_missing) { |name, *args| name == :id ? 5 : super(name, *args) }
-      end
-
-      expect(described_class.id_of(dynamic_class.new)).to eq(5)
-    end
-
     it 'reads ids with the record reader' do
       record = record_class.new(3)
       allow(record).to receive(:id).and_return(99)

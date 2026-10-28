@@ -130,13 +130,13 @@ module ActiveRecord
       # @return [Array<Symbol, String>]
       sig { params(value: Object).returns(Types::Flags) }
       def cast_unstamped(value)
-        case value
-        in Hash | true | false
+        if value in Hash | true | false
           raise ArgumentError, "cannot cast #{value} to a bitwise flag array for column #{column_name}"
-        # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
-        in String => text if @layout.bitmask_string?(text) then deserialize(Integer(text, 10))
-        else @layout.flags(value)
         end
+
+        # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
+        bitmask = @layout.bitmask(value)
+        bitmask ? deserialize(bitmask) : @layout.flags(value)
       end
 
       # Decodes +value+ the way {#deserialize} does, without the recursion guard.

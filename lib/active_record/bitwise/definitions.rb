@@ -11,18 +11,18 @@ module ActiveRecord
     module Definitions
       extend T::Sig
 
-      # Whether +klass+ declares bitwise columns (it publicly responds to +bitwise_definitions+).
-      # @param klass [Module] A class or module. (Declared +T.untyped+: the check is duck-typed, any class
-      #   with a public +bitwise_definitions+ qualifies, which no static type can express.)
+      # Whether +klass+ declares bitwise columns (it has a public class method +bitwise_definitions+).
+      # @param klass [Module] A class or module.
       # @return [Boolean]
-      sig { params(klass: T.untyped).returns(T::Boolean) }
+      sig { params(klass: T::Module[T.anything]).returns(T::Boolean) }
       def self.bitwise?(klass)
-        klass.respond_to?(:bitwise_definitions)
+        klass.singleton_class.public_method_defined?(:bitwise_definitions)
       end
 
       # The flag mapping of a bitwise column.
-      # @param klass [Class] A class, which may or may not declare bitwise columns. (Declared +T.untyped+ for
-      #   the same reason as in {bitwise?}.)
+      # @param klass [Class] A class, which may or may not declare bitwise columns. (Declared +T.untyped+: the
+      #   class is duck-typed, any class with a public +bitwise_definitions+ qualifies, which no static type
+      #   can express.)
       # @param attribute [Symbol, String] The column.
       # @return [Hash{Symbol => Integer}, nil] Nil when +klass+ declares no such bitwise column.
       sig { params(klass: T.untyped, attribute: Types::Name).returns(T.nilable(Types::Positions)) }

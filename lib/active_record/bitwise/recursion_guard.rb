@@ -31,7 +31,7 @@ module ActiveRecord
       def self.run(&blk)
         thread = Thread.current
         depth = thread[KEY] || 0
-        raise Error, 'System recursion limit exceeded in deserialize' if depth >= LIMIT
+        raise Error, 'System recursion limit exceeded in deserialize' if depth == LIMIT
 
         nested(thread, depth, blk)
       end

@@ -3,6 +3,7 @@
 
 require 'active_record'
 require 'active_record/bitwise/declaration'
+require 'active_record/bitwise/mapping'
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
 
@@ -39,19 +40,18 @@ module ActiveRecord
         # @return [void]
         sig { void }
         def call
-          definitions = @model.bitwise_definitions
-          definitions.each { |column, config| check(column, config) unless config.fetch(:validated) }
-          @model.instance_variable_set(MEMO, true) if complete?(definitions)
+          @model.bitwise_definitions.each { |column, config| check(column, config) unless config.fetch(:validated) }
+          @model.instance_variable_set(MEMO, true) if complete?
         end
 
         private
 
-        # Whether the model declares bitwise columns and all of them are validated.
-        # @param definitions [Hash{Symbol => Hash}] The bitwise definitions of the model.
+        # Whether the model declares bitwise columns and all of them are validated (the set of their
+        # validation states is exactly {true}).
         # @return [Boolean]
-        sig { params(definitions: T::Hash[Symbol, Declaration::Definition]).returns(T::Boolean) }
-        def complete?(definitions)
-          definitions.present? && definitions.each_value.all? { |config| config.fetch(:validated) }
+        sig { returns(T::Boolean) }
+        def complete?
+          @model.bitwise_definitions.each_value.to_set { |config| config.fetch(:validated) } == Set[true]
         end
 
         # Validates one column; a database that cannot be inspected yet leaves it unvalidated.
@@ -81,22 +81,22 @@ module ActiveRecord
             raise ArgumentError, "Bitwise column #{column} must be an integer database column"
           end
 
-          verify_fit(column, config.fetch(:mapping).values, database_column.limit || 4)
+          verify_fit(column, Mapping.highest_position(config.fetch(:mapping)), database_column.limit || 4)
           config[:validated] = true
         end
 
         # @param column [Symbol]
-        # @param positions [Array<Integer>] The bit positions of the mapping.
+        # @param position [Integer] The highest bit position of the mapping (-1 for an empty mapping).
         # @param bytes [Integer] The byte limit of the database column (4 when it reports none).
-        # @raise [ArgumentError] When a position does not fit.
+        # @raise [ArgumentError] When +position+ does not fit.
         # @return [void]
-        sig { params(column: Symbol, positions: T::Array[Integer], bytes: Integer).void }
-        def verify_fit(column, positions, bytes)
+        sig { params(column: Symbol, position: Integer, bytes: Integer).void }
+        def verify_fit(column, position, bytes)
           capacity = CAPACITY.fetch(bytes, DEFAULT_CAPACITY)
-          return if positions.all? { |position| position < capacity }
+          return if position < capacity
 
           raise ArgumentError, "Bitwise column #{column} has limit of #{bytes} bytes (max #{capacity} flags), " \
-                               "but mapping requires bit shift position #{positions.max}."
+                               "but mapping requires bit shift position #{position}."
         end
       end
     end
