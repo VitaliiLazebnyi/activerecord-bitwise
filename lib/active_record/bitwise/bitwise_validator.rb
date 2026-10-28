@@ -47,7 +47,10 @@ class BitwiseValidator < ActiveModel::EachValidator
     return [] unless definition
 
     names = definition.fetch(:mapping).keys.map(&:to_s)
-    Array(value).map(&:to_s).reject { |name| name.empty? || names.include?(name) }
+    Array(value).filter_map do |element|
+      name = element.to_s
+      name unless name.empty? || names.include?(name)
+    end
   end
 
   # Builds the default error message, truncating both the number of reflected
