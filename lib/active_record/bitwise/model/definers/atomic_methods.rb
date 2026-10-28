@@ -73,7 +73,7 @@ module ActiveRecord
             plural = "#{operation}_#{column_name}!"
             return if plural == implementation
 
-            model.define_method(plural) { |*values| T.unsafe(self).public_send(implementation, *values) }
+            model.define_method(plural) { |*values| T.unsafe(self).send(implementation, *values) } # rubocop:disable Style/Send -- as on main
           end
           private_class_method :define_instance_methods
 

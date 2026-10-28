@@ -26,28 +26,45 @@ module ActiveRecord
         private_constant :DEFAULT_MAX_BITS
 
         # Validates (lazily, on first initialization) that every bitwise column is an
-        # integer column whose byte limit can hold the highest mapped bit position. A
-        # definition that checked out once is never examined again.
+        # integer column whose byte limit can hold the highest mapped bit position.
         # @return [void]
         sig { void }
         def _validate_bitwise_column_type_and_bounds
-          _bitwise_model.bitwise_definitions.each do |column, config|
-            _bitwise_validate_definition(column, config) unless config.fetch(:validated)
+          return if _bitwise_columns_validated?
+
+          results = _bitwise_model.bitwise_definitions.map do |column, config|
+            _bitwise_validate_definition(column, config)
           end
+          return unless results.all? && !_bitwise_model.bitwise_definitions.empty?
+
+          _bitwise_model.instance_variable_set(:@_bitwise_columns_validated, true)
         end
 
-        # Validates a single definition. Configuration errors (ArgumentError) are
-        # re-raised; any other failure (e.g. database unavailable) is tolerated so
-        # that validation is retried on the next initialization.
+        # Whether the class-level flag and every definition already record a successful check.
+        # @return [Boolean]
+        sig { returns(T::Boolean) }
+        def _bitwise_columns_validated?
+          return false unless _bitwise_model.instance_variable_defined?(:@_bitwise_columns_validated) &&
+                              _bitwise_model.instance_variable_get(:@_bitwise_columns_validated)
+
+          _bitwise_model.bitwise_definitions.values.all? { |config| config[:validated] }
+        end
+
+        # Validates a single definition once. Configuration errors (ArgumentError) are
+        # re-raised; any other failure (e.g. database unavailable) is tolerated and
+        # reported so validation is retried on the next initialization.
         # @param column [Symbol]
         # @param config [T::Hash[Symbol, T.untyped]]
         # @raise [ArgumentError] When the column cannot hold the mapping.
-        # @return [void]
-        sig { params(column: Symbol, config: T::Hash[Symbol, T.untyped]).void }
+        # @return [Boolean] False when the check could not be completed.
+        sig { params(column: Symbol, config: T::Hash[Symbol, T.untyped]).returns(T::Boolean) }
         def _bitwise_validate_definition(column, config)
-          _bitwise_check_definition(column, config)
-        rescue StandardError => e
-          raise if e in ArgumentError
+          _bitwise_check_definition(column, config) unless config[:validated]
+          true
+        rescue ArgumentError
+          raise
+        rescue StandardError
+          false
         end
 
         # Checks one definition against the database schema (when reachable).
@@ -61,8 +78,7 @@ module ActiveRecord
           return unless klass.connection.active? && klass.table_exists?
 
           db_column = ColumnValidation.integer_column(klass, column)
-          highest = config.fetch(:mapping).values.max
-          ColumnValidation.check_capacity(column, db_column.limit, highest) if highest
+          ColumnValidation.check_capacity(column, db_column.limit, config[:mapping].values.max || 0)
           config[:validated] = true
         end
 

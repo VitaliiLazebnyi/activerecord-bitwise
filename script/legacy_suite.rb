@@ -3,11 +3,7 @@
 
 # Runs the ORIGINAL spec files of this gem (as they were on `main` before the test and
 # refactoring pass) against the current `lib/`, to prove that behavior did not change.
-#
-# Every example of the original suite must pass, except the ones listed in
-# script/legacy_suite_expected_failures.txt: those assert private implementation details
-# that were removed on purpose (each entry says why). The task fails when any other example
-# fails, and also when a listed example starts passing (so the list cannot go stale).
+# Every example of the original suite must pass; there is no list of tolerated failures.
 
 require 'fileutils'
 require 'json'
@@ -15,6 +11,8 @@ require 'open3'
 
 # The last commit of `main` before the pass; its spec directory is the original suite.
 ORIGINAL_COMMIT = '7f2f61bd8b9e7ef0f6f176c48acbf471ea6dcf97'
+# How many examples that suite has; fewer would mean part of it silently stopped running.
+ORIGINAL_EXAMPLES = 149
 
 root = File.expand_path('..', __dir__)
 work = File.join(root, 'tmp', 'legacy')
@@ -41,13 +39,8 @@ report = JSON.parse(File.read(result))
 failed = report.fetch('examples').filter_map do |example|
   example.fetch('full_description') if example.fetch('status') == 'failed'
 end
-expected = File.readlines(File.join(root, 'script', 'legacy_suite_expected_failures.txt'), chomp: true)
-               .reject { |line| line.empty? || line.start_with?('#') }
-
-unexpected = failed - expected
-stale = expected - failed
-puts "Original suite: #{report.dig('summary', 'example_count')} examples, #{failed.size} failing " \
-     "(#{expected.size} expected)"
-unexpected.each { |name| warn "UNEXPECTED FAILURE: #{name}" }
-stale.each { |name| warn "EXPECTED FAILURE NOW PASSES (remove it from the list): #{name}" }
-exit(unexpected.empty? && stale.empty? ? 0 : 1)
+puts "Original suite: #{report.dig('summary', 'example_count')} examples, #{failed.size} failing"
+failed.each { |name| warn "FAILURE: #{name}" }
+errors = Integer(report.dig('summary', 'errors_outside_of_examples_count') || 0)
+warn "#{errors} error(s) outside of examples (the suite did not load)" if errors.positive?
+exit(failed.empty? && errors.zero? && report.dig('summary', 'example_count') == ORIGINAL_EXAMPLES ? 0 : 1)

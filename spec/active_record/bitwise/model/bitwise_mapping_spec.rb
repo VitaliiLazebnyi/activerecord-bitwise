@@ -65,6 +65,21 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
     end
   end
 
+  context 'with a mapping that is neither Hash nor Array and Sorbet runtime checks are off' do
+    around do |example|
+      handler = T::Configuration.instance_variable_get(:@call_validation_error_handler)
+      T::Configuration.call_validation_error_handler = ->(*) {}
+      example.run
+    ensure
+      T::Configuration.call_validation_error_handler = handler
+    end
+
+    it 'still raises its own ArgumentError' do
+      expect { define.call('not a mapping') }
+        .to raise_error(ArgumentError, 'Mapping must be a Hash or an Array')
+    end
+  end
+
   context 'with two keys sharing one bit position' do
     it 'raises ConfigurationError listing the mapping' do
       expect { define.call({ a: 1, b: 1 }) }.to raise_error(

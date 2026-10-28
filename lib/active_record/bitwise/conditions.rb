@@ -102,7 +102,7 @@ module ActiveRecord
           .returns(Types::Flags)
       end
       def self.known_flags(typecaster, value, column_name, advice)
-        casted = T.must(typecaster.cast(value))
+        casted = typecaster.cast(value) || []
         unknown = casted.reject { |flag| typecaster.mapping_strings.include?(flag.to_s) }
         return casted if unknown.empty?
 

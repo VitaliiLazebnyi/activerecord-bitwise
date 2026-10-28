@@ -70,17 +70,20 @@ module ActiveRecord
 
         # Builds the `{Symbol => position}` pairs of a Hash or Array mapping.
         # @param column_name [T.any(Symbol, String)]
-        # @param mapping [T.any(T::Hash[T.untyped, T.untyped], T::Array[T.untyped])]
+        # @param mapping [T.untyped] Normally a Hash or an Array; anything else is rejected here even
+        #   when Sorbet's runtime signature checks are switched off.
+        # @raise [ArgumentError] When +mapping+ is neither a Hash nor an Array.
         # @return [T::Hash[Symbol, Integer]]
-        sig do
-          params(column_name: Types::Name,
-                 mapping: T.any(Types::Params, T::Array[T.untyped])).returns(Types::Positions)
-        end
+        sig { params(column_name: Types::Name, mapping: T.untyped).returns(Types::Positions) }
         def self.entries(column_name, mapping)
-          if mapping in Array
-            mapping.each_with_index.to_h { |key, index| [key.to_sym, index] }
+          if mapping.is_a?(Array)
+            mapping.each_with_index.with_object({}) { |(key, idx), positions| positions[key.to_sym] = idx }
+          elsif mapping.is_a?(Hash)
+            mapping.each_with_object({}) do |(key, val), positions|
+              positions[key.to_sym] = position(column_name, key, val)
+            end
           else
-            mapping.to_h { |key, value| [key.to_sym, position(column_name, key, value)] }
+            raise ArgumentError, 'Mapping must be a Hash or an Array'
           end
         end
         private_class_method :entries

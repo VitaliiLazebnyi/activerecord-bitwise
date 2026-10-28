@@ -13,7 +13,7 @@ module ActiveRecord
   module Bitwise
     # ActiveModel attribute type translating between an Array of flag names and the
     # integer bitmask stored in the database.
-    class Type < ActiveRecord::Type::Value
+    class Type < ActiveRecord::Type::Value # rubocop:disable Metrics/ClassLength -- cohesive type handler (main disabled it too)
       extend T::Sig
 
       # The column name associated with this type.
@@ -53,7 +53,7 @@ module ActiveRecord
       def initialize(column_name, mapping, default)
         @column_name = T.let(column_name.to_sym, Symbol)
         @mapping = mapping
-        @default = T.let(Array(default), Types::Flags)
+        @default = T.let(default || [], Types::Flags)
         @known_mask = T.let(RawMask.known_mask(mapping), Integer)
         @mapping_strings = T.let(RawMask.names(mapping), T::Array[String])
         @empty_value = T.let(RawMask.empty, Types::Flags)
@@ -68,11 +68,12 @@ module ActiveRecord
       sig { override.params(value: T.untyped).returns(T.nilable(Types::Flags)) }
       def cast(value)
         return nil if value.nil?
-        return deserialize(value) if RawMask.integer?(value)
-        return value if value.frozen? && RawMask.stamped?(value)
+        return deserialize(value) if value.is_a?(Integer)
+        return value if value.is_a?(Array) && value.frozen? && value.instance_variable_defined?(:@_bitwise_raw_value)
 
         assert_castable(value)
-        return deserialize(value) if bitmask_string?(value)
+        # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
+        return deserialize(value.to_i) if bitmask_string?(value) # rubocop:disable Lint/NumberConversion -- bitmask_string? guarantees digits only
 
         build_flags(value)
       end
@@ -85,7 +86,11 @@ module ActiveRecord
       # @return [T::Array[T.any(Symbol, String)]] The array of symbols/strings represented by the bitmask.
       sig { override.params(value: T.untyped).returns(Types::Flags) }
       def deserialize(value)
-        RecursionGuard.run { value.nil? ? @empty_value : decode(value) }
+        RecursionGuard.run do
+          next @empty_value if value.nil?
+
+          value.is_a?(Array) ? decode_array(value) : decode_mask(value.to_i) # rubocop:disable Lint/NumberConversion -- lenient coercion, as before the refactoring
+        end
       end
 
       # Serializes an array of symbols into a database integer bitmask, merging
@@ -95,9 +100,9 @@ module ActiveRecord
       sig { override.params(value: T.untyped).returns(T.nilable(Integer)) }
       def serialize(value)
         return nil if value.nil?
-        return value if RawMask.integer?(value)
+        return value if value.is_a?(Integer)
 
-        (RawMask.mask_of(value) & ~@known_mask) + mask_for(Array(value))
+        (marker_mask(value) & ~@known_mask) | mask_for(Array(value))
       end
 
       private
@@ -108,19 +113,17 @@ module ActiveRecord
       # @return [void]
       sig { params(value: T.untyped).void }
       def assert_castable(value)
-        return unless (value in Hash) || value == true || value == false
+        return unless value.is_a?(Hash) || value == true || value == false
 
-        raise ArgumentError, "cannot cast #{value} to a bitwise flag array for column #{column_name}"
+        raise ArgumentError, "cannot cast #{value.inspect} to a bitwise flag array for column #{column_name}"
       end
 
-      # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
+      # Whether +value+ is a bare numeric String that is not itself a flag name.
       # @param value [T.untyped]
-      # @return [Boolean]
-      sig { params(value: T.untyped).returns(T::Boolean) }
+      # @return [T.nilable(Boolean)]
+      sig { params(value: T.untyped).returns(T.nilable(T::Boolean)) }
       def bitmask_string?(value)
-        return false unless value in String
-
-        !@mapping_strings.include?(value) && value.match?(/\A\d+\z/)
+        value.is_a?(String) && !@mapping_strings.include?(value) && value.match?(/\A\d+\z/)
       end
 
       # Builds the frozen flag array for a list-like +value+, carrying over a raw marker.
@@ -129,13 +132,35 @@ module ActiveRecord
       # @return [T::Array[T.any(Symbol, String)]]
       sig { params(value: T.untyped).returns(Types::Flags) }
       def build_flags(value)
-        items = Array(value).reject { |item| item.nil? || item == '' }
-        raise ArgumentError, "Array size cannot exceed #{MAX_ARRAY_SIZE}" if items.size > MAX_ARRAY_SIZE
+        # Strip empty strings and nil
+        arr = Array(value).dup
+        arr.reject! { |item| item.nil? || item == '' }
 
-        flags = items.uniq(&:to_s)
-        flags.map! { |item| symbolize(item) }
-        RawMask.stamp(flags, RawMask.read(value)) if RawMask.stamped?(value)
-        flags.freeze
+        # Array RAM Exhaustion Defense: Ceil at MAX_ARRAY_SIZE elements
+        raise ArgumentError, "Array size cannot exceed #{MAX_ARRAY_SIZE}" if arr.size > MAX_ARRAY_SIZE
+
+        processed = arr.map! { |item| symbolize(item) }
+        processed.uniq!(&:to_s)
+        carry_marker(processed, value)
+        processed.freeze
+      end
+
+      # Preserves the raw bitmask marker of +source+ (when it has a truthy one) on +target+.
+      # @param target [T::Array[T.untyped]]
+      # @param source [T.untyped]
+      # @return [void]
+      sig { params(target: T::Array[T.untyped], source: T.untyped).void }
+      def carry_marker(target, source)
+        raw = (source.instance_variable_get(:@_bitwise_raw_value) if source.is_a?(Array) && stamped_array?(source))
+        target.instance_variable_set(:@_bitwise_raw_value, raw) if raw
+      end
+
+      # Whether +value+ carries a raw-bitmask marker.
+      # @param value [T::Array[T.untyped]]
+      # @return [Boolean]
+      sig { params(value: T::Array[T.untyped]).returns(T::Boolean) }
+      def stamped_array?(value)
+        value.instance_variable_defined?(:@_bitwise_raw_value)
       end
 
       # Mapped names become Symbols; everything else stays a String.
@@ -143,34 +168,52 @@ module ActiveRecord
       # @return [T.any(Symbol, String)]
       sig { params(item: T.untyped).returns(Types::Name) }
       def symbolize(item)
-        name = item.to_s
-        @mapping_strings.include?(name) ? name.to_sym : name
-      end
-
-      # Decodes a non-nil database value: an Array is re-wrapped, anything else is a bitmask.
-      # @param value [T.untyped]
-      # @return [Types::Flags]
-      sig { params(value: T.untyped).returns(Types::Flags) }
-      def decode(value)
-        (value in Array) ? restamp(value) : flags_for_mask(RawMask.integer(value))
+        val_str = item.to_s
+        @mapping_strings.include?(val_str) ? val_str.to_sym : val_str
       end
 
       # Re-wraps an Array input as a frozen flag array stamped with its raw mask.
       # @param value [T::Array[T.untyped]]
+      # @raise [Error] When the array cannot be cast.
       # @return [T::Array[T.any(Symbol, String)]]
       sig { params(value: T::Array[T.untyped]).returns(Types::Flags) }
-      def restamp(value)
-        raw = RawMask.stamped?(value) ? RawMask.read(value) : serialize(value)
-        RawMask.stamp(T.must(cast(value)).dup, raw).freeze
+      def decode_array(value)
+        raw = stamped_array?(value) ? value.instance_variable_get(:@_bitwise_raw_value) : serialize(value)
+        array = cast(value)
+        raise Error, 'Casting failed' if array.nil?
+
+        array_dup = array.dup
+        array_dup.instance_variable_set(:@_bitwise_raw_value, raw)
+        array_dup.freeze
       end
 
-      # The flags whose bits are set in +raw+, stamped with +raw+.
-      # @param raw [Integer]
+      # The flags whose bits are set in +raw_value+, stamped with +raw_value+.
+      # @param raw_value [Integer]
       # @return [T::Array[T.any(Symbol, String)]]
-      sig { params(raw: Integer).returns(Types::Flags) }
-      def flags_for_mask(raw)
-        flags = @mapping.select { |_name, position| raw.anybits?(1 << position) }.keys
-        RawMask.stamp(flags, raw).freeze
+      sig { params(raw_value: Integer).returns(Types::Flags) }
+      def decode_mask(raw_value)
+        array = []
+        @mapping.each do |sym, bit_position|
+          array << sym if raw_value.anybits?(1 << bit_position)
+        end
+
+        array.instance_variable_set(:@_bitwise_raw_value, raw_value)
+        array.freeze
+      end
+
+      # The unmapped bits carried by the raw-value marker of +value+ (0 when there is none).
+      # @param value [T.untyped]
+      # @return [Integer]
+      sig { params(value: T.untyped).returns(Integer) }
+      def marker_mask(value)
+        marker = value.is_a?(Array) && stamped_array?(value) ? value.instance_variable_get(:@_bitwise_raw_value) : 0
+        if marker.is_a?(Integer)
+          marker
+        elsif marker.respond_to?(:to_i) # rubocop:disable Lint/NumberConversion -- capability check, not a conversion
+          marker.to_i # rubocop:disable Lint/NumberConversion -- lenient coercion, as before the refactoring
+        else
+          0
+        end
       end
 
       # ORs the bit of every mapped flag in +values+.
@@ -178,10 +221,12 @@ module ActiveRecord
       # @return [Integer]
       sig { params(values: T::Array[T.untyped]).returns(Integer) }
       def mask_for(values)
-        values.reduce(0) do |mask, value|
-          name = value.to_s
-          @mapping_strings.include?(name) ? mask | (1 << T.must(@mapping[name.to_sym])) : mask
+        new_mask = 0
+        values.each do |val|
+          val_str = val.to_s
+          new_mask |= (1 << T.unsafe(@mapping[val_str.to_sym])) if @mapping_strings.include?(val_str)
         end
+        new_mask
       end
     end
   end

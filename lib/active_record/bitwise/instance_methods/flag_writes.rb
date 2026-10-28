@@ -24,10 +24,27 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Types::Name, key: Symbol, value: T.untyped).void }
         def _bitwise_assign_flag(column_name, key, value)
-          original = public_send(column_name)
-          flags = Array(original).dup # keeps the raw bitmask marker of +original+
-          BOOLEAN_TYPE.cast(value) ? flags << key : flags.delete(key)
-          public_send("#{column_name}=", flags)
+          enabled = BOOLEAN_TYPE.cast(value)
+          original_array = public_send(column_name)
+          current_values = Array(original_array).dup
+          _bitwise_carry_marker(original_array, current_values)
+          if enabled
+            current_values << key unless current_values.include?(key)
+          else
+            current_values.delete(key)
+          end
+          public_send("#{column_name}=", current_values)
+        end
+
+        # Copies the raw bitmask marker of +source+ (when it is a stamped Array) onto +target+.
+        # @param source [T.untyped]
+        # @param target [T::Array[T.untyped]]
+        # @return [void]
+        sig { params(source: T.untyped, target: T::Array[T.untyped]).void }
+        def _bitwise_carry_marker(source, target)
+          return unless source.is_a?(Array) && source.instance_variable_defined?(:@_bitwise_raw_value)
+
+          target.instance_variable_set(:@_bitwise_raw_value, source.instance_variable_get(:@_bitwise_raw_value))
         end
       end
     end

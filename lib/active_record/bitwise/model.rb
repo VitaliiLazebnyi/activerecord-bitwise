@@ -93,7 +93,7 @@ module ActiveRecord
         return if definitions.blank?
 
         T.unsafe(subclass).bitwise_definitions = definitions.transform_values do |config|
-          config.dup.tap { |copied| copied[:mapping] = config.fetch(:mapping).dup }
+          config.dup.tap { |copied| copied[:mapping] = config[:mapping].dup }
         end
       end
 
@@ -121,7 +121,7 @@ module ActiveRecord
                default: T.nilable(Types::Flags)).returns(Types::Flags)
       end
       def _bitwise_validated_defaults(column_name, mapping, default)
-        defaults = Array(default)
+        defaults = default || []
         names = mapping.keys.map(&:to_s)
         invalid = defaults.reject { |value| names.include?(value.to_s) }
         return defaults if invalid.empty?

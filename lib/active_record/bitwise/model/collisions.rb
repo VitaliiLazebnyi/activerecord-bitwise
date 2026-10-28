@@ -61,7 +61,7 @@ module ActiveRecord
         sig { params(model: T.untyped, column_name: Types::Name).returns(T::Array[String]) }
         def self.other_generated(model, column_name)
           model.bitwise_definitions.flat_map do |column, config|
-            column == column_name.to_sym ? [] : config.fetch(:generated_methods)
+            column == column_name.to_sym ? [] : Array(config[:generated_methods])
           end
         end
         private_class_method :other_generated

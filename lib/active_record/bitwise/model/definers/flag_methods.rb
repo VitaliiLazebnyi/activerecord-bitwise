@@ -73,7 +73,9 @@ module ActiveRecord
           def self.define_persister(model, method_name, column_name, key)
             model.define_method(method_name) do
               record = T.unsafe(self)
-              record._bitwise_assign_flag(column_name, key, true)
+              current_values = Array(record.public_send(column_name)).dup
+              current_values << key unless current_values.include?(key)
+              record.public_send("#{column_name}=", current_values)
               record.save!
             end
           end

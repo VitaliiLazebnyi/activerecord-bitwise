@@ -76,22 +76,19 @@ module ActiveRecord
         # @param value [T.untyped]
         # @return [T.untyped] The value to store in the attribute set.
         sig { params(column_name: Symbol, typecaster: ActiveRecord::Bitwise::Type, value: T.untyped).returns(T.untyped) }
-        def _bitwise_prepare_value(column_name, typecaster, value)
+        def _bitwise_prepare_value(column_name, typecaster, value) # rubocop:disable Metrics/MethodLength -- main's logic, unchanged
           current_raw = _bitwise_hydrate_raw_cache(column_name)
           casted = typecaster.cast(value)
-          return _bitwise_forget_raw(column_name) if casted.nil?
-          return _bitwise_adopt_raw(column_name, casted) if RawMask.stamped?(casted)
-
-          RawMask.stamp(casted.dup, current_raw).freeze
-        end
-
-        # Assigning nil clears the cached raw bitmask (intentionally dropping ghost bits).
-        # @param column_name [Symbol]
-        # @return [NilClass]
-        sig { params(column_name: Symbol).returns(NilClass) }
-        def _bitwise_forget_raw(column_name)
-          _bitwise_raw_cache[column_name] = 0
-          nil
+          if casted.nil?
+            _bitwise_raw_cache[column_name] = 0
+            nil
+          elsif casted.instance_variable_defined?(:@_bitwise_raw_value)
+            _bitwise_adopt_raw(column_name, casted, current_raw)
+          else
+            stamped = casted.dup
+            stamped.instance_variable_set(:@_bitwise_raw_value, current_raw)
+            stamped.freeze
+          end
         end
 
         # Adopts the raw marker carried by +casted+ (e.g. cast from an Integer). An integer
@@ -99,14 +96,13 @@ module ActiveRecord
         # old one; dirty tracking is forced so the raw value is actually persisted on save.
         # @param column_name [Symbol]
         # @param casted [T::Array[T.untyped]]
+        # @param current_raw [Integer] The cached raw bitmask before the assignment.
         # @return [T::Array[T.untyped]] +casted+.
-        sig { params(column_name: Symbol, casted: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-        def _bitwise_adopt_raw(column_name, casted)
-          cache = _bitwise_raw_cache
-          new_raw = RawMask.coerce(RawMask.read(casted))
-          # A non-zero difference means the integer assignment changed at least one bit.
-          attribute_will_change!(column_name) if (new_raw ^ cache.fetch(column_name)).nonzero?
-          cache[column_name] = new_raw
+        sig { params(column_name: Symbol, casted: T::Array[T.untyped], current_raw: Integer).returns(T::Array[T.untyped]) }
+        def _bitwise_adopt_raw(column_name, casted, current_raw)
+          new_raw = _bitwise_coerce_raw(casted.instance_variable_get(:@_bitwise_raw_value))
+          attribute_will_change!(column_name.to_s) if new_raw != current_raw
+          _bitwise_raw_cache[column_name] = new_raw
           casted
         end
 
@@ -117,35 +113,56 @@ module ActiveRecord
         # @return [T.untyped]
         sig { params(attrs: T.untyped).returns(T.untyped) }
         def update_columns(attrs)
-          result = super(attrs.to_h { |key, value| [key, _bitwise_update_value(key, value)] })
-          attrs.each_key do |key|
-            _bitwise_sync_raw_after_update(key.to_sym) if _bitwise_typecaster(key.to_sym)
+          processed, bitwise_keys = _bitwise_stamp_updates(attrs)
+          result = super(processed)
+          bitwise_keys.each do |column_name|
+            typecaster = _bitwise_model.attribute_types[column_name.to_s]
+            _bitwise_raw_cache[column_name] = _bitwise_coerce_raw(typecaster.serialize(read_attribute(column_name)))
           end
           result
         end
 
-        # The value to persist for +key+ in {#update_columns}: values of bitwise columns go through
-        # the same preparation as ordinary writes (flag arrays keep forgotten bits, Integers and
-        # nil overwrite them); other columns are written verbatim.
-        # @param key [T.untyped]
-        # @param value [T.untyped]
-        # @return [T.untyped]
-        sig { params(key: T.untyped, value: T.untyped).returns(T.untyped) }
-        def _bitwise_update_value(key, value)
-          typecaster = _bitwise_typecaster(key.to_sym)
-          return value if typecaster.nil?
+        # Prepares the flag-array values of +attrs+ for {#update_columns}. Integers and nil are
+        # written verbatim (full overwrite / NULL); only flag arrays are stamped so the write
+        # preserves forgotten bits.
+        # @param attrs [T.untyped] The attributes given to +update_columns+.
+        # @return [[T.untyped, T::Array[Symbol]]] The attributes to write and the bitwise columns among them.
+        sig { params(attrs: T.untyped).returns([T.untyped, T::Array[Symbol]]) }
+        def _bitwise_stamp_updates(attrs) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength -- main's logic, unchanged
+          bitwise_keys = T.let([], T::Array[Symbol])
+          processed = attrs
+          attrs.each do |key, value|
+            column_name = key.to_sym
+            next unless _bitwise_model.bitwise_definitions.key?(column_name)
 
-          _bitwise_prepare_value(key.to_sym, typecaster, value)
+            typecaster = _bitwise_model.attribute_types[column_name.to_s]
+            next unless typecaster.is_a?(ActiveRecord::Bitwise::Type)
+
+            bitwise_keys << column_name
+            next if value.is_a?(Integer) || value.nil?
+
+            processed = processed.dup if processed.equal?(attrs)
+            processed[key] = _bitwise_prepare_value(column_name, typecaster, value)
+          end
+          [processed, bitwise_keys]
         end
 
-        # Refreshes the raw cache of +column_name+ from the value just written.
-        # @param column_name [Symbol]
-        # @return [void]
-        sig { params(column_name: Symbol).void }
-        def _bitwise_sync_raw_after_update(column_name)
-          typecaster = T.must(_bitwise_typecaster(column_name))
-          written = typecaster.serialize(read_attribute(column_name))
-          _bitwise_raw_cache[column_name] = RawMask.coerce(written)
+        # Duplicated records intentionally drop the source record's unmapped
+        # ("forgotten") bits: a dup is a new record and should only carry the flags
+        # visible in Ruby, never invisible legacy bits.
+        # @param other [T.untyped]
+        # @return [T.untyped]
+        sig { params(other: T.untyped).returns(T.untyped) }
+        def initialize_dup(other)
+          result = super
+          fresh = T.let({}, T::Hash[Symbol, Integer])
+          instance_variable_set(:@_bitwise_raw_values, fresh)
+          _bitwise_model.bitwise_definitions.each_key do |column_name|
+            fresh[column_name] = 0
+            value = read_attribute(column_name)
+            write_attribute(column_name, value.map { |v| v }) if value.is_a?(Array)
+          end
+          result
         end
       end
     end

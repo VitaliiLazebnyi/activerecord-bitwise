@@ -3,7 +3,6 @@
 
 require 'active_record/bitwise/instance_methods/model_access'
 require 'active_record/bitwise/instance_methods/raw_cache'
-require 'active_record/bitwise/raw_mask'
 require 'sorbet-runtime'
 
 module ActiveRecord
@@ -16,6 +15,7 @@ module ActiveRecord
 
         requires_ancestor { ActiveRecord::Base }
         requires_ancestor { ModelAccess }
+        requires_ancestor { RawCache }
         requires_ancestor { RawCache }
 
         # Shared implementation of the instance-level atomic methods
@@ -57,21 +57,13 @@ module ActiveRecord
         # @param column_name [Symbol]
         # @return [void]
         sig { params(column_name: Symbol).void }
-        def _bitwise_reload_locked(column_name)
-          raw = _bitwise_locked_raw(column_name)
-          _bitwise_raw_cache[column_name] = raw
-          write_attribute(column_name, raw)
-          clear_attribute_changes([column_name])
-        end
-
-        # Reads the persisted bitmask of +column_name+ under a row lock.
-        # @param column_name [Symbol]
-        # @return [Integer] The raw bitmask, 0 when the row no longer exists.
-        sig { params(column_name: Symbol).returns(Integer) }
-        def _bitwise_locked_raw(column_name)
-          record_id = id
-          flags = _bitwise_model.where(id: record_id).lock(true).pluck(column_name).first
-          RawMask.mask_of(flags)
+        def _bitwise_reload_locked(column_name) # rubocop:disable Metrics/AbcSize -- main's logic, unchanged
+          typecaster = _bitwise_model.attribute_types[column_name.to_s]
+          plucked = _bitwise_model.where(id: id).lock(true).pluck(column_name).first
+          new_raw = _bitwise_coerce_raw(typecaster.serialize(plucked))
+          _bitwise_raw_cache[column_name] = new_raw
+          write_attribute(column_name, typecaster.deserialize(new_raw))
+          clear_attribute_changes([column_name.to_s]) if respond_to?(:clear_attribute_changes)
         end
       end
     end

@@ -95,6 +95,15 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#deserialize' do
     end
   end
 
+  context 'when an Array cannot be cast' do
+    it 'raises a descriptive error instead of returning nil' do
+      # No real input makes #cast return nil for an Array, so the guard can only be reached with a stub.
+      allow(type).to receive(:cast).and_return(nil) # rubocop:disable RSpec/SubjectStub -- see above
+
+      expect { type.deserialize([:admin]) }.to raise_error(ActiveRecord::Bitwise::Error, 'Casting failed')
+    end
+  end
+
   context 'when called re-entrantly while decoding' do
     it 'allows one level of nesting' do
       expect(type.deserialize(ReentrantBitmask.new(type, 1))).to eq([:admin])

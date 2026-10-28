@@ -48,40 +48,34 @@ module ActiveRecord
         sig { params(column_name: Symbol).returns(Integer) }
         def _bitwise_hydrate_raw_cache(column_name)
           cache = _bitwise_raw_cache
-          cache[column_name] ||= RawMask.extract(read_attribute_before_type_cast(column_name))
-          T.must(cache[column_name])
+          unless cache.key?(column_name)
+            raw_before = read_attribute_before_type_cast(column_name)
+            marked = raw_before.is_a?(Array) && raw_before.instance_variable_defined?(:@_bitwise_raw_value)
+            raw = marked ? raw_before.instance_variable_get(:@_bitwise_raw_value) : raw_before
+            cache[column_name] = _bitwise_coerce_raw(raw)
+          end
+          T.unsafe(cache[column_name])
+        end
+
+        # Coerces an arbitrary raw marker into an Integer bitmask (0 when impossible).
+        # @param value [T.untyped]
+        # @return [Integer]
+        sig { params(value: T.untyped).returns(Integer) }
+        def _bitwise_coerce_raw(value)
+          if value.is_a?(Integer)
+            value
+          elsif value.respond_to?(:to_i) # rubocop:disable Lint/NumberConversion -- capability check, as on main
+            T.unsafe(value).to_i # rubocop:disable Lint/NumberConversion -- lenient coercion, as on main
+          else
+            0
+          end
         end
 
         # Resets the raw bitmask cache after every save.
         # @return [void]
         sig { void }
         def _reset_bitwise_raw_value_caches
-          clear_bitwise_raw_values_cache!
-        end
-
-        # Duplicated records intentionally drop the source record's unmapped
-        # ("forgotten") bits: a dup is a new record and should only carry the flags
-        # visible in Ruby, never invisible legacy bits.
-        # @param other [T.untyped]
-        # @return [T.untyped]
-        sig { params(other: T.untyped).returns(T.untyped) }
-        def initialize_dup(other)
-          result = super
-          clear_bitwise_raw_values_cache!
-          _bitwise_model.bitwise_definitions.each_key do |column_name|
-            _bitwise_raw_cache[column_name] = 0
-            _bitwise_copy_flags(column_name)
-          end
-          result
-        end
-
-        # Re-assigns the visible flags of +column_name+ so the duplicate owns a fresh array.
-        # @param column_name [Symbol]
-        # @return [void]
-        sig { params(column_name: Symbol).void }
-        def _bitwise_copy_flags(column_name)
-          flags = read_attribute(column_name)
-          write_attribute(column_name, [*flags]) if flags in Array
+          instance_variable_set(:@_bitwise_raw_values, {})
         end
       end
     end
