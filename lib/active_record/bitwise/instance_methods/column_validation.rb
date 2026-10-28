@@ -10,6 +10,9 @@ module ActiveRecord
       # for its mapping.
       module ColumnValidation
         extend T::Sig
+        extend T::Helpers
+
+        requires_ancestor { Kernel }
 
         # Highest usable bit position count (signed) per integer column byte limit.
         MAX_BITS_BY_LIMIT = T.let({ 1 => 7, 2 => 15, 4 => 31, nil => 31, 8 => 63 }.freeze,
@@ -61,7 +64,7 @@ module ActiveRecord
           _bitwise_check_definition(column, config) unless config[:validated]
           true
         rescue StandardError => e
-          Kernel.raise if e.is_a?(ArgumentError)
+          raise if e.is_a?(ArgumentError)
 
           false
         end
@@ -91,7 +94,7 @@ module ActiveRecord
           db_column = klass.columns_hash[column.to_s]
           return db_column if db_column&.type == :integer
 
-          Kernel.raise ArgumentError, "Bitwise column #{column} must be an integer database column"
+          raise ArgumentError, "Bitwise column #{column} must be an integer database column"
         end
 
         # Verifies the highest bit position fits the column's byte limit.
@@ -105,9 +108,9 @@ module ActiveRecord
           max_bits = MAX_BITS_BY_LIMIT.fetch(limit, DEFAULT_MAX_BITS)
           return if position < max_bits
 
-          Kernel.raise ArgumentError,
-                       "Bitwise column #{column} has limit of #{limit || 4} bytes (max #{max_bits} flags), " \
-                       "but mapping requires bit shift position #{position}."
+          raise ArgumentError,
+                "Bitwise column #{column} has limit of #{limit || 4} bytes (max #{max_bits} flags), " \
+                "but mapping requires bit shift position #{position}."
         end
       end
     end

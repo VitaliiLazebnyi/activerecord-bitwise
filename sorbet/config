@@ -12,3 +12,4 @@ doc/
 .yardoc/
 --ignore
 tmp/
+--enable-experimental-requires-ancestor

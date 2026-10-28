@@ -117,7 +117,13 @@ RSpec.configure do |config|
   # Behavior specified through the public model API (macro, flags, scopes, atomic updates,
   # dirty tracking, ...) exercises many internal modules, so those examples are offered to
   # every subject of the gem; the validator keeps its own, narrower mapping.
-  config.define_derived_metadata(file_path: %r{/spec/(active_record/bitwise/(model|instance_methods|relation_extension|where_chain_extension)|features)/}) do |metadata|
+  model_level_specs = %r{
+    /spec/(
+      active_record/bitwise/(model|instance_methods|relation_extension|where_chain_extension)|
+      features
+    )/
+  }x
+  config.define_derived_metadata(file_path: model_level_specs) do |metadata|
     metadata[:mutant_expression] = 'ActiveRecord::Bitwise*'
   end
 

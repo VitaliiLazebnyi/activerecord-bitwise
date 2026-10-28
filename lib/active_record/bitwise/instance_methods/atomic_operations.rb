@@ -10,6 +10,9 @@ module ActiveRecord
       # Instance-level implementation of the atomic `add_<singular>!` / `remove_<singular>!` methods.
       module AtomicOperations
         extend T::Sig
+        extend T::Helpers
+
+        requires_ancestor { Kernel }
 
         # Shared implementation of the instance-level atomic methods
         # (`add_<singular>!` / `remove_<singular>!`).
@@ -25,8 +28,8 @@ module ActiveRecord
         sig { params(column_name: Symbol, operation: Symbol, values: T::Array[T.untyped]).void }
         def _bitwise_atomic_update!(column_name, operation, values)
           if T.unsafe(self).new_record?
-            Kernel.raise ActiveRecord::ActiveRecordError,
-                         "cannot atomically #{operation} #{column_name} on a new record; save the record first"
+            raise ActiveRecord::ActiveRecordError,
+                  "cannot atomically #{operation} #{column_name} on a new record; save the record first"
           end
 
           T.unsafe(self).class.transaction do

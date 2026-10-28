@@ -12,11 +12,14 @@ matcher:
     - BitwiseValidator*
 mutation:
   timeout: 20.0
-  # Sorbet type annotations (`sig { ... }` and `T.let(value, Type)`) are enforced by
-  # the static checker (`srb tc`), not by behavior; mutating the declared types
-  # produces survivors that no behavioral spec can or should kill.
+  # Sorbet type annotations are enforced by the static checker (`srb tc`), not by behavior:
+  # `sig { ... }` and `T.let(value, Type)` declare types, while `T.unsafe(x)` and `T.must(x)`
+  # are runtime identities (T.must only asserts non-nil). Mutating them produces survivors
+  # that no behavioral spec can or should kill.
   ignore_patterns:
     - block{receiver=send{selector=sig}}
     - send{selector=let}
+    - send{selector=unsafe}
+    - send{selector=must}
 coverage_criteria:
   process_abort: true

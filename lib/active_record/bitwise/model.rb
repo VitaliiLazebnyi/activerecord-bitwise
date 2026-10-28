@@ -43,6 +43,9 @@ module ActiveRecord
     #   Alias for remove_singular! (only generated when the singular differs from the column name).
     module Model
       extend T::Sig
+      extend T::Helpers
+
+      requires_ancestor { Kernel }
 
       # Defines bitwise attributes, getters, setters, scopes, and helper methods.
       # @param column_name [T.any(Symbol, String)] The database column name.
@@ -118,14 +121,14 @@ module ActiveRecord
                default: T.nilable(Types::Flags)).returns(Types::Flags)
       end
       def _bitwise_validated_defaults(column_name, mapping, default)
-        defaults = Kernel.Array(default)
+        defaults = Array(default)
         names = mapping.keys.map(&:to_s)
         invalid = defaults.reject { |value| names.include?(value.to_s) }
         return defaults if invalid.empty?
 
-        Kernel.raise ConfigurationError,
-                     "Bitwise column #{column_name} default contains values not present in the mapping: " \
-                     "#{invalid.map(&:to_s).inspect}"
+        raise ConfigurationError,
+              "Bitwise column #{column_name} default contains values not present in the mapping: " \
+              "#{invalid.map(&:to_s).inspect}"
       end
 
       # Checks for collisions, records the configuration and defines every generated method.

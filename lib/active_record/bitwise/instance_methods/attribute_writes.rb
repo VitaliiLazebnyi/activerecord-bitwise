@@ -12,6 +12,9 @@ module ActiveRecord
       # with the current raw bitmask, preserving "forgotten bits" on save.
       module AttributeWrites
         extend T::Sig
+        extend T::Helpers
+
+        requires_ancestor { Kernel }
 
         # Intercepts every attribute write (generated setters, `write_attribute`,
         # `self[:col] = ...`) so bitwise arrays are always stamped with the current

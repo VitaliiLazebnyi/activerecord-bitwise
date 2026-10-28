@@ -12,6 +12,9 @@ module ActiveRecord
       # saves write back unmapped ("forgotten") bits that the flag arrays cannot express.
       module RawCache
         extend T::Sig
+        extend T::Helpers
+
+        requires_ancestor { Kernel }
 
         # Manually clears the cached raw bitmask values.
         # @return [void]
