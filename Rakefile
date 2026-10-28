@@ -17,6 +17,11 @@ task :rubocop do
   sh 'bundle exec rubocop'
 end
 
+desc 'Fail on inline suppressions of any linter, scanner, type checker, warning or test'
+task :suppressions do
+  sh 'script/forbidden_suppressions.sh'
+end
+
 desc 'Generate the gem RBIs with Tapioca, then run the Sorbet type checker'
 task :typecheck do
   sh({ 'BUNDLE_GEMFILE' => 'gemfiles/typecheck.gemfile' }, 'bundle install --quiet && bundle exec tapioca gem')
@@ -62,4 +67,4 @@ task :legacy_suite do
   ruby 'script/legacy_suite.rb'
 end
 
-task default: %i[spec legacy_suite rubocop typecheck yard reek flay audit]
+task default: %i[spec legacy_suite rubocop suppressions typecheck yard reek flay audit]

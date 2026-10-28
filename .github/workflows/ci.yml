@@ -158,6 +158,8 @@ jobs:
     - name: Check the Ruby version
       run: script/check_ruby.sh
     - run: bundle exec rake rubocop
+    - name: Forbid inline suppressions
+      run: script/forbidden_suppressions.sh
 
   typecheck:
     name: Sorbet

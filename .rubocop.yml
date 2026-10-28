@@ -1,6 +1,6 @@
 # Maximum-strictness configuration. Every cop is run in "fail the build" mode.
 # New code has no exclusions: fix the code. A cop that cannot apply to a file is configured narrowly
-# below, with the reason. Inline `rubocop:disable` directives are forbidden (see
+# below, with the reason. Inline RuboCop directives are forbidden (see
 # Style/DisableCopsWithinSourceCodeDirective), and there is no todo file.
 plugins:
   - rubocop-md
