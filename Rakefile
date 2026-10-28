@@ -24,7 +24,7 @@ end
 
 desc 'Generate the gem RBIs with Tapioca, then run the Sorbet type checker'
 task :typecheck do
-  sh({ 'BUNDLE_GEMFILE' => 'gemfiles/typecheck.gemfile' }, 'bundle install --quiet && bundle exec tapioca gem')
+  sh 'env BUNDLE_GEMFILE=gemfiles/typecheck.gemfile sh -c "bundle install --quiet && bundle exec tapioca gem"'
   sh 'bundle exec srb tc'
 end
 
