@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.2", "3.3", "3.4", "4.0"]
+        ruby: ["3.3.13", "3.4.12", "4.0.9"]
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -33,6 +33,10 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
+    - name: Check the Ruby version
+      env:
+        EXPECTED_RUBY: ${{ matrix.ruby }}
+      run: script/check_ruby.sh "$EXPECTED_RUBY"
     # SimpleCov enforces minimum_coverage 100 (line + branch) and fails the run below it.
     - name: RSpec with the 100% line + branch coverage gate
       run: bundle exec rspec
@@ -56,8 +60,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "3.3"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rspec
 
   # Run the suite against a real PostgreSQL server so row locking (FOR UPDATE)
@@ -69,7 +75,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: postgres:16@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+        image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
         env:
           POSTGRES_PASSWORD: postgres
         ports:
@@ -88,18 +94,28 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "3.4"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rspec
 
   test-mysql:
-    name: RSpec (MySQL)
+    name: RSpec (MySQL ${{ matrix.name }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: lts
+          image: mysql:lts@sha256:86b390ef642f89a0157d6215dee33ddc928b8b0ecab173117f56f6c40cb24eab
+        - name: latest
+          image: mysql:latest@sha256:7b16ec7caa94ca7e92f4c5ec287de69d2e8738db056ceb629022951a6f6d910b
     services:
       mysql:
-        image: mysql:8@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: bitwise_test
@@ -119,8 +135,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "3.4"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rspec
 
   lint:
@@ -135,8 +153,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rake rubocop
 
   typecheck:
@@ -151,8 +171,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rake typecheck
 
   docs:
@@ -167,8 +189,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rake yard
 
   smells:
@@ -183,8 +207,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rake reek flay
 
   # Behavior is unchanged: the spec files that were on `main` before the refactoring pass must
@@ -202,9 +228,31 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "3.3"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rake legacy_suite
+
+  # Every gem must be at its newest release, except those on the documented hold list
+  # (script/outdated_holds.yml), which quotes the upstream constraint that blocks each one.
+  outdated:
+    name: Outdated gems
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
+        bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake outdated
 
   build:
     name: Build gem
@@ -218,6 +266,8 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: gem build activerecord-bitwise.gemspec

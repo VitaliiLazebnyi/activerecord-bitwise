@@ -31,8 +31,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     # Pull requests only mutate subjects touched since the base branch (fast feedback);
     # pushes to main run the complete set of mutations. Any alive mutation fails the build.
     - name: Mutant (changed subjects)

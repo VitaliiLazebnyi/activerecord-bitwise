@@ -12,7 +12,7 @@ bundle install
 ## Before opening a pull request
 
 Every gate below runs in CI and fails the build on any violation (no warnings-only mode).
-The quality tooling needs Ruby 3.3+ (the Ruby 3.2 job only runs the test suite):
+Develop on the Ruby in `.ruby-version` (the gem supports Ruby 3.3+):
 
 ```bash
 bundle exec rspec          # tests; 100% line AND branch coverage is enforced

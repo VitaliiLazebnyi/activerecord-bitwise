@@ -28,8 +28,10 @@ jobs:
     # No dependency cache in the release pipeline: a poisoned cache must never reach a published gem.
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: false
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle install --jobs 4 --retry 3
     - run: bundle exec rake spec rubocop typecheck yard reek flay audit
 
@@ -48,8 +50,10 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: "4.0"
+        ruby-version: .ruby-version
         bundler-cache: false
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle install --jobs 4 --retry 3
 
     # Validate the tag format and require it to match the committed version.rb.

@@ -4,7 +4,7 @@ ActiveRecord::Bitwise is a Ruby on Rails gem providing the ability to store mult
 
 This is useful for `roles`, `permissions`, `preferences`, or `features` mappings where a record may have zero or multiple states concurrently, without requiring junction tables (`has_and_belongs_to_many`) or unstructured JSON/array column types.
 
-It supports **Ruby 3.2+** and **ActiveRecord 7.1+** (up to, and tested against, the 8.x series).
+It supports **Ruby 3.3+** and **ActiveRecord 7.1+** (up to, and tested against, the 8.x series).
 
 ## Installation
 
@@ -383,7 +383,7 @@ AR_VERSION="~> 7.1.0" bundle exec rspec
 
 ### Static Analysis, Type Checking and Security
 
-The quality tooling requires Ruby 3.3 or newer. Every task fails on any violation:
+Every task fails on any violation (the repository develops on the Ruby in `.ruby-version`):
 
 ```bash
 bundle exec rake rubocop    # RuboCop with rubocop-rspec, -performance, -rake, -sorbet, -thread_safety, -md

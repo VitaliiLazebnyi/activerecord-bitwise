@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Internal refactor of `lib/` into small single-purpose modules (types, mapping,
   collisions, definers, instance-method concerns). Public behavior is unchanged.
+- **Breaking:** the minimum supported Ruby is now 3.3 (`required_ruby_version >= 3.3.0`);
+  Ruby 3.2 is no longer supported or tested. ActiveRecord 7.1 to 8.x remain supported.
 - Development dependencies upgraded to their latest releases (SimpleCov 1.x,
-  rubocop-md 2.x, ...); the repository now targets Ruby 4.0.6 (`.ruby-version`) while the
-  gem still supports Ruby 3.2+ and ActiveRecord 7.1 to 8.x.
-- Quality tooling moved from the gemspec into the Gemfile's `:quality` group (Ruby 3.3+).
+  rubocop-md 2.x, ...); the repository develops on Ruby 4.0.9 (`.ruby-version`) and CI tests
+  Ruby 3.3, 3.4 and 4.0. All development tooling is declared as ordinary development
+  dependencies in the gemspec.
 
 ### Added
 

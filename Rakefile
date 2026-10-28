@@ -47,6 +47,11 @@ task :audit do
   sh 'bundle exec bundler-audit check --update'
 end
 
+desc 'Fail on outdated gems that are not on the documented hold list'
+task :outdated do
+  ruby 'script/outdated.rb'
+end
+
 desc 'Run mutation testing (see .mutant.yml)'
 task :mutant do
   sh 'bundle exec mutant run'
