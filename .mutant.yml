@@ -146,6 +146,8 @@ mutation:
     #   size from 1 to 8, with the exact error message);
     - case{value=send{selector=limit}}
     - or{left=send{selector=max}}
+    # * a String position that is not all digits reads as nil either way (`? value.to_i : nil`);
+    - if{condition=send{selector=match?}}
     # * a flag name already present is dropped by the `uniq` of the cast, and an unmapped name
     #   contributes `nil` to a `filter_map` either way;
     - if{condition=send{receiver=lvar{value=current_values} selector=include?}}
