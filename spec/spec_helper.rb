@@ -112,17 +112,13 @@ RSpec.configure do |config|
     mocks.verify_partial_doubles = true
   end
 
-  # Mutation testing maps examples to the code they verify by the constant a spec describes.
-  # Behavior specified through the public model API (macro, flags, scopes, atomic updates,
-  # dirty tracking, ...) exercises many internal modules, so those examples are offered to
-  # every subject of the gem; the validator keeps its own, narrower mapping.
-  model_level_specs = %r{
-    /spec/(
-      active_record/bitwise/(model|instance_methods|relation_extension|where_chain_extension)|
-      features
-    )/
-  }x
-  config.define_derived_metadata(file_path: model_level_specs) do |metadata|
+  # Mutation testing maps examples to the code they verify by the constant a spec describes, and for each
+  # subject only uses the examples of the most specific constant that has any. Behavior specified through
+  # the public model API (macro, flags, scopes, atomic updates, dirty tracking, ...) exercises every
+  # internal class, so a unit spec of one class must not hide those examples from that class's subjects:
+  # every example of the gem is offered to every subject of the gem. The validator keeps its own, narrower
+  # mapping.
+  config.define_derived_metadata(file_path: %r{/spec/(active_record|features)/}) do |metadata|
     metadata[:mutant_expression] = 'ActiveRecord::Bitwise*'
   end
 
