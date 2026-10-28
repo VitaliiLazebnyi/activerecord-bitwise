@@ -45,8 +45,9 @@ module ActiveRecord
       # @return [ActiveRecord::Bitwise::Declaration]
       sig { params(column: Symbol, definition: Definition).returns(Declaration) }
       def self.from(column, definition)
-        options = Options.new(default: definition[:default], prefix: definition[:prefix], suffix: definition[:suffix])
-        new(Layout.new(column, definition[:mapping]), options)
+        options = Options.new(default: definition.fetch(:default), prefix: definition.fetch(:prefix),
+                              suffix: definition.fetch(:suffix))
+        new(Layout.new(column, definition.fetch(:mapping)), options)
       end
 
       # @param layout [ActiveRecord::Bitwise::Layout] The flags of the column.
@@ -77,7 +78,7 @@ module ActiveRecord
       # @return [Hash{String => ActiveRecord::Bitwise::Flag}]
       sig { returns(T::Hash[String, Flag]) }
       def flags
-        layout.mapping.keys.to_h { |key| [method_name(key), Flag.new(column_name, key)] }
+        layout.mapping.to_h { |key, _position| [method_name(key), Flag.new(column_name, key)] }
       end
 
       # The attribute type of the column.
@@ -124,15 +125,12 @@ module ActiveRecord
       # The affix a +prefix:+/+suffix:+ option stands for.
       # @param option [Symbol, String, Boolean, nil] The option.
       # @param template [String] How the name is joined to the flag name.
-      # @return [String] The formatted name, or '' when the option is not usable.
-      sig { params(option: Options::Affix, template: String).returns(String) }
+      # @return [String, nil] The formatted name, or nil without an affix.
+      sig { params(option: Options::Affix, template: String).returns(T.nilable(String)) }
       def affix(option, template)
-        base = case option
-               in true then column_name.to_s.singularize
-               in Symbol | String then option.to_s
-               else return ''
-               end
-        format(template, base)
+        return unless option
+
+        format(template, (option in true) ? column_name.to_s.singularize : option)
       end
     end
   end

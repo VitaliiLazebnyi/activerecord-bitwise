@@ -16,13 +16,24 @@ module ActiveRecord
       # Defines the instance and class methods generated for a declared column: the getter, the per-flag
       # `flag?`, `flag=` and `flag!`, and the atomic `add_*!` / `remove_*!` methods.
       #
-      # The generated methods run with the record as +self+, which Sorbet cannot see, so they only forward
-      # (by name) to the type-checked helpers of {InstanceMethods}, where the behavior lives.
+      # The generated methods run with the record as +self+, which Sorbet cannot see (it types +self+ in a
+      # +define_method+ block as this module), so they only forward, by name, to the private type-checked
+      # helpers of {InstanceMethods}, where the behavior lives.
       module GeneratedMethods
         extend T::Sig
         extend T::Helpers
 
         requires_ancestor { T.class_of(ActiveRecord::Base) }
+
+        # The private record method behind the column getter ({InstanceMethods::RawCache}).
+        READ = :_bitwise_read
+        # The private record methods behind `flag?`, `flag=` and `flag!` ({InstanceMethods::FlagAccess}).
+        FLAG_QUERY = :_bitwise_flag_enabled?
+        FLAG_ASSIGN = :_bitwise_flag_assign
+        FLAG_SAVE = :_bitwise_flag_save
+        # The private record method behind the instance-level atomic methods ({InstanceMethods::AtomicOperations}).
+        ATOMIC_UPDATE = :_bitwise_atomic_update!
+        private_constant :READ, :FLAG_QUERY, :FLAG_ASSIGN, :FLAG_SAVE, :ATOMIC_UPDATE
 
         private
 
@@ -44,7 +55,7 @@ module ActiveRecord
         sig { params(declaration: Declaration).void }
         def _bitwise_define_getter(declaration)
           column = declaration.column
-          define_method(_bitwise_release(declaration.column_name)) { __send__(:_bitwise_read, column, super()) }
+          define_method(_bitwise_release(declaration.column_name)) { __send__(READ, column, super()) }
         end
 
         # Defines the per-flag `flag?`, `flag=`, and `flag!` methods.
@@ -61,7 +72,7 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, flag: Flag).void }
         def _bitwise_define_flag(name, flag)
-          define_method(_bitwise_release("#{name}?")) { __send__(:_bitwise_flag_enabled?, flag) }
+          define_method(_bitwise_release("#{name}?")) { __send__(FLAG_QUERY, flag) }
           _bitwise_define_flag_writers(name, flag)
         end
 
@@ -71,8 +82,8 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, flag: Flag).void }
         def _bitwise_define_flag_writers(name, flag)
-          define_method(_bitwise_release("#{name}=")) { |value| __send__(:_bitwise_flag_assign, flag, value) }
-          define_method(_bitwise_release("#{name}!")) { __send__(:_bitwise_flag_save, flag) }
+          define_method(_bitwise_release("#{name}=")) { |value| __send__(FLAG_ASSIGN, flag, value) }
+          define_method(_bitwise_release("#{name}!")) { __send__(FLAG_SAVE, flag) }
         end
 
         # Defines the class-level and instance-level atomic add/remove methods.
@@ -110,7 +121,7 @@ module ActiveRecord
             plan = atomic.plan(values, records)
             plan && where(id: plan.ids).update_all(plan.assignment(connection))
           end
-          singleton_class.__send__(:private, name)
+          private_class_method(name)
         end
 
         # Defines the public class-level atomic method that forwards to the private one.
@@ -123,31 +134,31 @@ module ActiveRecord
           define_singleton_method(name) { |*values, records:| __send__(update, values, records) }
         end
 
-        # Defines the instance-level atomic methods. When the column name is already singular
-        # (or uncountable), only one method is defined — defining an alias with the
-        # same name would overwrite the implementation and recurse infinitely.
+        # Defines the instance-level atomic methods: `add_<singular>!` and its alias `add_<column>!` (only one
+        # method when the column name is already singular, or uncountable).
         # @param operation [Symbol] Either :add or :remove.
         # @param column_name [Symbol, String] The database column name.
         # @return [void]
         sig { params(operation: Symbol, column_name: Types::Name).void }
         def _bitwise_define_instance_atomic(operation, column_name)
-          implementation = "#{operation}_#{column_name.to_s.singularize}!"
+          plural = column_name.to_s
+          singular = plural.singularize
+          implementation = :"#{operation}_#{singular}!"
           column = column_name.to_sym
           define_method(_bitwise_release(implementation)) do |*values|
-            __send__(:_bitwise_atomic_update!, column, operation, values)
+            __send__(ATOMIC_UPDATE, column, operation, values)
           end
-          _bitwise_define_atomic_alias("#{operation}_#{column_name}!", implementation)
+          _bitwise_define_atomic_alias(:"#{operation}_#{plural}!", implementation) unless singular.eql?(plural)
         end
 
-        # Defines +name+ as an alias of +implementation+, unless that is the same name.
-        # @param name [String] The method to define.
-        # @param implementation [String] The method it forwards to.
+        # Defines +name+ as an alias of +implementation+.
+        # @param name [Symbol] The method to define.
+        # @param implementation [Symbol] The method it aliases.
         # @return [void]
-        sig { params(name: String, implementation: String).void }
+        sig { params(name: Symbol, implementation: Symbol).void }
         def _bitwise_define_atomic_alias(name, implementation)
-          return if name == implementation
-
-          define_method(_bitwise_release(name)) { |*values| method(implementation).call(*values) }
+          _bitwise_release(name)
+          alias_method(name, implementation)
         end
       end
     end

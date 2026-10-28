@@ -87,6 +87,14 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     end
   end
 
+  context 'with a Hash subclass (HashWithIndifferentAccess, as Rails params produce)' do
+    it 'keeps the unmapped bits like a Hash does' do
+      model.where(id: ghosted.id).update_all(ActiveSupport::HashWithIndifferentAccess.new(roles: ['author']))
+
+      expect(raw_value(ghosted)).to eq(0b1_0000_0100)
+    end
+  end
+
   context 'with an unknown flag' do
     it 'raises UnknownValueError with the full explanation' do
       expect { model.update_all(roles: %i[admin bogus]) }.to raise_error(

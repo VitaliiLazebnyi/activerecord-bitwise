@@ -3,7 +3,6 @@
 
 require 'active_record'
 require 'active_record/bitwise/conditions'
-require 'active_record/bitwise/definitions'
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
 
@@ -26,7 +25,7 @@ module ActiveRecord
       # @return [Integer] The number of updated rows.
       sig { params(updates: Object).returns(Integer) }
       def update_all(updates)
-        return super unless updates.is_a?(Hash) && Definitions.bitwise?(klass)
+        return super unless updates.is_a?(Hash)
 
         super(Conditions.assignments(klass, updates))
       end
@@ -59,7 +58,7 @@ module ActiveRecord
       # @return [ActiveRecord::Relation]
       sig { params(args: Object).returns(ActiveRecord::Relation) }
       def not(*args)
-        args = Conditions.arguments(instance_variable_get(:@scope)&.klass, args)
+        args = Conditions.arguments(instance_variable_get(:@scope).klass, args)
         super
       end
     end

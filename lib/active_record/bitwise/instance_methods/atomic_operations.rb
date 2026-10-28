@@ -17,6 +17,8 @@ module ActiveRecord
         requires_ancestor { ActiveRecord::Base }
         requires_ancestor { RawCache }
 
+        private
+
         # Adds or removes flags of +column_name+ with one atomic UPDATE, then re-synchronizes the record.
         # @note The database update and read-back run inside a transaction with a
         #   row lock. If an *enclosing* transaction is later rolled back, the
@@ -30,14 +32,12 @@ module ActiveRecord
         sig { params(column_name: Symbol, operation: Symbol, values: T::Array[Object]).void }
         def _bitwise_atomic_update!(column_name, operation, values)
           if new_record?
-            raise ActiveRecord::ActiveRecordError,
+            raise ActiveRecordError,
                   "cannot atomically #{operation} #{column_name} on a new record; save the record first"
           end
 
-          self.class.transaction { _bitwise_apply(column_name, operation, values) }
+          transaction { _bitwise_apply(column_name, operation, values) }
         end
-
-        private
 
         # Runs the class-level atomic UPDATE (see {Model::GeneratedMethods}) for this record and reads the
         # result back.
@@ -59,10 +59,7 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Symbol, plucked: T.nilable(Object)).void }
         def _bitwise_store(column_name, plucked)
-          typecaster = self.class.attribute_types[column_name.to_s]
-          new_raw = _bitwise_coerce_raw(typecaster.serialize(plucked))
-          _bitwise_raw_cache[column_name] = new_raw
-          write_attribute(column_name, typecaster.deserialize(new_raw))
+          write_attribute(column_name, self.class.attribute_types.fetch(column_name.to_s).deserialize(plucked))
           _bitwise_settle(column_name)
         end
 
@@ -71,7 +68,7 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Symbol).void }
         def _bitwise_settle(column_name)
-          clear_attribute_changes([column_name.to_s]) if self.class.method_defined?(:clear_attribute_changes)
+          clear_attribute_changes([column_name])
         end
       end
     end

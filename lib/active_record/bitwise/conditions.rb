@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require 'active_record'
-require 'active_record/bitwise/definitions'
 require 'active_record/bitwise/errors'
 require 'active_record/bitwise/type'
 require 'active_record/bitwise/types'
@@ -57,12 +56,11 @@ module ActiveRecord
         # @return [Array<Symbol, String>]
         sig { params(refusal: String).returns(Types::Flags) }
         def flags(refusal)
-          casted = type.cast(value) || []
+          casted = type.flags(value)
           unknown = casted.reject { |flag| type.mapping_strings.include?(flag.to_s) }
           return casted if unknown.empty?
 
-          raise UnknownValueError,
-                "Unknown bitwise value(s) #{unknown.map(&:to_s).inspect} for column #{column}#{refusal}"
+          raise UnknownValueError, "Unknown bitwise value(s) #{unknown.map(&:to_s)} for column #{column}#{refusal}"
         end
       end
 
@@ -98,7 +96,7 @@ module ActiveRecord
         def target(column, key)
           return unless @hash.key?(key)
 
-          value = @hash[key]
+          value = @hash.fetch(key)
           type = @klass.attribute_types[column.to_s]
           Target.new(key, column, value, type) if !@skip.call(value) && type.is_a?(Type)
         end
@@ -123,17 +121,16 @@ module ActiveRecord
         changes.empty? ? hash : hash.merge(changes)
       end
 
-      # The arguments of a `where`/`not` call with their leading conditions hash serialized.
-      # @param klass [Class, nil] The model class of the relation (nil when there is none).
+      # The arguments of a `where`/`not` call with their conditions hash serialized. ActiveRecord ignores any
+      # argument after a conditions hash (only SQL strings take bind values), so only the hash is passed on.
+      # @param klass [Class] The model class of the relation.
       # @param args [Array<Object>] The arguments of the call.
       # @raise [UnknownValueError] When a flag is missing from the mapping.
-      # @return [Array<Object>] +args+, or a copy with the first argument replaced.
-      sig { params(klass: T.nilable(Types::ModelClass), args: T::Array[Object]).returns(T::Array[Object]) }
+      # @return [Array<Object>] +args+, or the serialized conditions hash alone.
+      sig { params(klass: Types::ModelClass, args: T::Array[Object]).returns(T::Array[Object]) }
       def self.arguments(klass, args)
         first = args.first
-        return args unless first.is_a?(Hash) && klass && Definitions.bitwise?(klass)
-
-        [serialize(klass, first), *args.drop(1)]
+        first.is_a?(Hash) ? [serialize(klass, first)] : args
       end
 
       # Rewrites the bitwise values of an `update_all` assignments hash into SQL expressions that keep
@@ -159,7 +156,7 @@ module ActiveRecord
       def self.assignment(klass, target)
         # serialize returns nil only for nil, and the flags are an Array.
         type = target.type
-        mask = T.must(type.serialize(Array.new(target.flags(REFUSAL))))
+        mask = type.mask(target.flags(REFUSAL))
         quoted = klass.connection.quote_column_name(target.column)
         Arel.sql("(COALESCE(#{quoted}, 0) & #{~type.known_mask}) | #{mask}")
       end

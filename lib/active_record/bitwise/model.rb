@@ -72,7 +72,6 @@ module ActiveRecord
         declaration = Declaration.new(layout, Options.parse(options))
         _bitwise_declare(declaration)
         _bitwise_define_methods(declaration)
-        nil
       end
 
       # Returns a copy of the mapping schema for the specified bitwise column.
@@ -80,7 +79,7 @@ module ActiveRecord
       # @return [Hash{Symbol => Integer}, nil]
       sig { params(col: Types::Name).returns(T.nilable(Types::Positions)) }
       def bitwise_schema(col)
-        bitwise_definitions.dig(col.to_sym, :mapping)&.dup
+        bitwise_definitions.dig(col.to_sym, :mapping).dup
       end
 
       # Gives every subclass its own deep copy of the bitwise definitions so a
@@ -95,7 +94,7 @@ module ActiveRecord
         return if definitions.blank?
 
         subclass.bitwise_definitions = definitions.transform_values do |config|
-          config.merge(mapping: config[:mapping].dup)
+          config.merge(mapping: config.fetch(:mapping).dup)
         end
       end
 
@@ -105,7 +104,7 @@ module ActiveRecord
       # @return [void]
       sig { params(base: T::Class[T.anything]).void }
       def self.extended(base)
-        return if base.singleton_class.method_defined?(:bitwise_definitions)
+        return if base.respond_to?(:bitwise_definitions)
 
         base.class_attribute :bitwise_definitions, default: {}
       end
@@ -141,7 +140,7 @@ module ActiveRecord
       # @return [Array<String>]
       sig { returns(T::Array[String]) }
       def _bitwise_attribute_names
-        table_exists? ? column_names : []
+        column_names
       rescue StandardError
         []
       end
@@ -150,7 +149,7 @@ module ActiveRecord
       # @return [void]
       sig { void }
       def _bitwise_install_instance_methods
-        return if self <= InstanceMethods
+        return if include?(InstanceMethods)
 
         include InstanceMethods
 

@@ -14,7 +14,7 @@ module ActiveRecord
       class ColumnValidation
         extend T::Sig
 
-        # Name of the class-level instance variable that remembers a completed validation.
+        # Name of the class-level instance variable that is set to true once every column is validated.
         MEMO = :@_bitwise_columns_validated
         private_constant :MEMO
 
@@ -32,56 +32,40 @@ module ActiveRecord
           @model = model
         end
 
-        # Validates the columns that are not validated yet. Columns of a missing table or a connection that
-        # is not usable stay unvalidated and are checked again on the next call.
+        # Validates the columns that are not validated yet, and records on the model when all of them are.
+        # Columns of a missing table or a connection that is not usable stay unvalidated and are checked
+        # again on the next call.
         # @raise [ArgumentError] When a column is not an integer column or too small for its mapping.
         # @return [void]
         sig { void }
         def call
-          return if memoized?
-
-          outcomes = unvalidated.map { |column, config| check(column, config) }
-          @model.instance_variable_set(MEMO, true) if outcomes.all? && definitions.present?
+          definitions = @model.bitwise_definitions
+          definitions.each { |column, config| check(column, config) unless config.fetch(:validated) }
+          @model.instance_variable_set(MEMO, true) if complete?(definitions)
         end
 
         private
 
-        # The bitwise definitions of the model.
-        # @return [Hash{Symbol => Hash}]
-        sig { returns(T::Hash[Symbol, Declaration::Definition]) }
-        def definitions
-          @model.bitwise_definitions
-        end
-
-        # The definitions of the columns that are not validated yet.
-        # @return [Hash{Symbol => Hash}]
-        sig { returns(T::Hash[Symbol, Declaration::Definition]) }
-        def unvalidated
-          definitions.reject { |_column, config| config[:validated] }
-        end
-
-        # Whether an earlier call validated every column of the model.
+        # Whether the model declares bitwise columns and all of them are validated.
+        # @param definitions [Hash{Symbol => Hash}] The bitwise definitions of the model.
         # @return [Boolean]
-        sig { returns(T::Boolean) }
-        def memoized?
-          return false unless @model.instance_variable_get(MEMO)
-
-          definitions.values.all? { |config| config[:validated] }
+        sig { params(definitions: T::Hash[Symbol, Declaration::Definition]).returns(T::Boolean) }
+        def complete?(definitions)
+          definitions.present? && definitions.each_value.all? { |config| config.fetch(:validated) }
         end
 
-        # Validates one column.
+        # Validates one column; a database that cannot be inspected yet leaves it unvalidated.
         # @param column [Symbol]
         # @param config [Hash] The definition of the column.
         # @raise [ArgumentError] When the column does not fit its mapping.
-        # @return [Boolean] False when the database could not be inspected.
-        sig { params(column: Symbol, config: Declaration::Definition).returns(T::Boolean) }
+        # @return [void]
+        sig { params(column: Symbol, config: Declaration::Definition).void }
         def check(column, config)
           verify(column, config)
-          true
         rescue ArgumentError
           raise
         rescue StandardError
-          false
+          nil
         end
 
         # Verifies the database column behind +column+ and flags it as validated.
@@ -97,22 +81,22 @@ module ActiveRecord
             raise ArgumentError, "Bitwise column #{column} must be an integer database column"
           end
 
-          verify_fit(column, config[:mapping].values.max || 0, database_column.limit || 4)
+          verify_fit(column, config.fetch(:mapping).values, database_column.limit || 4)
           config[:validated] = true
         end
 
         # @param column [Symbol]
-        # @param position [Integer] The highest bit position of the mapping.
+        # @param positions [Array<Integer>] The bit positions of the mapping.
         # @param bytes [Integer] The byte limit of the database column (4 when it reports none).
-        # @raise [ArgumentError] When +position+ does not fit.
+        # @raise [ArgumentError] When a position does not fit.
         # @return [void]
-        sig { params(column: Symbol, position: Integer, bytes: Integer).void }
-        def verify_fit(column, position, bytes)
+        sig { params(column: Symbol, positions: T::Array[Integer], bytes: Integer).void }
+        def verify_fit(column, positions, bytes)
           capacity = CAPACITY.fetch(bytes, DEFAULT_CAPACITY)
-          return if position < capacity
+          return if positions.all? { |position| position < capacity }
 
           raise ArgumentError, "Bitwise column #{column} has limit of #{bytes} bytes (max #{capacity} flags), " \
-                               "but mapping requires bit shift position #{position}."
+                               "but mapping requires bit shift position #{positions.max}."
         end
       end
     end

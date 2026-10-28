@@ -36,7 +36,7 @@ module ActiveRecord
         # @return [void]
         sig { void }
         def _reset_bitwise_raw_value_caches
-          instance_variable_set(IVAR, {})
+          clear_bitwise_raw_values_cache!
         end
 
         # Reloads the record, invalidating the raw bitmask cache first.
@@ -65,6 +65,8 @@ module ActiveRecord
           cache.fetch(column_name) { cache[column_name] = hydrated_raw(column_name) }
         end
 
+        private
+
         # The value of the column getter: the flag array, stamped with the raw bitmask of the column.
         # @param column [Symbol] The column.
         # @param value [Object, nil] What the attribute reader returned.
@@ -72,13 +74,11 @@ module ActiveRecord
         sig { params(column: Symbol, value: T.nilable(Object)).returns(T.nilable(Object)) }
         def _bitwise_read(column, value)
           raw = _bitwise_hydrate_raw_cache(column)
-          flags = (value in nil) ? self.class.attribute_types[column.to_s].deserialize(nil) : value
-          return flags unless flags.is_a?(Array) && !(flags.frozen? && RawMask.stamped?(flags))
+          flags = (value in nil) ? self.class.attribute_types.fetch(column.to_s).deserialize(nil) : value
+          return flags unless flags.is_a?(Array) && !RawMask.stamped?(flags)
 
           RawMask.stamp(flags.dup, raw).freeze
         end
-
-        private
 
         # The raw bitmask of +column_name+ as the attribute held it before the type cast.
         # @param column_name [Symbol]

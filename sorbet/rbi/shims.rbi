@@ -14,6 +14,10 @@ class ActiveRecord::Base
   end
   def self.bitwise_definitions=(value); end
 
+  # The instance reader that +class_attribute+ defines next to the class-level one.
+  sig { returns(T::Hash[Symbol, ActiveRecord::Bitwise::Declaration::Definition]) }
+  def bitwise_definitions; end
+
   # Instances report their model class, which carries the macros above.
   sig { returns(T.class_of(ActiveRecord::Base)) }
   def class; end

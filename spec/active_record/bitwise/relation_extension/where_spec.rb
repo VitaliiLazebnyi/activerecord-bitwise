@@ -37,11 +37,38 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#where' do
     end
   end
 
+  context 'when the attribute type of a bitwise column is a subclass of the bitwise type' do
+    before do
+      subclass_type = Class.new(ActiveRecord::Bitwise::Type).new(:roles, model.bitwise_schema(:roles), nil)
+      allow(model).to receive(:attribute_types).and_return({ roles: subclass_type }.transform_keys(&:to_s))
+    end
+
+    it 'serializes the condition' do
+      expect(names_in.call(model.where(roles: %i[admin author]))).to eq(%i[both])
+    end
+  end
+
+  context 'with a conditions Hash that has a default value' do
+    it 'serializes only the bitwise columns it contains' do
+      conditions = Hash.new([:admin]).merge(id: fixtures[:none].id)
+
+      expect(names_in.call(model.where(conditions))).to eq(%i[none])
+    end
+  end
+
   context 'with a String key' do
     it 'serializes the value the same way' do
       string_keyed = { roles: [:admin] }.transform_keys(&:to_s)
 
       expect(names_in.call(model.where(string_keyed))).to eq(%i[admin])
+    end
+  end
+
+  context 'with a Hash subclass (HashWithIndifferentAccess, as Rails params produce)' do
+    it 'serializes the value the same way' do
+      conditions = ActiveSupport::HashWithIndifferentAccess.new(roles: %i[admin author])
+
+      expect(names_in.call(model.where(conditions))).to eq(%i[both])
     end
   end
 

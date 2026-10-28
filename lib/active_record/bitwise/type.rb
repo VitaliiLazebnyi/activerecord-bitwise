@@ -71,8 +71,30 @@ module ActiveRecord
         case value
         in nil then nil
         in Integer then deserialize(value)
-        else cast_flags(value)
+        else flags(value)
         end
+      end
+
+      # Casts a value that is neither nil nor an Integer the way {#cast} does.
+      # @param value [Object] The value to cast.
+      # @raise [ArgumentError] When the value cannot be meaningfully cast (Hash, true, false)
+      #   or exceeds {MAX_ARRAY_SIZE} elements.
+      # @return [Array<Symbol, String>]
+      sig { params(value: Object).returns(Types::Flags) }
+      def flags(value)
+        case value
+        in Array => flags if flags.frozen? && RawMask.stamped?(flags) then flags
+        else cast_unstamped(value)
+        end
+      end
+
+      # The bitmask of the mapped flags in +flags+. Unlike {#serialize}, the unmapped bits a flag array
+      # carries are left out.
+      # @param flags [Array<Object>] Flag names.
+      # @return [Integer]
+      sig { params(flags: T::Array[Object]).returns(Integer) }
+      def mask(flags)
+        @layout.mask(flags)
       end
 
       # Deserializes a database integer value into an array of symbols or strings.
@@ -102,17 +124,6 @@ module ActiveRecord
 
       private
 
-      # Casts everything except nil and Integers.
-      # @param value [Object] The value to cast.
-      # @return [Array<Symbol, String>]
-      sig { params(value: Object).returns(Types::Flags) }
-      def cast_flags(value)
-        case value
-        in Array => flags if flags.frozen? && RawMask.stamped?(flags) then flags
-        else cast_unstamped(value)
-        end
-      end
-
       # Casts a value that is not nil, an Integer or an already stamped, frozen flag array.
       # @param value [Object] The value to cast.
       # @raise [ArgumentError] For a Hash, +true+ or +false+.
@@ -121,7 +132,7 @@ module ActiveRecord
       def cast_unstamped(value)
         case value
         in Hash | true | false
-          raise ArgumentError, "cannot cast #{value.inspect} to a bitwise flag array for column #{column_name}"
+          raise ArgumentError, "cannot cast #{value} to a bitwise flag array for column #{column_name}"
         # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
         in String => text if @layout.bitmask_string?(text) then deserialize(Integer(text, 10))
         else @layout.flags(value)

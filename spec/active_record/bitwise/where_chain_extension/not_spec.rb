@@ -34,6 +34,14 @@ RSpec.describe ActiveRecord::Bitwise::WhereChainExtension, '#not' do
     end
   end
 
+  context 'with a Hash subclass (HashWithIndifferentAccess, as Rails params produce)' do
+    it 'serializes the value the same way' do
+      conditions = ActiveSupport::HashWithIndifferentAccess.new(roles: %i[admin author])
+
+      expect(names_in.call(model.where.not(conditions))).to eq(%i[none admin author three])
+    end
+  end
+
   context 'with an unknown flag' do
     it 'raises UnknownValueError' do
       expect { model.where.not(roles: [:bogus]) }.to raise_error(

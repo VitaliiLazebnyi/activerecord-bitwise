@@ -28,7 +28,7 @@ module ActiveRecord
             .returns(Taken)
         end
         def self.for(definitions, attributes, column)
-          others = definitions.except(column).flat_map { |_name, config| Array(config[:generated_methods]) }
+          others = definitions.except(column).values.sum([]) { |config| config.fetch(:generated_methods, []) }
           new(core_methods, others, attributes, definitions)
         end
 
@@ -75,8 +75,7 @@ module ActiveRecord
         # @return [Array<Symbol>]
         sig { returns(T::Array[Symbol]) }
         def self.core_methods
-          base = ActiveRecord::Base
-          base.instance_methods + base.private_instance_methods + base.protected_instance_methods
+          Base.instance_methods + Base.private_instance_methods + Base.protected_instance_methods
         end
         private_class_method :core_methods
       end

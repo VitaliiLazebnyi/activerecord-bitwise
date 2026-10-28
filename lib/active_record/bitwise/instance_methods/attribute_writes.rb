@@ -95,7 +95,7 @@ module ActiveRecord
         def initialize_dup(other)
           result = super
           clear_bitwise_raw_values_cache!
-          self.class.bitwise_definitions.each_key { |column| _bitwise_detach(column) }
+          bitwise_definitions.each_key { |column| _bitwise_detach(column) }
           result
         end
 
@@ -106,8 +106,7 @@ module ActiveRecord
         # @return [ActiveRecord::Bitwise::Type, nil]
         sig { params(column: Symbol).returns(T.nilable(Type)) }
         def _bitwise_type(column)
-          klass = self.class
-          type = klass.attribute_types[column.to_s] if klass.bitwise_definitions.key?(column)
+          type = self.class.attribute_types[column.to_s]
           type if type.is_a?(Type)
         end
 
@@ -128,18 +127,7 @@ module ActiveRecord
             .returns(T::Hash[Types::Name, T.nilable(Object)])
         end
         def _bitwise_stamped(attrs, types)
-          types.to_h { |key, type| [key, _bitwise_stamp(key, type, attrs[key])] }
-        end
-
-        # The value to write for the bitwise column +key+. Integers and nil are written verbatim (full
-        # overwrite / NULL); only flag arrays are stamped so the write preserves forgotten bits.
-        # @param key [Symbol, String] The attribute name.
-        # @param type [ActiveRecord::Bitwise::Type] The bitwise type of the column.
-        # @param value [Object, nil] The assigned value.
-        # @return [Object, nil]
-        sig { params(key: Types::Name, type: Type, value: T.nilable(Object)).returns(T.nilable(Object)) }
-        def _bitwise_stamp(key, type, value)
-          (value in Integer | nil) ? value : _bitwise_prepare_value(key.to_sym, type, value)
+          types.to_h { |key, type| [key, _bitwise_prepare_value(key.to_sym, type, attrs.fetch(key))] }
         end
 
         # Re-reads the raw bitmask of +column+ after a direct write.
@@ -156,7 +144,7 @@ module ActiveRecord
         # @return [nil]
         sig { params(column_name: Symbol).returns(NilClass) }
         def _bitwise_forget(column_name)
-          _bitwise_raw_cache[column_name] = 0
+          _bitwise_raw_cache.store(column_name, 0)
           nil
         end
 
@@ -171,7 +159,7 @@ module ActiveRecord
           # An integer assignment can change only unmapped bits, leaving the flag
           # array equal to the old one; force dirty tracking so the raw value is
           # actually persisted on save.
-          __send__(:attribute_will_change!, column_name.to_s) if new_raw != cache.fetch(column_name)
+          attribute_will_change!(column_name) unless new_raw.eql?(cache.fetch(column_name))
           cache[column_name] = new_raw
           casted
         end
@@ -183,7 +171,7 @@ module ActiveRecord
         def _bitwise_detach(column)
           _bitwise_raw_cache[column] = 0
           value = read_attribute(column)
-          write_attribute(column, Array.new(value)) if value.is_a?(Array)
+          write_attribute(column, Array.new(value)) if value in Array
         end
       end
     end

@@ -18,6 +18,25 @@ module ActiveRecord
         requires_ancestor { ActiveRecord::Base }
         requires_ancestor { Object }
 
+        # The current flags of a column.
+        # @param column_name [Symbol, String]
+        # @return [Array<Object>]
+        sig { params(column_name: Types::Name).returns(T::Array[Object]) }
+        def _bitwise_flags(column_name)
+          Array(public_send(column_name))
+        end
+
+        # Assigns +flags+ through the column setter.
+        # @param writer [String] The name of the setter.
+        # @param flags [Array<Object>]
+        # @return [void]
+        sig { params(writer: String, flags: T::Array[Object]).void }
+        def _bitwise_flags_write(writer, flags)
+          public_send(writer, flags)
+        end
+
+        private
+
         # Whether the flag is set.
         # @param flag [ActiveRecord::Bitwise::Flag]
         # @return [Boolean]
@@ -46,23 +65,6 @@ module ActiveRecord
         def _bitwise_flag_save(flag)
           flag.set(self)
           save!
-        end
-
-        # The current flags of a column.
-        # @param column_name [Symbol, String]
-        # @return [Array<Object>]
-        sig { params(column_name: Types::Name).returns(T::Array[Object]) }
-        def _bitwise_flags(column_name)
-          Array(public_send(column_name))
-        end
-
-        # Assigns +flags+ through the column setter.
-        # @param writer [String] The name of the setter.
-        # @param flags [Array<Object>]
-        # @return [void]
-        sig { params(writer: String, flags: T::Array[Object]).void }
-        def _bitwise_flags_write(writer, flags)
-          public_send(writer, flags)
         end
       end
     end

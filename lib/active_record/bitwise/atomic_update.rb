@@ -46,12 +46,14 @@ module ActiveRecord
         end
       end
 
-      # The primary key of +record+, or +record+ itself when it is not a record.
-      # @param record [Object] A record or a primary key.
+      # The primary key of +record+, or +record+ itself when it is not a record. Anything that publicly
+      # responds to +id+ counts as a record.
+      # @param record [Object] A record or a primary key. (Declared +T.untyped+: records are duck-typed, any
+      #   object with a public +id+ qualifies, which no static type can express.)
       # @return [Object]
-      sig { params(record: Object).returns(Object) }
+      sig { params(record: T.untyped).returns(Object) }
       def self.id_of(record)
-        record.class.method_defined?(:id) ? record.__send__(:id) : record
+        record.respond_to?(:id) ? record.id : record
       end
 
       # @param operation [Symbol] Either :add or :remove.
