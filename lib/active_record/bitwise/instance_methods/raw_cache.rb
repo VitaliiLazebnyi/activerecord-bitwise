@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'active_record/bitwise/instance_methods/model_access'
 require 'active_record/bitwise/raw_mask'
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
@@ -14,13 +15,14 @@ module ActiveRecord
         extend T::Sig
         extend T::Helpers
 
-        requires_ancestor { Kernel }
+        requires_ancestor { ActiveRecord::Base }
+        requires_ancestor { ModelAccess }
 
         # Manually clears the cached raw bitmask values.
         # @return [void]
         sig { void }
         def clear_bitwise_raw_values_cache!
-          T.unsafe(self).instance_variable_set(:@_bitwise_raw_values, {})
+          remove_instance_variable(:@_bitwise_raw_values) if instance_variable_defined?(:@_bitwise_raw_values)
         end
 
         # Reloads the record, invalidating the raw bitmask cache first.
@@ -36,8 +38,7 @@ module ActiveRecord
         # @return [T::Hash[Symbol, Integer]]
         sig { returns(Types::Positions) }
         def _bitwise_raw_cache
-          T.unsafe(self).instance_variable_get(:@_bitwise_raw_values) ||
-            T.unsafe(self).instance_variable_set(:@_bitwise_raw_values, {})
+          instance_variable_get(:@_bitwise_raw_values) || instance_variable_set(:@_bitwise_raw_values, {})
         end
 
         # Hydrates the raw cache for +column_name+ from the attribute's before-type-cast
@@ -47,7 +48,7 @@ module ActiveRecord
         sig { params(column_name: Symbol).returns(Integer) }
         def _bitwise_hydrate_raw_cache(column_name)
           cache = _bitwise_raw_cache
-          cache[column_name] ||= RawMask.extract(T.unsafe(self).read_attribute_before_type_cast(column_name))
+          cache[column_name] ||= RawMask.extract(read_attribute_before_type_cast(column_name))
           T.must(cache[column_name])
         end
 
@@ -67,7 +68,7 @@ module ActiveRecord
         def initialize_dup(other)
           result = super
           clear_bitwise_raw_values_cache!
-          T.unsafe(self).class.bitwise_definitions.each_key do |column_name|
+          _bitwise_model.bitwise_definitions.each_key do |column_name|
             _bitwise_raw_cache[column_name] = 0
             _bitwise_copy_flags(column_name)
           end
@@ -79,8 +80,8 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Symbol).void }
         def _bitwise_copy_flags(column_name)
-          flags = T.unsafe(self).read_attribute(column_name)
-          T.unsafe(self).write_attribute(column_name, flags.map { |flag| flag }) if flags.is_a?(Array)
+          flags = read_attribute(column_name)
+          write_attribute(column_name, [*flags]) if flags in Array
         end
       end
     end

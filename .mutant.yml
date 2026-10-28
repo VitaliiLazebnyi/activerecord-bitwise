@@ -21,5 +21,9 @@ mutation:
     - send{selector=let}
     - send{selector=unsafe}
     - send{selector=must}
+    # `super()` of Type#initialize only initializes ActiveModel::Type::Value's precision/scale/limit
+    # (all nil by default), so dropping it is unobservable; the other explicit `super()` (the
+    # generated getter) is exercised by every getter example.
+    - super
 coverage_criteria:
   process_abort: true

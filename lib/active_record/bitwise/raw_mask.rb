@@ -29,17 +29,15 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def self.stamped?(value)
-        return false unless value.is_a?(Array)
-
         value.instance_variable_defined?(IVAR)
       end
 
       # Reads the marker of a stamped array.
-      # @param array [T::Array[T.untyped]] An array for which {.stamped?} is true.
-      # @return [T.untyped] The marker (normally an Integer).
-      sig { params(array: T::Array[T.untyped]).returns(T.untyped) }
-      def self.read(array)
-        array.instance_variable_get(IVAR)
+      # @param value [T.untyped] Any object; unstamped objects have no marker.
+      # @return [T.untyped] The marker (normally an Integer), or nil when there is none.
+      sig { params(value: T.untyped).returns(T.untyped) }
+      def self.read(value)
+        value.instance_variable_get(IVAR)
       end
 
       # Writes +raw+ as the marker of +array+ and returns the array.
@@ -67,8 +65,6 @@ module ActiveRecord
       # @return [Integer]
       sig { params(value: T.untyped).returns(Integer) }
       def self.coerce(value)
-        return value if integer?(value)
-
         value.respond_to?(:to_i) ? integer(value) : 0 # rubocop:disable Lint/NumberConversion -- capability check, not a conversion
       end
 
@@ -100,7 +96,7 @@ module ActiveRecord
       # @return [Integer]
       sig { params(value: T.untyped).returns(Integer) }
       def self.mask_of(value)
-        stamped?(value) ? coerce(read(value)) : 0
+        coerce(read(value))
       end
 
       # The marker of +value+ when it is a stamped array, otherwise +value+ itself,

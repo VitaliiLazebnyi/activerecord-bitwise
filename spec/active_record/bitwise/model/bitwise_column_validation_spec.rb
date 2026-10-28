@@ -136,4 +136,68 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect { model.new }.to raise_error(ArgumentError, /has limit of \d+ bytes/)
     end
   end
+
+  context 'with an empty mapping' do
+    it 'needs no capacity' do
+      expect(build_model('capacity_records') { bitwise :tiny, {} }.new.tiny).to eq([])
+    end
+  end
+
+  context 'with a mapping whose highest position is neither its first, last nor lowest' do
+    it 'checks the highest position' do
+      limit = build_model('capacity_records').columns_hash['tiny'].limit
+      message = "Bitwise column tiny has limit of #{limit} bytes (max #{{ 1 => 7, 2 => 15 }.fetch(limit)} flags), " \
+                'but mapping requires bit shift position 30.'
+      model = build_model('capacity_records') { bitwise :tiny, { a: 0, b: 30, c: 2 } }
+
+      expect { model.new }.to raise_error(ArgumentError, message)
+    end
+  end
+
+  context 'when a record of the model was created before' do
+    it 'does not look at the table again' do
+      model = define.call(:regular, 0)
+      model.new
+      allow(model).to receive(:table_exists?).and_call_original
+      model.new
+
+      expect(model).not_to have_received(:table_exists?)
+    end
+  end
+
+  context 'when the table cannot be inspected' do
+    let(:model) { define.call(:tiny, 30) }
+
+    it 'tolerates that and checks again for the next record' do
+      allow(model.connection).to receive(:active?).and_raise(ActiveRecord::ConnectionNotEstablished)
+      model.new
+      allow(model.connection).to receive(:active?).and_call_original
+
+      expect { model.new }.to raise_error(ArgumentError, /Bitwise column tiny has limit of/)
+    end
+  end
+
+  context 'when the table does not exist yet' do
+    let(:model) { define.call(:tiny, 30) }
+
+    it 'postpones the check until it does' do
+      allow(model).to receive(:table_exists?).and_return(false)
+      model.new
+      allow(model).to receive(:table_exists?).and_call_original
+
+      expect { model.new }.to raise_error(ArgumentError, /Bitwise column tiny has limit of/)
+    end
+  end
+
+  context 'when the connection is not active' do
+    let(:model) { define.call(:tiny, 30) }
+
+    it 'postpones the check until it is' do
+      allow(model.connection).to receive(:active?).and_return(false)
+      model.new
+      allow(model.connection).to receive(:active?).and_call_original
+
+      expect { model.new }.to raise_error(ArgumentError, /Bitwise column tiny has limit of/)
+    end
+  end
 end

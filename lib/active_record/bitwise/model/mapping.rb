@@ -77,7 +77,7 @@ module ActiveRecord
                  mapping: T.any(Types::Params, T::Array[T.untyped])).returns(Types::Positions)
         end
         def self.entries(column_name, mapping)
-          if mapping.is_a?(Array)
+          if mapping in Array
             mapping.each_with_index.to_h { |key, index| [key.to_sym, index] }
           else
             mapping.to_h { |key, value| [key.to_sym, position(column_name, key, value)] }
@@ -108,7 +108,7 @@ module ActiveRecord
         # @return [Integer]
         sig { params(column_name: Types::Name, key: T.untyped, value: T.untyped).returns(Integer) }
         def self.position(column_name, key, value)
-          digits = RawMask.integer?(value) || (value.is_a?(String) && value.match?(/\A\d+\z/))
+          digits = RawMask.integer?(value) || ((value in String) && value.match?(/\A\d+\z/))
           candidate = RawMask.integer(value) if digits
           return candidate if candidate&.between?(0, MAX_BIT_POSITION)
 

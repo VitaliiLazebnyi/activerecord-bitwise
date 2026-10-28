@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'active_record/bitwise/instance_methods/model_access'
+require 'active_record/bitwise/instance_methods/raw_cache'
 require 'active_record/bitwise/raw_mask'
 require 'sorbet-runtime'
 
@@ -12,7 +14,9 @@ module ActiveRecord
         extend T::Sig
         extend T::Helpers
 
-        requires_ancestor { Kernel }
+        requires_ancestor { ActiveRecord::Base }
+        requires_ancestor { ModelAccess }
+        requires_ancestor { RawCache }
 
         # Shared implementation of the instance-level atomic methods
         # (`add_<singular>!` / `remove_<singular>!`).
@@ -27,15 +31,25 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Symbol, operation: Symbol, values: T::Array[T.untyped]).void }
         def _bitwise_atomic_update!(column_name, operation, values)
-          if T.unsafe(self).new_record?
+          if new_record?
             raise ActiveRecord::ActiveRecordError,
                   "cannot atomically #{operation} #{column_name} on a new record; save the record first"
           end
 
-          T.unsafe(self).class.transaction do
-            T.unsafe(self).class.public_send("#{operation}_#{column_name}!", *values, records: T.unsafe(self).id)
+          _bitwise_model.transaction do
+            _bitwise_apply_atomic(column_name, operation, values)
             _bitwise_reload_locked(column_name)
           end
+        end
+
+        # Runs the class-level atomic UPDATE for this record only.
+        # @param column_name [Symbol]
+        # @param operation [Symbol] Either :add or :remove.
+        # @param values [T::Array[T.untyped]]
+        # @return [void]
+        sig { params(column_name: Symbol, operation: Symbol, values: T::Array[T.untyped]).void }
+        def _bitwise_apply_atomic(column_name, operation, values)
+          _bitwise_model.public_send("#{operation}_#{column_name}!", *values, records: id)
         end
 
         # Re-reads +column_name+ under a row lock and mirrors it into the in-memory
@@ -44,23 +58,20 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Symbol).void }
         def _bitwise_reload_locked(column_name)
-          record = T.unsafe(self)
-          typecaster = record.class.attribute_types.fetch(column_name.to_s)
-          raw = _bitwise_locked_raw(column_name, typecaster)
-          record._bitwise_raw_cache[column_name] = raw
-          record.write_attribute(column_name, typecaster.deserialize(raw))
-          record.clear_attribute_changes([column_name.to_s]) if record.respond_to?(:clear_attribute_changes)
+          raw = _bitwise_locked_raw(column_name)
+          _bitwise_raw_cache[column_name] = raw
+          write_attribute(column_name, raw)
+          clear_attribute_changes([column_name])
         end
 
         # Reads the persisted bitmask of +column_name+ under a row lock.
         # @param column_name [Symbol]
-        # @param typecaster [ActiveRecord::Bitwise::Type]
-        # @return [Integer]
-        sig { params(column_name: Symbol, typecaster: ActiveRecord::Bitwise::Type).returns(Integer) }
-        def _bitwise_locked_raw(column_name, typecaster)
-          record = T.unsafe(self)
-          current = record.class.where(id: record.id).lock(true).pluck(column_name).first
-          RawMask.coerce(typecaster.serialize(current))
+        # @return [Integer] The raw bitmask, 0 when the row no longer exists.
+        sig { params(column_name: Symbol).returns(Integer) }
+        def _bitwise_locked_raw(column_name)
+          record_id = id
+          flags = _bitwise_model.where(id: record_id).lock(true).pluck(column_name).first
+          RawMask.mask_of(flags)
         end
       end
     end

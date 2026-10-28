@@ -57,7 +57,7 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#cast' do
     end
 
     it 'treats a numeric string that is also a mapped key as a flag' do
-      numeric_key_type = described_class.new(:roles, { '5': 0 }, nil)
+      numeric_key_type = described_class.new(:roles, { '5': 3 }, nil)
 
       expect(numeric_key_type.cast('5')).to eq([:'5'])
     end
@@ -176,6 +176,28 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#cast' do
 
     it 'does not stamp a marker onto a plain array' do
       expect(type.serialize(type.cast([:admin]))).to eq(1)
+    end
+  end
+
+  context 'with a numeric string of several digits' do
+    it 'treats it as a bitmask' do
+      expect(type.cast('12')).to eq(%i[author subscriber])
+    end
+  end
+
+  context 'with a numeric String subclass' do
+    it 'treats it as a bitmask' do
+      expect(type.cast(Class.new(String).new('5'))).to eq(%i[admin author])
+    end
+  end
+
+  context 'with a Hash subclass' do
+    it 'raises ArgumentError like a plain Hash' do
+      indifferent = ActiveSupport::HashWithIndifferentAccess.new(a: 1)
+
+      expect { type.cast(indifferent) }.to raise_error(
+        ArgumentError, "cannot cast #{indifferent} to a bitwise flag array for column roles"
+      )
     end
   end
 end

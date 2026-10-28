@@ -75,4 +75,37 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#dup' do
       expect(model.new(roles: [:editor]).dup.roles).to eq([:editor])
     end
   end
+
+  context 'with a source record that has unmapped bits' do
+    let(:source) { plant_raw_value(model.create!(roles: [:admin]), 0b1_0000_0001) }
+
+    it 'keeps the unmapped bits of the source on later saves' do
+      source.dup
+      source.update!(roles: %i[admin author])
+
+      expect(raw_value(source)).to eq(0b1_0000_0101)
+    end
+  end
+
+  context 'with a column whose lowest bit is not mapped' do
+    let(:model) { build_model('users') { bitwise :roles, { editor: 1 } } }
+
+    it 'does not carry that bit over to the copy' do
+      copy = plant_raw_value(model.create!(roles: [:editor]), 0b11).dup
+      copy.save!
+
+      expect(raw_value(copy)).to eq(0b10)
+    end
+  end
+
+  context 'with a record whose column was set to nil' do
+    it 'saves the copy with NULL as well' do
+      source = model.create!(roles: [:admin])
+      source.roles = nil
+      copy = source.dup
+      copy.save!
+
+      expect(raw_value(copy)).to be_nil
+    end
+  end
 end

@@ -21,7 +21,7 @@ module ActiveRecord
       # @return [T.untyped]
       sig { params(updates: T.untyped).returns(T.untyped) }
       def update_all(updates)
-        return super unless updates.is_a?(Hash) && T.unsafe(self).klass.respond_to?(:bitwise_definitions)
+        return super unless (updates in Hash) && T.unsafe(self).klass.respond_to?(:bitwise_definitions)
 
         super(Conditions.assignments(T.unsafe(self).klass, updates))
       end
@@ -36,7 +36,7 @@ module ActiveRecord
       # @return [T.untyped]
       sig { params(args: T.untyped).returns(T.untyped) }
       def where(*args)
-        if args.first.is_a?(Hash) && T.unsafe(self).klass.respond_to?(:bitwise_definitions)
+        if (args.first in Hash) && T.unsafe(self).klass.respond_to?(:bitwise_definitions)
           args[0] = Conditions.serialize(T.unsafe(self).klass, T.unsafe(args.first))
         end
         super
@@ -54,7 +54,7 @@ module ActiveRecord
       sig { params(args: T.untyped).returns(T.untyped) }
       def not(*args)
         scope = T.unsafe(self).instance_variable_get(:@scope)
-        if args.first.is_a?(Hash) && scope && T.unsafe(scope).klass.respond_to?(:bitwise_definitions)
+        if (args.first in Hash) && scope && T.unsafe(scope).klass.respond_to?(:bitwise_definitions)
           args[0] = Conditions.serialize(T.unsafe(scope).klass, T.unsafe(args.first))
         end
         super

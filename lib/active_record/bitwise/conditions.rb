@@ -23,15 +23,11 @@ module ActiveRecord
       # @return [T::Hash[T.untyped, T.untyped]] The (possibly copied) conditions hash.
       sig { params(klass: T.untyped, hash: Types::Params).returns(Types::Params) }
       def self.serialize(klass, hash)
-        result = hash
-        bitwise_entries(klass, hash).each do |column_name, key, typecaster|
+        masks = bitwise_entries(klass, hash).filter_map do |column_name, key, typecaster|
           value = hash.fetch(key)
-          next if passthrough?(value)
-
-          result = result.dup if result.equal?(hash)
-          result[key] = typecaster.serialize(known_flags(typecaster, value, column_name, ''))
+          [key, typecaster.serialize(known_flags(typecaster, value, column_name, ''))] unless passthrough?(value)
         end
-        result
+        masks.empty? ? hash : hash.merge(masks.to_h)
       end
 
       # Rewrites the flag arrays of an `update_all` assignment hash into
@@ -44,14 +40,11 @@ module ActiveRecord
       # @return [T::Hash[T.untyped, T.untyped]] A copy of +updates+ with flag arrays replaced.
       sig { params(klass: T.untyped, updates: Types::Params).returns(Types::Params) }
       def self.assignments(klass, updates)
-        result = updates.dup
-        bitwise_entries(klass, updates).each do |column_name, key, typecaster|
+        expressions = bitwise_entries(klass, updates).filter_map do |column_name, key, typecaster|
           value = updates.fetch(key)
-          next if verbatim?(value)
-
-          result[key] = update_expression(klass, column_name, typecaster, value)
+          [key, update_expression(klass, column_name, typecaster, value)] unless verbatim?(value)
         end
-        result
+        updates.merge(expressions.to_h)
       end
 
       # Every present hash key that addresses a bitwise column.
@@ -75,7 +68,7 @@ module ActiveRecord
       def self.column_entries(klass, hash, column_name)
         typecaster = klass.attribute_types.fetch(column_name.to_s)
         keys = [column_name, column_name.to_s].select { |key| hash.key?(key) }
-        typecaster.is_a?(Type) ? keys.map { |key| [column_name, key, typecaster] } : []
+        (typecaster in Type) ? keys.map { |key| [column_name, key, typecaster] } : []
       end
       private_class_method :column_entries
 
@@ -84,7 +77,7 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def self.verbatim?(value)
-        RawMask.integer?(value) || value.nil? || value.is_a?(Arel::Nodes::Node) || value.is_a?(Arel::Nodes::SqlLiteral)
+        RawMask.integer?(value) || value.nil? || (value in Arel::Nodes::Node) || (value in Arel::Nodes::SqlLiteral)
       end
       private_class_method :verbatim?
 
@@ -93,7 +86,7 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def self.passthrough?(value)
-        RawMask.integer?(value) || value.nil? || (value.is_a?(Array) && !value.empty? && value.all?(Integer))
+        RawMask.integer?(value) || value.nil? || ((value in Array) && !value.empty? && value.all?(Integer))
       end
       private_class_method :passthrough?
 
@@ -109,12 +102,12 @@ module ActiveRecord
           .returns(Types::Flags)
       end
       def self.known_flags(typecaster, value, column_name, advice)
-        casted = typecaster.cast(value) || []
+        casted = T.must(typecaster.cast(value))
         unknown = casted.reject { |flag| typecaster.mapping_strings.include?(flag.to_s) }
         return casted if unknown.empty?
 
         raise UnknownValueError,
-              "Unknown bitwise value(s) #{unknown.map(&:to_s).inspect} for column #{column_name}#{advice}"
+              "Unknown bitwise value(s) #{unknown.map(&:to_s)} for column #{column_name}#{advice}"
       end
       private_class_method :known_flags
 
@@ -130,7 +123,7 @@ module ActiveRecord
         casted = known_flags(typecaster, value, column_name, advice)
         # Recompute the mask from the flags alone (ignoring any smuggled raw-value
         # marker) so update_all cannot be used to inject arbitrary bits.
-        mask = RawMask.integer(typecaster.serialize(casted.map { |flag| flag }))
+        mask = typecaster.serialize([*casted])
         quoted_column = klass.connection.quote_column_name(column_name)
         Arel.sql("(COALESCE(#{quoted_column}, 0) & #{~typecaster.known_mask}) | #{mask}")
       end

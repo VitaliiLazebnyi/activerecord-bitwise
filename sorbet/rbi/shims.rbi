@@ -26,6 +26,30 @@ module ActiveRecord
   class Base
     sig { returns(T::Class[T.anything]) }
     def class; end
+
+    sig { returns(T::Boolean) }
+    def new_record?; end
+
+    sig { returns(T.untyped) }
+    def id; end
+
+    sig { params(attr_name: T.untyped).returns(T.untyped) }
+    def read_attribute(attr_name); end
+
+    sig { params(attr_name: T.untyped, value: T.untyped).returns(T.untyped) }
+    def write_attribute(attr_name, value); end
+
+    sig { params(attr_name: T.untyped).returns(T.untyped) }
+    def read_attribute_before_type_cast(attr_name); end
+
+    sig { params(attr_names: T.untyped).returns(T.untyped) }
+    def clear_attribute_changes(attr_names); end
+
+    sig { returns(T.untyped) }
+    def save!; end
+
+    sig { params(attr_name: T.untyped).returns(T.untyped) }
+    def attribute_will_change!(attr_name); end
   end
 
   class Relation

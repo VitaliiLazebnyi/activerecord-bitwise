@@ -56,4 +56,22 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#reload' do
       expect(raw_value(stored)).to eq(1)
     end
   end
+
+  it 'asks the database to lock the row when told to' do
+    relation = model.all
+    allow(model).to receive(:all).and_return(relation)
+    allow(relation).to receive_messages(preload: relation, lock: relation.lock(true))
+    record.reload(lock: true)
+
+    expect(relation).to have_received(:lock).with(true)
+  end
+
+  it 'picks up unmapped bits that were changed elsewhere' do
+    record.roles
+    plant_raw_value(model.find(record.id), 0b10_0000_0001)
+    record.reload
+    record.update!(roles: %i[admin author])
+
+    expect(raw_value(record)).to eq(0b10_0000_0101)
+  end
 end

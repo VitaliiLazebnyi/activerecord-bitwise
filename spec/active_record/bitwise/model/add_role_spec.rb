@@ -160,4 +160,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       expect(fish.reload.fish).to eq([:trout])
     end
   end
+
+  context 'when the unmapped bits changed in the database since the record was loaded' do
+    it 'saves later changes on top of the current unmapped bits' do
+      plant_raw_value(model.find(record.id), 0b10_0000_0100)
+      record.add_role!(:admin)
+      record.update!(roles: record.roles + [:subscriber])
+
+      expect(raw_value(record)).to eq(0b10_0000_1101)
+    end
+  end
 end

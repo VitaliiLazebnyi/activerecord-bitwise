@@ -114,4 +114,27 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#update_columns' do
         .to raise_error(ActiveModel::MissingAttributeError, /unknown attribute .missing./)
     end
   end
+
+  context 'when a later save follows an overwrite with an Integer' do
+    [
+      ['a Symbol key', :roles],
+      ['a String key', 'roles']
+    ].each do |description, key|
+      it "saves on top of the written value (#{description})" do
+        record.update_columns(key => 0b11)
+        record.update!(roles: [:admin])
+
+        expect(raw_value(record)).to eq(0b01)
+      end
+    end
+  end
+
+  context 'when a later save follows an overwrite with NULL' do
+    it 'saves without any unmapped bits' do
+      record.update_columns(roles: nil)
+      record.update!(roles: [:admin])
+
+      expect(raw_value(record)).to eq(0b01)
+    end
+  end
 end

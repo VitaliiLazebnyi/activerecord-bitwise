@@ -13,4 +13,10 @@ module RawMarker
     stamped.instance_variable_set(:@_bitwise_raw_value, marker)
     stamped
   end
+
+  # @param flags [Array<Symbol, String>] a flag array
+  # @return [Object, nil] the raw bitmask marker attached to +flags+ (nil when there is none)
+  def raw_marker_of(flags)
+    flags.instance_variable_get(:@_bitwise_raw_value)
+  end
 end

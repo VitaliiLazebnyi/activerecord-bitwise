@@ -133,4 +133,41 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       expect(raw_value(ghosted)).to eq(0b1_0001)
     end
   end
+
+  context 'with an Integer followed by flags' do
+    it 'keeps the unmapped bits of the Integer on save' do
+      record = model.create!(roles: [:admin])
+      record.write_attribute(:roles, 0b1_0000_0001)
+      record.write_attribute(:roles, %i[admin author])
+      record.save!
+
+      expect(raw_value(record)).to eq(0b1_0000_0101)
+    end
+  end
+
+  context 'with nil followed by flags' do
+    it 'drops the unmapped bits on save' do
+      ghosted.write_attribute(:roles, nil)
+      ghosted.write_attribute(:roles, %i[admin author])
+      ghosted.save!
+
+      expect(raw_value(ghosted)).to eq(0b101)
+    end
+
+    it 'stores NULL when saved as it is' do
+      ghosted.write_attribute(:roles, nil)
+      ghosted.save!
+
+      expect(raw_value(ghosted)).to be_nil
+    end
+  end
+
+  context 'with flags' do
+    it 'stores a frozen array' do
+      record = model.new
+      record.write_attribute(:roles, [:admin])
+
+      expect(record.read_attribute(:roles)).to be_frozen
+    end
+  end
 end

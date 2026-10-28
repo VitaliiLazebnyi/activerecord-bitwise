@@ -37,7 +37,7 @@ module ActiveRecord
           sig { params(type: T.untyped, value: T.untyped, raw: Integer).returns(T.untyped) }
           def self.stamped(type, value, raw)
             value = type.deserialize(nil) if value.nil?
-            return value unless value.is_a?(Array) && (!value.frozen? || !RawMask.stamped?(value))
+            return value unless (value in Array) && (!value.frozen? || !RawMask.stamped?(value))
 
             RawMask.stamp(value.dup, raw).freeze
           end

@@ -69,10 +69,10 @@ module ActiveRecord
       def cast(value)
         return nil if value.nil?
         return deserialize(value) if RawMask.integer?(value)
-        return value if value.is_a?(Array) && value.frozen? && RawMask.stamped?(value)
+        return value if value.frozen? && RawMask.stamped?(value)
 
         assert_castable(value)
-        return deserialize(RawMask.integer(value)) if bitmask_string?(value)
+        return deserialize(value) if bitmask_string?(value)
 
         build_flags(value)
       end
@@ -85,11 +85,7 @@ module ActiveRecord
       # @return [T::Array[T.any(Symbol, String)]] The array of symbols/strings represented by the bitmask.
       sig { override.params(value: T.untyped).returns(Types::Flags) }
       def deserialize(value)
-        RecursionGuard.run do
-          next @empty_value if value.nil?
-
-          value.is_a?(Array) ? restamp(value) : flags_for_mask(RawMask.integer(value))
-        end
+        RecursionGuard.run { value.nil? ? @empty_value : decode(value) }
       end
 
       # Serializes an array of symbols into a database integer bitmask, merging
@@ -101,7 +97,7 @@ module ActiveRecord
         return nil if value.nil?
         return value if RawMask.integer?(value)
 
-        (RawMask.mask_of(value) & ~@known_mask) | mask_for(Array(value))
+        (RawMask.mask_of(value) & ~@known_mask) + mask_for(Array(value))
       end
 
       private
@@ -112,9 +108,9 @@ module ActiveRecord
       # @return [void]
       sig { params(value: T.untyped).void }
       def assert_castable(value)
-        return unless value.is_a?(Hash) || value == true || value == false
+        return unless (value in Hash) || value == true || value == false
 
-        raise ArgumentError, "cannot cast #{value.inspect} to a bitwise flag array for column #{column_name}"
+        raise ArgumentError, "cannot cast #{value} to a bitwise flag array for column #{column_name}"
       end
 
       # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
@@ -122,7 +118,7 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def bitmask_string?(value)
-        return false unless value.is_a?(String)
+        return false unless value in String
 
         !@mapping_strings.include?(value) && value.match?(/\A\d+\z/)
       end
@@ -149,6 +145,14 @@ module ActiveRecord
       def symbolize(item)
         name = item.to_s
         @mapping_strings.include?(name) ? name.to_sym : name
+      end
+
+      # Decodes a non-nil database value: an Array is re-wrapped, anything else is a bitmask.
+      # @param value [T.untyped]
+      # @return [Types::Flags]
+      sig { params(value: T.untyped).returns(Types::Flags) }
+      def decode(value)
+        (value in Array) ? restamp(value) : flags_for_mask(RawMask.integer(value))
       end
 
       # Re-wraps an Array input as a frozen flag array stamped with its raw mask.

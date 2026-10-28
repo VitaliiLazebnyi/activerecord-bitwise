@@ -14,7 +14,7 @@ module ActiveRecord
         extend T::Sig
         extend T::Helpers
 
-        requires_ancestor { Kernel }
+        requires_ancestor { ActiveRecord::Base }
 
         # Enables or disables +key+ in +column_name+ using ActiveModel boolean semantics
         # ("0", "false", "", "off" and 0 disable the flag).
@@ -24,15 +24,10 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Types::Name, key: Symbol, value: T.untyped).void }
         def _bitwise_assign_flag(column_name, key, value)
-          original = T.unsafe(self).public_send(column_name)
-          flags = Array(original).dup
-          RawMask.stamp(flags, RawMask.read(original)) if RawMask.stamped?(original)
-          if BOOLEAN_TYPE.cast(value)
-            flags << key unless flags.include?(key)
-          else
-            flags.delete(key)
-          end
-          T.unsafe(self).public_send("#{column_name}=", flags)
+          original = public_send(column_name)
+          flags = Array(original).dup # keeps the raw bitmask marker of +original+
+          BOOLEAN_TYPE.cast(value) ? flags << key : flags.delete(key)
+          public_send("#{column_name}=", flags)
         end
       end
     end

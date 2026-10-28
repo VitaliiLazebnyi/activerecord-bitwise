@@ -96,4 +96,19 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
       expect(serialize.call(conditions)).to equal(conditions)
     end
   end
+
+  context 'with an Integer for one column and flags for the next' do
+    it 'still rewrites the flags' do
+      expect(serialize.call(roles: 1, permissions: [:manage])).to eq(roles: 1, permissions: 2)
+    end
+  end
+
+  context 'with an unknown value that is not a String' do
+    it 'names it as a String in the error' do
+      stamped = with_raw_marker([:bogus], 0).freeze
+
+      expect { serialize.call(roles: stamped) }
+        .to raise_error(ActiveRecord::Bitwise::UnknownValueError, 'Unknown bitwise value(s) ["bogus"] for column roles')
+    end
+  end
 end

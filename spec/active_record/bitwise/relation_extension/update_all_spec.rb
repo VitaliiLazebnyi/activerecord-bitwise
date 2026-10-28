@@ -141,4 +141,21 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
       expect(statements).to include(a_string_including("(COALESCE(#{column}, 0) & -16) | 1"))
     end
   end
+
+  context 'with an Integer for one column and flags for the next' do
+    it 'still rewrites the flags' do
+      model.where(id: plain.id).update_all(roles: 1, permissions: [:manage])
+
+      expect([raw_value(plain), raw_value(plain, :permissions)]).to eq([1, 2])
+    end
+  end
+
+  context 'with a hash that is reused by the caller' do
+    it 'does not modify the hash' do
+      updates = { roles: [:admin] }
+      model.where(id: plain.id).update_all(updates)
+
+      expect(updates).to eq(roles: [:admin])
+    end
+  end
 end

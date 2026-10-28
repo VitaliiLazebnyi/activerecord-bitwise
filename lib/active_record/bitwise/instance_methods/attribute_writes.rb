@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'active_record/bitwise/instance_methods/model_access'
+require 'active_record/bitwise/instance_methods/raw_cache'
 require 'active_record/bitwise/raw_mask'
 require 'active_record/bitwise/type'
 require 'sorbet-runtime'
@@ -14,7 +16,9 @@ module ActiveRecord
         extend T::Sig
         extend T::Helpers
 
-        requires_ancestor { Kernel }
+        requires_ancestor { ActiveRecord::Base }
+        requires_ancestor { ModelAccess }
+        requires_ancestor { RawCache }
 
         # Intercepts every attribute write (generated setters, `write_attribute`,
         # `self[:col] = ...`) so bitwise arrays are always stamped with the current
@@ -57,10 +61,10 @@ module ActiveRecord
         # @return [T.nilable(ActiveRecord::Bitwise::Type)]
         sig { params(column_name: Symbol).returns(T.nilable(ActiveRecord::Bitwise::Type)) }
         def _bitwise_typecaster(column_name)
-          return nil unless T.unsafe(self).class.bitwise_definitions.key?(column_name)
+          return nil unless _bitwise_model.bitwise_definitions.key?(column_name)
 
-          typecaster = T.unsafe(self).class.attribute_types.fetch(column_name.to_s)
-          typecaster if typecaster.is_a?(ActiveRecord::Bitwise::Type)
+          typecaster = _bitwise_model.attribute_types.fetch(column_name.to_s)
+          typecaster if typecaster in ActiveRecord::Bitwise::Type
         end
 
         # Casts +value+ and synchronizes the raw bitmask cache:
@@ -73,7 +77,7 @@ module ActiveRecord
         # @return [T.untyped] The value to store in the attribute set.
         sig { params(column_name: Symbol, typecaster: ActiveRecord::Bitwise::Type, value: T.untyped).returns(T.untyped) }
         def _bitwise_prepare_value(column_name, typecaster, value)
-          current_raw = T.unsafe(self)._bitwise_hydrate_raw_cache(column_name)
+          current_raw = _bitwise_hydrate_raw_cache(column_name)
           casted = typecaster.cast(value)
           return _bitwise_forget_raw(column_name) if casted.nil?
           return _bitwise_adopt_raw(column_name, casted) if RawMask.stamped?(casted)
@@ -86,7 +90,7 @@ module ActiveRecord
         # @return [NilClass]
         sig { params(column_name: Symbol).returns(NilClass) }
         def _bitwise_forget_raw(column_name)
-          T.unsafe(self)._bitwise_raw_cache[column_name] = 0
+          _bitwise_raw_cache[column_name] = 0
           nil
         end
 
@@ -98,9 +102,10 @@ module ActiveRecord
         # @return [T::Array[T.untyped]] +casted+.
         sig { params(column_name: Symbol, casted: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
         def _bitwise_adopt_raw(column_name, casted)
-          cache = T.unsafe(self)._bitwise_raw_cache
+          cache = _bitwise_raw_cache
           new_raw = RawMask.coerce(RawMask.read(casted))
-          T.unsafe(self).__send__(:attribute_will_change!, column_name.to_s) if new_raw != cache.fetch(column_name)
+          # A non-zero difference means the integer assignment changed at least one bit.
+          attribute_will_change!(column_name) if (new_raw ^ cache.fetch(column_name)).nonzero?
           cache[column_name] = new_raw
           casted
         end
@@ -119,16 +124,16 @@ module ActiveRecord
           result
         end
 
-        # The value to persist for +key+ in {#update_columns}: flag arrays are stamped so the
-        # write preserves forgotten bits, while Integers and nil are written verbatim
-        # (full overwrite / NULL).
+        # The value to persist for +key+ in {#update_columns}: values of bitwise columns go through
+        # the same preparation as ordinary writes (flag arrays keep forgotten bits, Integers and
+        # nil overwrite them); other columns are written verbatim.
         # @param key [T.untyped]
         # @param value [T.untyped]
         # @return [T.untyped]
         sig { params(key: T.untyped, value: T.untyped).returns(T.untyped) }
         def _bitwise_update_value(key, value)
           typecaster = _bitwise_typecaster(key.to_sym)
-          return value if typecaster.nil? || RawMask.integer?(value) || value.nil?
+          return value if typecaster.nil?
 
           _bitwise_prepare_value(key.to_sym, typecaster, value)
         end
@@ -139,8 +144,8 @@ module ActiveRecord
         sig { params(column_name: Symbol).void }
         def _bitwise_sync_raw_after_update(column_name)
           typecaster = T.must(_bitwise_typecaster(column_name))
-          written = typecaster.serialize(T.unsafe(self).read_attribute(column_name))
-          T.unsafe(self)._bitwise_raw_cache[column_name] = RawMask.coerce(written)
+          written = typecaster.serialize(read_attribute(column_name))
+          _bitwise_raw_cache[column_name] = RawMask.coerce(written)
         end
       end
     end

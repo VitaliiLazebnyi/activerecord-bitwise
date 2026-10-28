@@ -121,4 +121,40 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#deserialize' do
       end
     end
   end
+
+  context 'with nil (shared result)' do
+    it 'returns the same frozen array every time' do
+      expect(type.deserialize(nil)).to equal(type.deserialize(nil))
+    end
+
+    it 'carries the empty raw bitmask' do
+      expect(raw_marker_of(type.deserialize(nil))).to eq(0)
+    end
+
+    it 'does not leak unmapped bit 0 into the serialized value' do
+      second_only = described_class.new(:flags, { second: 1 }, nil)
+
+      expect(second_only.serialize(second_only.deserialize(nil))).to eq(0)
+    end
+  end
+
+  context 'with an unstamped Array' do
+    it 'carries the bitmask of its flags' do
+      expect(raw_marker_of(type.deserialize(%i[admin author]))).to eq(0b101)
+    end
+  end
+
+  context 'with a stamped Array' do
+    it 'keeps its raw bitmask' do
+      stamped = with_raw_marker(%i[admin], 0b1_0000_0110)
+
+      expect(raw_marker_of(type.deserialize(stamped))).to eq(0b1_0000_0110)
+    end
+  end
+
+  context 'with an Array subclass' do
+    it 'returns its flags like a plain Array' do
+      expect(type.deserialize(Class.new(Array)[:admin])).to eq([:admin])
+    end
+  end
 end
