@@ -106,13 +106,12 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
     end
   end
 
-  context 'when the record lacks dirty tracking support' do
-    it 'still applies the change' do
-      allow(record).to receive(:respond_to?).and_call_original
-      allow(record).to receive(:respond_to?).with(:clear_attribute_changes).and_return(false)
+  context 'when the row was deleted meanwhile' do
+    it 'reads back no flags, as for a NULL column' do
+      model.where(id: record.id).delete_all
       record.add_role!(:admin)
 
-      expect(record.roles).to eq(%i[admin author])
+      expect(record.read_attribute(:roles)).to eq([])
     end
   end
 

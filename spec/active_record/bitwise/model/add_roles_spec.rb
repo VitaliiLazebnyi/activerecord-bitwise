@@ -170,4 +170,11 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.add_roles!' do
       expect(capture_sql { model.add_roles!(:admin, records: admin.id) }.size).to eq(1)
     end
   end
+
+  describe 'the class method behind it' do
+    it 'is private' do
+      expect([model.respond_to?(:_bitwise_add_roles), model.respond_to?(:_bitwise_add_roles, true)])
+        .to eq([false, true])
+    end
+  end
 end

@@ -88,4 +88,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#inherited' do
       expect(model.find(record.id).roles).to eq([:author])
     end
   end
+
+  context 'with a subclass created before its parent declares a column' do
+    it 'sees the column' do
+      parent = build_model
+      child = build_model(parent: parent)
+      parent.bitwise :roles, { admin: 0 }
+
+      expect(child.bitwise_schema(:roles)).to eq(admin: 0)
+    end
+  end
 end

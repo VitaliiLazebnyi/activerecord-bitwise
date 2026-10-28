@@ -191,6 +191,12 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#cast' do
     end
   end
 
+  context 'with a numeric string that has a leading zero' do
+    it 'reads it as a decimal bitmask, not an octal one' do
+      expect(type.cast('010')).to eq(%i[editor subscriber])
+    end
+  end
+
   context 'with a numeric String subclass' do
     it 'treats it as a bitmask' do
       expect(type.cast(Class.new(String).new('5'))).to eq(%i[admin author])
@@ -204,6 +210,12 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#cast' do
       expect { type.cast(indifferent) }.to raise_error(
         ArgumentError, "cannot cast #{indifferent} to a bitwise flag array for column roles"
       )
+    end
+  end
+
+  describe 'initialization' do
+    it 'runs the ActiveModel value initializer, which sets precision, scale and limit' do
+      expect(type.instance_variables).to include(:@precision, :@scale, :@limit)
     end
   end
 end

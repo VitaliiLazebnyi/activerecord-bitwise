@@ -248,4 +248,50 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect { model.new }.to raise_error(ArgumentError, /Bitwise column tiny has limit of/)
     end
   end
+
+  context 'with a mapping whose first position fits and a later one does not' do
+    it 'rejects it, naming the highest position' do
+      model = build_model('capacity_records') { bitwise :tiny, { low: 1, high: 40 } }
+
+      expect { model.new }.to raise_error(ArgumentError, /requires bit shift position 40\./)
+    end
+  end
+
+  context 'when a validated mapping is changed afterwards' do
+    it 'does not check the column again' do
+      model = define.call(:tiny, 0)
+      model.new
+      model.bitwise_definitions[:tiny][:mapping] = { flag: 40 }
+
+      expect { model.new }.not_to raise_error
+    end
+  end
+
+  describe 'the class-level record of a completed validation' do
+    let(:validation) { ActiveRecord::Bitwise::InstanceMethods::ColumnValidation }
+    let(:recorded) { ->(model) { model.instance_variable_get(:@_bitwise_columns_validated) } }
+
+    it 'is set once every column is validated' do
+      model = define.call(:regular, 0)
+      model.new
+
+      expect(recorded.call(model)).to be(true)
+    end
+
+    it 'is not set while a column could not be validated' do
+      model = define.call(:regular, 0).tap { |two_columns| two_columns.bitwise :small, { other_flag: 0 } }
+      model.bitwise_definitions[:regular][:validated] = true
+      allow(model).to receive(:columns_hash).and_raise(ActiveRecord::StatementInvalid)
+      validation.new(model).call
+
+      expect(recorded.call(model)).to be_nil
+    end
+
+    it 'is not set for a model without bitwise columns' do
+      model = build_model('capacity_records')
+      validation.new(model).call
+
+      expect(recorded.call(model)).to be_nil
+    end
+  end
 end

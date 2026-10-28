@@ -31,4 +31,16 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect(bitwise_callbacks.call(child._save_callbacks).size).to eq(1)
     end
   end
+
+  context 'with a subclass that registers its own callback before declaring another column' do
+    # ActiveModel prepends every after_* callback, so the inherited one stays last unless it is registered anew.
+    it 'keeps the position of the inherited initialization callback' do
+      child = build_model(parent: model) do
+        after_initialize { nil }
+        bitwise :custom_limits, { guest: 0 }
+      end
+
+      expect(child._initialize_callbacks.map(&:filter).last).to eq(:_validate_bitwise_column_type_and_bounds)
+    end
+  end
 end

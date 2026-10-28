@@ -23,4 +23,14 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#clear_bitwise_raw_value
   it 'can be called on a record that never touched its bitwise columns' do
     expect { model.new.clear_bitwise_raw_values_cache! }.not_to raise_error
   end
+
+  context 'when the assigned flags carry unmapped bits' do
+    it 'rebuilds the cache from them' do
+      record.roles = with_raw_marker([:admin], 0b1_0000_0001)
+      record.clear_bitwise_raw_values_cache!
+      record.update!(roles: [:editor])
+
+      expect(raw_value(record)).to eq(0b1_0000_0010)
+    end
+  end
 end

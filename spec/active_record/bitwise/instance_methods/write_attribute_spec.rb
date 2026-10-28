@@ -178,4 +178,31 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       expect(record.read_attribute(:roles)).to be_frozen
     end
   end
+
+  context 'when the bitwise type of the column was replaced by a subclass of it' do
+    it 'still keeps the unmapped bits' do
+      model.attribute :roles, Class.new(ActiveRecord::Bitwise::Type).new(:roles, model.bitwise_schema(:roles), nil)
+      record = model.find(ghosted.id)
+      record.update!(roles: [:editor])
+
+      expect(raw_value(record)).to eq(0b1_0010)
+    end
+  end
+
+  context 'with an attribute the model does not have' do
+    it 'raises the ActiveModel error' do
+      expect { model.new.write_attribute(:unknown, 1) }.to raise_error(ActiveModel::MissingAttributeError)
+    end
+  end
+
+  context 'with a raw bitmask that is a Bignum' do
+    let(:wide) { build_model('capacity_records') { bitwise :big, { top: 62 } } }
+
+    it 'leaves the record clean when the same bitmask is assigned again' do
+      record = wide.find(wide.create!(big: [:top]).id)
+      record.big = 2**62
+
+      expect(record.changed?).to be(false)
+    end
+  end
 end

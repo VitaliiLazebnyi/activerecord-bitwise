@@ -50,7 +50,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#where' do
 
   context 'with a conditions Hash that has a default value' do
     it 'serializes only the bitwise columns it contains' do
-      conditions = Hash.new([:admin]).merge(id: fixtures[:none].id)
+      conditions = Hash.new { [:admin] }.merge(id: fixtures[:none].id)
 
       expect(names_in.call(model.where(conditions))).to eq(%i[none])
     end

@@ -85,4 +85,34 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles' do
       expect(child.new.roles).to eq([:admin])
     end
   end
+
+  context 'when read repeatedly' do
+    it 'returns the same array' do
+      record = model.create!(roles: [:admin])
+
+      expect(record.roles).to equal(record.roles)
+    end
+  end
+
+  context 'when it was assigned' do
+    it 'returns a frozen array' do
+      record = model.new
+      record.roles = [:admin]
+
+      expect(record.roles).to be_frozen
+    end
+  end
+
+  context 'with the default of a new record' do
+    it 'carries the raw bitmask marker' do
+      expect(raw_marker_of(model.new.permissions)).to eq(0)
+    end
+
+    it 'carries the raw bitmask marker when the default was given as an Array subclass' do
+      flags = Class.new(Array).new([:admin])
+      custom = build_model { bitwise :roles, { admin: 0 }, default: flags }
+
+      expect(raw_marker_of(custom.new.roles)).to eq(0)
+    end
+  end
 end

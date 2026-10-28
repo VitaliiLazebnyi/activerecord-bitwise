@@ -45,6 +45,12 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#update_columns' do
 
       expect(record.roles_changed?).to be(false)
     end
+
+    it 'caches a raw bitmask of 0 for nil' do
+      record.update_columns(roles: nil)
+
+      expect(record._bitwise_raw_cache[:roles]).to eq(0)
+    end
   end
 
   context 'with the singular update_column' do
