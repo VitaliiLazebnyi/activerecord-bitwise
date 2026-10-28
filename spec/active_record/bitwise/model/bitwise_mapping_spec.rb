@@ -94,7 +94,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   context 'with a mapping that is neither Hash nor Array and Sorbet runtime checks are off' do
     around do |example|
       handler = T::Configuration.instance_variable_get(:@call_validation_error_handler)
-      T::Configuration.call_validation_error_handler = ->(*) {}
+      T::Configuration.call_validation_error_handler = ->(*_args) {}
       example.run
     ensure
       T::Configuration.call_validation_error_handler = handler

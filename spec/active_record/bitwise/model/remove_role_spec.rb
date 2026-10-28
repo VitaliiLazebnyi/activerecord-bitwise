@@ -78,8 +78,8 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#remove_role!' do
 
   context 'when the record lacks dirty tracking support' do
     it 'still applies the change' do
-      allow(record).to receive(:respond_to?).and_call_original
-      allow(record).to receive(:respond_to?).with(:clear_attribute_changes).and_return(false)
+      allow(model).to receive(:method_defined?).and_call_original
+      allow(model).to receive(:method_defined?).with(:clear_attribute_changes).and_return(false)
       record.remove_role!(:author)
 
       expect(record.roles).to eq([:admin])

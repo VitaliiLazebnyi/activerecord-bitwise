@@ -1,9 +1,7 @@
-inherit_from: .rubocop_todo.yml
-
 # Maximum-strictness configuration. Every cop is run in "fail the build" mode.
 # New code has no exclusions: fix the code. A cop that cannot apply to a file is configured narrowly
-# below, with the reason; inline `rubocop:disable` directives are not used. The only other exceptions
-# are the offenses lib/ already had on main, which are listed in .rubocop_todo.yml.
+# below, with the reason. Inline `rubocop:disable` directives are forbidden (see
+# Style/DisableCopsWithinSourceCodeDirective), and there is no todo file.
 plugins:
   - rubocop-md
   - rubocop-performance
@@ -40,7 +38,13 @@ Naming/VariableNumber:
   CheckSymbols: false
 Performance/ChainArrayAllocation:
   Enabled: true
+Lint/RedundantCopDisableDirective:
+  Enabled: true
+Sorbet/ForbidTUnsafe:
+  Enabled: true
 Style/ConstantVisibility:
+  Enabled: true
+Style/DisableCopsWithinSourceCodeDirective:
   Enabled: true
 # Style/DocumentationMethod is intentionally NOT enabled: it requires the comment to sit
 # directly above `def`, but Sorbet's `sig { ... }` must sit between them. Documentation
@@ -67,7 +71,7 @@ Gemspec/DevelopmentDependencies:
 
 # --- Sorbet: strictest sigils that are reachable ---
 # lib/ is `typed: strict`. `typed: strong` is unreachable because the gem
-# patches ActiveRecord internals through T.untyped / T.unsafe.
+# patches ActiveRecord internals and accepts duck-typed values (T.untyped).
 Sorbet/StrictSigil:
   Enabled: true
   Include:

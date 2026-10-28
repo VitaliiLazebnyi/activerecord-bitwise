@@ -1,12 +1,13 @@
 # typed: false
 # frozen_string_literal: true
 
-# A bitmask-like value whose #to_i calls back into Type#deserialize +levels+ times,
+# A number whose #to_i calls back into Type#deserialize +levels+ times,
 # simulating a value whose coercion re-enters the type.
-class ReentrantBitmask
+class ReentrantBitmask < Numeric
   # @param type [ActiveRecord::Bitwise::Type] the type to re-enter
   # @param levels [Integer] how many nested deserialize calls #to_i makes
   def initialize(type, levels)
+    super()
     @type = type
     @levels = levels
   end

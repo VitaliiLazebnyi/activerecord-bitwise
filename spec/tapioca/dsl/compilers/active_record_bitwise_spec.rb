@@ -91,4 +91,11 @@ RSpec.describe Tapioca::Dsl::Compilers::ActiveRecordBitwise do
       expect(compile.call(prefixed).instance_method_names).not_to include('admin?')
     end
   end
+
+  # Tapioca is not part of the bundle the specs run in, so the compiler loads against its stand-in.
+  describe 'the stand-in for the compiler base class' do
+    it 'gathers nothing on its own' do
+      expect(Tapioca::Dsl::Compiler.gather_constants).to eq([])
+    end
+  end
 end

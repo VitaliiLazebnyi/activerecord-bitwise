@@ -11,7 +11,7 @@ module SqlCapture
   #   transaction control are left out)
   def capture_sql(&)
     statements = []
-    subscriber = lambda do |*, payload|
+    subscriber = lambda do |*_args, payload|
       statements << payload[:sql] unless IGNORED_EVENT_NAMES.include?(payload[:name])
     end
     ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &)
@@ -25,7 +25,7 @@ module SqlCapture
   # @return [Array<Array(String, Boolean)>] pairs of statement and "transaction open?"
   def capture_sql_with_transaction_state(connection, &)
     statements = []
-    subscriber = lambda do |*, payload|
+    subscriber = lambda do |*_args, payload|
       next if IGNORED_EVENT_NAMES.include?(payload[:name])
 
       statements << [payload[:sql], connection.transaction_open?]

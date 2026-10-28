@@ -71,4 +71,10 @@ RSpec.describe ActiveRecord::Bitwise::WhereChainExtension, '#not' do
       expect(model.where.not(roles: [:admin]).to_sql).to include("#{qualified_column(model)} != 1")
     end
   end
+
+  context 'without a relation to negate' do
+    it 'passes the conditions on untouched, which ActiveRecord then rejects' do
+      expect { ActiveRecord::QueryMethods::WhereChain.new(nil).not(roles: [:admin]) }.to raise_error(NoMethodError)
+    end
+  end
 end
