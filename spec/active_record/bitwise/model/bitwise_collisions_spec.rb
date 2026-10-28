@@ -44,6 +44,34 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
     end
   end
 
+  context 'with a key that would shadow a name on a table that is not available' do
+    let(:missing_table) { 'table_that_does_not_exist' }
+
+    it 'rejects the bitwise column itself' do
+      expect { build_model(missing_table) { bitwise :roles, { roles: 0 } } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key roles would shadow the database column or attribute 'roles'. #{shadow_hint}"
+      )
+    end
+
+    it 'rejects the bitwise column itself when declared by its String name' do
+      expect { build_model(missing_table) { bitwise 'roles', { roles: 0 } } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key roles would shadow the database column or attribute 'roles'. #{shadow_hint}"
+      )
+    end
+
+    it 'rejects another bitwise column' do
+      model = build_model(missing_table) { bitwise :legacy_roles, { admin: 0 } }
+
+      expect { model.bitwise :roles, { legacy_roles: 0 } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key legacy_roles would shadow the database column or attribute " \
+        "'legacy_roles'. #{shadow_hint}"
+      )
+    end
+  end
+
   context 'with a key that would clobber a private ActiveRecord method' do
     it 'rejects :attribute because it generates the private #attribute?' do
       message = 'Bitwise column roles mapping key attribute generates method #attribute? ' \

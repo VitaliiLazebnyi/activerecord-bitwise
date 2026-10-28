@@ -12,18 +12,72 @@ matcher:
     - BitwiseValidator*
 mutation:
   timeout: 20.0
-  # Sorbet type annotations are enforced by the static checker (`srb tc`), not by behavior:
-  # `sig { ... }` and `T.let(value, Type)` declare types, while `T.unsafe(x)` and `T.must(x)`
-  # are runtime identities (T.must only asserts non-nil). Mutating them produces survivors
-  # that no behavioral spec can or should kill.
+  # Mutations that cannot change observable behavior, grouped by reason. Each pattern is
+  # as narrow as the pattern language allows; the PR description lists them with the methods
+  # they affect.
   ignore_patterns:
+    # Sorbet declarations. `sig`/`T.let` are checked statically by `srb tc`; `T.unsafe(x)` and
+    # `T.must(x)` are runtime identities, so a call on `T.unsafe(self)` behaves exactly like
+    # the same call on `self`.
     - block{receiver=send{selector=sig}}
     - send{selector=let}
     - send{selector=unsafe}
     - send{selector=must}
+    - send{receiver=send{selector=unsafe}}
+    # `record = T.unsafe(self)` is an alias of `self`.
+    - send{receiver=lvar{value=record}}
+    # `_bitwise_model` is `self.class`; ActiveRecord exposes class_attribute readers (and
+    # `transaction`) on instances, so `self.bitwise_definitions` equals
+    # `self.class.bitwise_definitions` and `self.transaction` equals `self.class.transaction`.
+    - send{selector=bitwise_definitions}
+    - send{selector=transaction}
+    # Constant lookups inside `ActiveRecord::Bitwise` resolve the same with or without the prefix.
+    - const{base=const{name=ActiveRecord}}
+    - const{base=const{name=Bitwise}}
     # `super()` of Type#initialize only initializes ActiveModel::Type::Value's precision/scale/limit
     # (all nil by default), so dropping it is unobservable; the other explicit `super()` (the
     # generated getter) is exercised by every getter example.
     - super
+    # Sorbet's runtime `sig` enforces these return types in production, but mutant redefines the
+    # method without its signature, so the mutated value is never type-checked there:
+    # * `RawMask.mask_of(flags)` -> `flags`: write_attribute accepts the stamped array as well;
+    - send{receiver=const{name=RawMask} selector=mask_of}
+    # * `affix.to_s` -> `affix`: a Symbol interpolates identically;
+    - send{receiver=lvar{value=affix} selector=to_s}
+    # * `.freeze` -> unfrozen copy: the attribute set casts (and freezes) the value again.
+    - send{receiver=send{selector=stamp} selector=freeze}
+    # `add_x!(*values)` -> `add_x!(values)`: the class-level methods flatten nested arrays.
+    - send{selector=public_send}
+    # `size != size` vs `!eql?`/`!equal?`: Integers compare identically.
+    - send{receiver=send{selector=size} selector=!=}
+    # `depth >= LIMIT` vs `==`: the depth never exceeds LIMIT.
+    - send{receiver=lvar{value=depth} selector=>=}
+    # `method_name.to_sym`: method_defined? accepts Strings too.
+    - send{receiver=lvar{value=method_name} selector=to_sym}
+    # `relation.all` vs `relation`/nil: an ActiveRecord scope body returning nil or the relation
+    # itself yields the same relation.
+    - send{receiver=lvar{value=relation} selector=all}
+    # Guards whose skipped branch computes the same result:
+    # * Scopes#with_exact: an empty list falls through to `= ?` with mask 0, the same rows as `= 0`;
+    - if{condition=send{receiver=lvar{value=cleaned} selector=empty?} true_branch=return{}}
+    # * Model#inherited: a class without definitions gets an equal, empty copy;
+    - if{condition=send{receiver=lvar{value=definitions} selector=blank?}}
+    # * Model#_bitwise_install_instance_methods: including the module again and registering the
+    #   same after_initialize symbol again are idempotent (ActiveSupport de-duplicates callbacks);
+    - if{condition=send{selector=<=}}
+    # * Collisions.table_columns: `column_names` of a missing table raises and is rescued to [];
+    - if{condition=send{selector=table_exists?}}
+    # * AtomicMethods.apply: ActiveRecord accepts record objects wherever it accepts ids;
+    - if{condition=send{receiver=lvar{value=record} selector=respond_to?}}
+    - block{receiver=send{selector=map}}
+    - send{receiver=send{selector=Array} selector=map}
+    # Every ActiveRecord model (and relation) responds to `bitwise_definitions`, because the
+    # gem adds it to ActiveRecord::Base, so the `respond_to?` half of these guards is always true.
+    - and{right=send{selector=respond_to?}}
+    # `args[0] = ...` vs `args[-1] = ...` differ only for `where(hash, extra)`, which ActiveRecord
+    # does not define.
+    - send{receiver=lvar{value=args} selector=[]=}
+    # `x&.dup` on nil vs `x.dup`: nil.dup is nil.
+    - csend{selector=dup}
 coverage_criteria:
   process_abort: true
