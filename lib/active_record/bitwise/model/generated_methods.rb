@@ -134,18 +134,16 @@ module ActiveRecord
           define_singleton_method(name) { |*values, records:| __send__(update, values, records) }
         end
 
-        # Defines the instance-level atomic methods: `add_<singular>!` and its alias `add_<column>!` (only one
-        # method when the column name is already singular, or uncountable).
+        # Defines the instance-level atomic methods: `add_<singular>!` and its alias `add_<column>!` (when the
+        # column name is already singular, or uncountable, the alias is the method itself, which is harmless).
         # @param operation [Symbol] Either :add or :remove.
         # @param column_name [Symbol, String] The database column name.
         # @return [void]
         sig { params(operation: Symbol, column_name: Types::Name).void }
         def _bitwise_define_instance_atomic(operation, column_name)
-          plural = column_name.to_s
-          singular = plural.singularize
-          implementation = :"#{operation}_#{singular}!"
+          implementation = :"#{operation}_#{column_name.to_s.singularize}!"
           _bitwise_define_atomic_implementation(implementation, operation, column_name.to_sym)
-          _bitwise_define_atomic_alias(:"#{operation}_#{plural}!", implementation) unless singular == plural
+          _bitwise_define_atomic_alias(:"#{operation}_#{column_name}!", implementation)
         end
 
         # Defines the instance-level atomic method +name+.
@@ -155,7 +153,9 @@ module ActiveRecord
         # @return [void]
         sig { params(name: Symbol, operation: Symbol, column: Symbol).void }
         def _bitwise_define_atomic_implementation(name, operation, column)
-          define_method(_bitwise_release(name)) { |*values| __send__(ATOMIC_UPDATE, column, operation, values) }
+          # No release needed: the method is always aliased (see below), and Ruby does not warn when an
+          # aliased method is redefined.
+          define_method(name) { |*values| __send__(ATOMIC_UPDATE, column, operation, values) }
         end
 
         # Defines +name+ as an alias of +implementation+ (Ruby does not warn when an alias replaces a method).

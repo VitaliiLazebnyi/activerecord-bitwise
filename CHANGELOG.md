@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Development dependencies upgraded to their latest releases (SimpleCov 1.x, rubocop-md 2.x, ...)
   and declared as ordinary development dependencies in the gemspec; the repository develops on
   Ruby 4.0.9 (`.ruby-version`) and CI tests Ruby 3.3, 3.4 and 4.0.
+- The internal code is split into small typed classes. Two duck-typing checks are now made on the
+  class instead of with `respond_to?`: an object passed to `records:` counts as a record when its
+  class has a public `id` method, and the bitwise validator looks for a public class method
+  `bitwise_definitions`. Only objects that answer those methods through `method_missing` (or a
+  singleton method) behave differently.
+- The private record helpers behind the generated methods (`_bitwise_read`,
+  `_bitwise_flag_enabled?`, `_bitwise_flag_assign`, `_bitwise_flag_save`, `_bitwise_atomic_update!`)
+  are now private.
 
 ## [0.11.0] - 2026-07-20
 
