@@ -6,6 +6,14 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
 
   let(:serialize) { ->(conditions) { described_class.serialize_conditions(model, conditions) } }
 
+  context 'when the attribute types do not know a bitwise column' do
+    it 'leaves the conditions as they are' do
+      allow(model).to receive(:attribute_types).and_return({})
+
+      expect(serialize.call(roles: [:admin])).to eq(roles: [:admin])
+    end
+  end
+
   context 'with flag values for a bitwise column' do
     it 'turns a Symbol array into its exact bitmask' do
       expect(serialize.call(roles: %i[admin author])).to eq(roles: 0b101)

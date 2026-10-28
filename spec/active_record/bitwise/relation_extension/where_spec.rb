@@ -26,6 +26,17 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#where' do
     end
   end
 
+  context 'when the attribute type of a bitwise column is not the bitwise type' do
+    before do
+      integer_types = { roles: ActiveRecord::Type::Integer.new }.transform_keys(&:to_s)
+      allow(model).to receive(:attribute_types).and_return(integer_types)
+    end
+
+    it 'leaves the condition to ActiveRecord' do
+      expect(model.where(roles: 'garbage').to_sql).to end_with('"roles" = NULL')
+    end
+  end
+
   context 'with a String key' do
     it 'serializes the value the same way' do
       string_keyed = { roles: [:admin] }.transform_keys(&:to_s)

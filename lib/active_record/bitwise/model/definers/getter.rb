@@ -24,7 +24,7 @@ module ActiveRecord
             model.define_method(column_name) do
               record = T.unsafe(self)
               raw = record._bitwise_raw(column)
-              Getter.stamped(record.class.attribute_types.fetch(column_name.to_s), super(), raw)
+              Getter.stamped(record.class.attribute_types[column_name.to_s], super(), raw)
             end
           end
 

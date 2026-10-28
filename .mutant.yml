@@ -86,6 +86,13 @@ mutation:
     # `Model#bitwise` ends with an explicit `nil`, but its `sig` declares `void`, so the value is
     # replaced by Sorbet's void marker before any caller sees it.
     - nil
+    # `attribute_types[name]` vs `.fetch(name)`: a model's attribute types always contain its
+    # columns, so the lookups differ only for a type table that is missing a column; the lenient
+    # `[]` is kept deliberately (it is what `main` did, and Conditions/Getter tolerate it).
+    - index{receiver=send{selector=attribute_types}}
+    # `AttributeWrites#_bitwise_typecaster`: the `key?` guard only skips the type lookup for
+    # ordinary columns, whose type is not a `Type` either way.
+    - if{condition=send{selector=key?}}
     # `x&.dup` on nil vs `x.dup`: nil.dup is nil.
     - csend{selector=dup}
 coverage_criteria:

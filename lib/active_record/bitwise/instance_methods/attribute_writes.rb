@@ -63,7 +63,7 @@ module ActiveRecord
         def _bitwise_typecaster(column_name)
           return nil unless _bitwise_model.bitwise_definitions.key?(column_name)
 
-          typecaster = _bitwise_model.attribute_types.fetch(column_name.to_s)
+          typecaster = _bitwise_model.attribute_types[column_name.to_s]
           typecaster if typecaster in ActiveRecord::Bitwise::Type
         end
 

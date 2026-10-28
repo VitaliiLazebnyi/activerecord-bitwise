@@ -66,7 +66,7 @@ module ActiveRecord
       # @return [T::Array[[Symbol, T.untyped, Type]]]
       sig { params(klass: T.untyped, hash: Types::Params, column_name: Symbol).returns(T::Array[[Symbol, T.untyped, Type]]) }
       def self.column_entries(klass, hash, column_name)
-        typecaster = klass.attribute_types.fetch(column_name.to_s)
+        typecaster = klass.attribute_types[column_name.to_s]
         keys = [column_name, column_name.to_s].select { |key| hash.key?(key) }
         (typecaster in Type) ? keys.map { |key| [column_name, key, typecaster] } : []
       end

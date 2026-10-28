@@ -10,6 +10,12 @@ RSpec.describe ActiveRecord::Bitwise::Model::Definers::Getter, '.stamped' do
     end
   end
 
+  context 'without a type' do
+    it 'still returns a value that needs no deserializing' do
+      expect(described_class.stamped(nil, 5, 1)).to eq(5)
+    end
+  end
+
   context 'with nil' do
     it 'returns the shared empty flag array' do
       expect(described_class.stamped(type, nil, 0)).to eq([])
