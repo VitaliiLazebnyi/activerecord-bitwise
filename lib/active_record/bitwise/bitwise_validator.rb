@@ -42,8 +42,6 @@ class BitwiseValidator < ActiveModel::EachValidator
     ).void
   end
   def validate_each(record, attribute, value)
-    return if value in nil
-
     invalid = invalid_values(record.class, attribute, value)
     record.errors.add(attribute, options[:message] || default_message(invalid)) unless invalid.empty?
   end
@@ -53,10 +51,11 @@ class BitwiseValidator < ActiveModel::EachValidator
   # The elements of +value+ that are not flags of the attribute.
   # @param klass [Class] The record's class.
   # @param attribute [Symbol, String] The attribute under validation.
-  # @param value [Object] The assigned value.
+  # @param value [Object, nil] The assigned value (nil holds no flags).
   # @return [Array<Object>] None when the class declares no such bitwise column.
   sig do
-    params(klass: T::Class[T.anything], attribute: ActiveRecord::Bitwise::Types::Name, value: Object).returns(T::Array[Object])
+    params(klass: T::Class[T.anything], attribute: ActiveRecord::Bitwise::Types::Name, value: T.nilable(Object))
+      .returns(T::Array[Object])
   end
   def invalid_values(klass, attribute, value)
     mapping = ActiveRecord::Bitwise::Definitions.mapping(klass, attribute)

@@ -20,5 +20,10 @@ mutation:
     # method is called with the wrong types, which the specs cover); mutating the signature DSL itself
     # only produces Sorbet runtime errors that the examples of the method already surface.
     - block{receiver=send{selector=sig}}
+    # Generic type applications such as `T::Array[String]` or `T::Hash[Symbol, Integer]` (in `T.let` and
+    # `T.type_alias`) are Sorbet types whose arguments sorbet-runtime erases: `T.let(x, T::Array[String])`
+    # only checks that x is an Array at runtime, so a mutated type argument behaves exactly like the
+    # original. `srb tc` checks them statically.
+    - send{selector=[] receiver=const{base=const{name=T}}}
 coverage_criteria:
   process_abort: true

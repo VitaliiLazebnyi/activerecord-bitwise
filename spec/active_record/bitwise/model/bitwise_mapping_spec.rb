@@ -145,5 +145,13 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect(model.bitwise_schema(:roles)).to eq(admin: 0, author: 1)
       expect(model.new(roles: [:author]).author?).to be(true)
     end
+
+    # ActiveRecord itself warns when a scope is defined over one of the same class; that warning comes
+    # from ActiveRecord's code, so the example watches standard error rather than the warning guard.
+    it 'replaces the scopes without a warning' do
+      model = define.call({ admin: 0 })
+
+      expect { model.bitwise :roles, { admin: 0, author: 1 } }.not_to output.to_stderr
+    end
   end
 end

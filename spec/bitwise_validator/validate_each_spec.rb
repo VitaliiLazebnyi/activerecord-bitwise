@@ -97,6 +97,12 @@ RSpec.describe BitwiseValidator, '#validate_each' do
       expect(record.errors[:roles]).to eq(['contains invalid values: hacker'])
     end
 
+    it 'reports a value that is neither a String nor a Symbol' do
+      described_class.new(attributes: [:roles]).validate_each(record, :roles, [7])
+
+      expect(record.errors[:roles]).to eq(['contains invalid values: 7'])
+    end
+
     it 'ignores nil and empty-string entries that the type cast did not remove' do
       described_class.new(attributes: [:roles]).validate_each(record, :roles, [nil, '', :hacker])
 

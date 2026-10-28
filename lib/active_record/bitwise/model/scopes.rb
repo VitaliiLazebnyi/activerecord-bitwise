@@ -44,9 +44,10 @@ module ActiveRecord
         sig { params(name: String, layout: Layout, query: Symbol).void }
         def _bitwise_scope(name, layout, query)
           Redefinition.release(singleton_class, name)
+          # A scope body that returns nil leaves the relation unfiltered (ActiveRecord falls back to `all`).
           scope(name, lambda do |*values|
             clause = ScopeQuery.new(layout, values).public_send(query)
-            clause ? where(*clause.arguments(connection, table_name)) : all
+            where(clause.arguments(connection, table_name)) if clause
           end)
         end
       end
