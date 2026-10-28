@@ -55,7 +55,9 @@ RSpec.describe BitwiseValidator, '#validate_each' do
 
   context 'with a long unknown value' do
     it 'cuts a value of 65 characters to 64 plus an ellipsis' do
-      expect(errors_for.call(['z' * 65])).to eq(["contains invalid values: #{'z' * 64}…"])
+      value = ('a'..'z').cycle.take(65).join
+
+      expect(errors_for.call([value])).to eq(["contains invalid values: #{value[0, 64]}…"])
     end
 
     it 'keeps a value of exactly 64 characters whole' do
@@ -93,6 +95,18 @@ RSpec.describe BitwiseValidator, '#validate_each' do
       described_class.new(attributes: [:roles]).validate_each(record, :roles, :hacker)
 
       expect(record.errors[:roles]).to eq(['contains invalid values: hacker'])
+    end
+
+    it 'ignores nil and empty-string entries that the type cast did not remove' do
+      described_class.new(attributes: [:roles]).validate_each(record, :roles, [nil, '', :hacker])
+
+      expect(record.errors[:roles]).to eq(['contains invalid values: hacker'])
+    end
+
+    it 'looks the attribute up by its Symbol name' do
+      described_class.new(attributes: [:roles]).validate_each(record, 'roles', ['hacker'])
+
+      expect(record.errors['roles']).to eq(['contains invalid values: hacker'])
     end
 
     it 'ignores an attribute without a bitwise definition' do
