@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ignored rows whose column is NULL, although the getter reads NULL as "no flags". They now treat NULL
   as 0 (`(col = 0 OR col IS NULL)` for the equality cases, so an index on the column stays usable;
   `COALESCE(col, 0) & mask = 0` for `without_`).
+- Declaring a column again on the same class (for example after reloading a model in development)
+  made Ruby print a "method redefined" warning for every generated method and scope in verbose mode
+  (`ruby -w`). The earlier generated methods are now replaced without a warning.
 
 ### Added
 

@@ -24,8 +24,15 @@ end
 
 desc 'Generate the gem RBIs with Tapioca, then run the Sorbet type checker'
 task :typecheck do
-  sh 'env BUNDLE_GEMFILE=gemfiles/typecheck.gemfile sh -c "bundle install --quiet && bundle exec tapioca gem"'
-  sh 'bundle exec srb tc'
+  # Tapioca runs from its own bundle. Under `bundle exec rake` the environment (RUBYOPT=-rbundler/setup,
+  # BUNDLE_GEMFILE) belongs to the main bundle, so the nested commands run in an unbundled environment.
+  Bundler.with_unbundled_env do
+    sh 'env BUNDLE_GEMFILE=typecheck.gemfile bundle install --quiet'
+    sh 'env BUNDLE_GEMFILE=typecheck.gemfile bundle exec tapioca gem'
+  end
+  # Tapioca already merges the RBIs that gems ship themselves (e.g. prism, spoom) into the generated ones;
+  # srb must not load them a second time.
+  sh 'env SRB_SKIP_GEM_RBIS=1 bundle exec srb tc'
 end
 
 desc 'Fail unless every public API object is documented'

@@ -54,11 +54,11 @@ File.write(original_spec, text)
 # prints a DEPRECATION notice on every run) and enforces a 100% coverage floor on the files it loads. That
 # floor belongs to the old single-file layout; coverage is enforced by this release's own suite, so here
 # the floor is dropped and only the API rename is applied. The examples themselves are untouched.
-SIMPLECOV_ADAPTATIONS = {
-  'add_filter' => 'skip',
-  'minimum_coverage line: 100, branch: 100' => 'minimum_coverage line: 0, branch: 0',
-  'minimum_coverage line: 99, branch: 99' => 'minimum_coverage line: 0, branch: 0'
-}.freeze
+SIMPLECOV_ADAPTATIONS = [
+  %w[add_filter skip],
+  ['minimum_coverage line: 100, branch: 100', 'minimum_coverage line: 0, branch: 0'],
+  ['minimum_coverage line: 99, branch: 99', 'minimum_coverage line: 0, branch: 0']
+].freeze
 original_helper = File.join(work, 'spec', 'spec_helper.rb')
 helper = File.read(original_helper)
 SIMPLECOV_ADAPTATIONS.each do |before, after|

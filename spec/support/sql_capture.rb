@@ -9,12 +9,12 @@ module SqlCapture
   # @yield the code whose statements are recorded
   # @return [Array<String>] the statements, in execution order (schema lookups and
   #   transaction control are left out)
-  def capture_sql(&)
+  def capture_sql(&block)
     statements = []
     subscriber = lambda do |*_args, payload|
       statements << payload[:sql] unless IGNORED_EVENT_NAMES.include?(payload[:name])
     end
-    ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &)
+    ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &block)
     statements
   end
 
@@ -23,14 +23,14 @@ module SqlCapture
   # @param connection [ActiveRecord::ConnectionAdapters::AbstractAdapter]
   # @yield the code whose statements are recorded
   # @return [Array<Array(String, Boolean)>] pairs of statement and "transaction open?"
-  def capture_sql_with_transaction_state(connection, &)
+  def capture_sql_with_transaction_state(connection, &block)
     statements = []
     subscriber = lambda do |*_args, payload|
       next if IGNORED_EVENT_NAMES.include?(payload[:name])
 
       statements << [payload[:sql], connection.transaction_open?]
     end
-    ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &)
+    ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &block)
     statements
   end
 end

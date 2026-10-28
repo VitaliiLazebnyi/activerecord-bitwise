@@ -6,6 +6,6 @@
 # Tapioca's compiler base class).
 source 'https://rubygems.org'
 
-gemspec path: '..'
+gemspec
 
 gem 'tapioca', '~> 0.20', require: false

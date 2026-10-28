@@ -101,3 +101,8 @@ Style/FrozenStringLiteralComment:
 ThreadSafety/NewThread:
   Exclude:
     - 'spec/support/concurrent_runner.rb'
+
+# Sorbet signatures name every parameter, including the block, so anonymous block forwarding (`&`)
+# cannot be used in typed code.
+Naming/BlockForwarding:
+  EnforcedStyle: explicit

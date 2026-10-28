@@ -135,14 +135,15 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   end
 
   context 'when the same column is declared twice' do
-    # Redeclaring a column on the same class redefines its generated methods; Ruby says so in verbose
-    # mode, so the example consumes and asserts that warning instead of hiding it.
+    # Redeclaring a column on the same class replaces its generated methods without Ruby's
+    # "method redefined" warning.
     it 'keeps the later declaration', :aggregate_failures do
       model = define.call({ admin: 0 })
       model.bitwise :roles, { admin: 0, author: 1 }
 
-      expect(WarningGuard.drain.join).to include('method redefined')
+      expect(WarningGuard.drain).to be_empty
       expect(model.bitwise_schema(:roles)).to eq(admin: 0, author: 1)
+      expect(model.new(roles: [:author]).author?).to be(true)
     end
   end
 end

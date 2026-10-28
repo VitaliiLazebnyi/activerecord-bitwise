@@ -16,14 +16,14 @@ RSpec.describe ActiveRecord::Bitwise::RecursionGuard do
         .to raise_error(ActiveRecord::Bitwise::Error, 'System recursion limit exceeded in deserialize')
     end
 
-    it 'restores the depth after the block, even when it raises' do
+    it 'restores the depth after the block, even when it raises', :aggregate_failures do
       expect { described_class.run { raise 'boom' } }.to raise_error('boom')
 
       expect(described_class.run { described_class.run { :ok } }).to eq(:ok)
     end
 
     it 'counts per thread' do
-      result = described_class.run { Thread.new { described_class.run { described_class.run { :deep } } }.value }
+      result = described_class.run { in_another_thread { described_class.run { described_class.run { :deep } } } }
 
       expect(result).to eq(:deep)
     end

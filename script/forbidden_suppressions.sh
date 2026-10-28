@@ -30,7 +30,7 @@ check 'zizmor ignore' 'zizmor: ?ignore'
 check 'shellcheck disable' 'shellcheck +disable'
 check 'LGTM/CodeQL suppression' 'lgtm\[|codeql\[|codeql-disable|lgtm: ?ignore'
 check 'nosec' 'nosec'
-check 'warning silencing' '\$VERBOSE *= *nil|Warning\.ignore|silence_warnings|\$stderr *= *File::NULL'
+check 'warning silencing' '[$]VERBOSE *= *nil|Warning\.ignore|silence_warnings|[$]stderr *= *File::NULL'
 check 'skipped or focused test' '^[[:space:]]*(xit|xdescribe|xcontext|fit|fdescribe|fcontext|skip|pending)([[:space:]]|\()|focus: *true|, *:focus|, *(skip|pending): ' '(spec|script)/'
 check 'Sorbet escape hatch' 'T\.(unsafe|cast|bind)\b|typed: *(false|ignore)' 'lib/'
 

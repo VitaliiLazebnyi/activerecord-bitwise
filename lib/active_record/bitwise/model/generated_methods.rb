@@ -6,6 +6,7 @@ require 'active_record/bitwise/atomic_update'
 require 'active_record/bitwise/declaration'
 require 'active_record/bitwise/flag'
 require 'active_record/bitwise/layout'
+require 'active_record/bitwise/redefinition'
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
 
@@ -25,13 +26,25 @@ module ActiveRecord
 
         private
 
+        # Removes the instance method +name+ when this class itself defines it (a column declared again), so
+        # that defining it anew replaces it without Ruby's "method redefined" warning ({Redefinition.release}
+        # does the same for class methods; Sorbet does not type +self+ here as a Module that could be passed
+        # to it).
+        # @param name [String, Symbol] The method name.
+        # @return [String, Symbol] +name+.
+        sig { params(name: T.any(String, Symbol)).returns(T.any(String, Symbol)) }
+        def _bitwise_release(name)
+          remove_method(name) if method_defined?(name, false) || private_method_defined?(name, false)
+          name
+        end
+
         # Defines the column getter that stamps returned arrays with the raw bitmask.
         # @param declaration [ActiveRecord::Bitwise::Declaration]
         # @return [void]
         sig { params(declaration: Declaration).void }
         def _bitwise_define_getter(declaration)
           column = declaration.column
-          define_method(declaration.column_name) { __send__(:_bitwise_read, column, super()) }
+          define_method(_bitwise_release(declaration.column_name)) { __send__(:_bitwise_read, column, super()) }
         end
 
         # Defines the per-flag `flag?`, `flag=`, and `flag!` methods.
@@ -48,7 +61,7 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, flag: Flag).void }
         def _bitwise_define_flag(name, flag)
-          define_method("#{name}?") { __send__(:_bitwise_flag_enabled?, flag) }
+          define_method(_bitwise_release("#{name}?")) { __send__(:_bitwise_flag_enabled?, flag) }
           _bitwise_define_flag_writers(name, flag)
         end
 
@@ -58,8 +71,8 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, flag: Flag).void }
         def _bitwise_define_flag_writers(name, flag)
-          define_method("#{name}=") { |value| __send__(:_bitwise_flag_assign, flag, value) }
-          define_method("#{name}!") { __send__(:_bitwise_flag_save, flag) }
+          define_method(_bitwise_release("#{name}=")) { |value| __send__(:_bitwise_flag_assign, flag, value) }
+          define_method(_bitwise_release("#{name}!")) { __send__(:_bitwise_flag_save, flag) }
         end
 
         # Defines the class-level and instance-level atomic add/remove methods.
@@ -92,6 +105,7 @@ module ActiveRecord
         # @return [void]
         sig { params(name: Symbol, atomic: AtomicUpdate).void }
         def _bitwise_define_class_update(name, atomic)
+          Redefinition.release(singleton_class, name)
           define_singleton_method(name) do |values, records|
             plan = atomic.plan(values, records)
             plan && where(id: plan.ids).update_all(plan.assignment(connection))
@@ -105,6 +119,7 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, update: Symbol).void }
         def _bitwise_define_class_atomic_api(name, update)
+          Redefinition.release(singleton_class, name)
           define_singleton_method(name) { |*values, records:| __send__(update, values, records) }
         end
 
@@ -118,7 +133,9 @@ module ActiveRecord
         def _bitwise_define_instance_atomic(operation, column_name)
           implementation = "#{operation}_#{column_name.to_s.singularize}!"
           column = column_name.to_sym
-          define_method(implementation) { |*values| __send__(:_bitwise_atomic_update!, column, operation, values) }
+          define_method(_bitwise_release(implementation)) do |*values|
+            __send__(:_bitwise_atomic_update!, column, operation, values)
+          end
           _bitwise_define_atomic_alias("#{operation}_#{column_name}!", implementation)
         end
 
@@ -128,7 +145,9 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, implementation: String).void }
         def _bitwise_define_atomic_alias(name, implementation)
-          define_method(name) { |*values| method(implementation).call(*values) } unless name == implementation
+          return if name == implementation
+
+          define_method(_bitwise_release(name)) { |*values| method(implementation).call(*values) }
         end
       end
     end

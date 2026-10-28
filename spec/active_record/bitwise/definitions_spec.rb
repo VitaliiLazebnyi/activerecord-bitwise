@@ -9,13 +9,13 @@ RSpec.describe ActiveRecord::Bitwise::Definitions do
     it('is false for a plain class') { expect(described_class.bitwise?(Class.new)).to be(false) }
 
     it 'is false for a class that only has an instance method of that name' do
-      plain = Class.new { def bitwise_definitions = {} }
+      plain = Class.new { define_method(:bitwise_definitions) { {} } }
 
       expect(described_class.bitwise?(plain)).to be(false)
     end
 
     it 'is true for a class that has the method on its singleton class' do
-      plain = Class.new { def self.bitwise_definitions = {} }
+      plain = Class.new { define_singleton_method(:bitwise_definitions) { {} } }
 
       expect(described_class.bitwise?(plain)).to be(true)
     end

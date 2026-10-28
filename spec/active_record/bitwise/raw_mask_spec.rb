@@ -2,17 +2,13 @@
 # frozen_string_literal: true
 
 RSpec.describe ActiveRecord::Bitwise::RawMask do
-  # RawMask.stamp only takes arrays; stamping other objects models foreign objects that carry the marker.
-  def stamped_copy(object, marker)
-    object.instance_variable_set(:@_bitwise_raw_value, marker)
-    object
-  end
-
   let(:array_subclass) { Class.new(Array) }
 
   describe '.stamped? and .read' do
     it 'tell a stamped array from an unstamped one' do
-      expect([described_class.stamped?(described_class.stamp([], 0)), described_class.stamped?([])]).to eq([true, false])
+      stamped = described_class.stamp([], 0)
+
+      expect([described_class.stamped?(stamped), described_class.stamped?([])]).to eq([true, false])
     end
 
     it 'read back the marker, even when it is nil' do
@@ -83,7 +79,7 @@ RSpec.describe ActiveRecord::Bitwise::RawMask do
     end
 
     it 'is 0 for a stamped object that is not an array' do
-      expect(described_class.mask_of(stamped_copy(+'text', 7))).to eq(0)
+      expect(described_class.mask_of(with_raw_marker(+'text', 7))).to eq(0)
     end
 
     it 'reads a String marker leniently' do
@@ -145,7 +141,7 @@ RSpec.describe ActiveRecord::Bitwise::RawMask do
     end
 
     it 'ignores a stamped source that is not an array' do
-      expect(described_class.stamped?(described_class.carry([:b], stamped_copy(+'text', 5)))).to be(false)
+      expect(described_class.stamped?(described_class.carry([:b], with_raw_marker(+'text', 5)))).to be(false)
     end
   end
 
@@ -169,7 +165,7 @@ RSpec.describe ActiveRecord::Bitwise::RawMask do
     end
 
     it 'is a stamped object that is not an array itself' do
-      text = stamped_copy(+'text', 3)
+      text = with_raw_marker(+'text', 3)
 
       expect(described_class.unwrap(text)).to equal(text)
     end

@@ -2,9 +2,9 @@
 # frozen_string_literal: true
 
 RSpec.describe ActiveRecord::Bitwise::Flag do
-  include_context 'with a user model'
-
   subject(:flag) { described_class.new(:roles, :admin) }
+
+  include_context 'with a user model'
 
   let(:record) { model.new(roles: [:editor]) }
 

@@ -18,6 +18,13 @@ module ConcurrentRunner
     threads.each(&:join)
   end
 
+  # Runs +block+ in a new thread and returns its value.
+  # @return [Object] the value of the block
+  # @raise [StandardError] the error raised by the block
+  def in_another_thread(&block)
+    Thread.new(&block).value
+  end
+
   private
 
   # Starts a thread that announces itself on +ready+, waits on +start+, then runs +task+.

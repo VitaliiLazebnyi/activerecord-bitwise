@@ -15,11 +15,9 @@ RSpec.describe ActiveRecord::Bitwise::AtomicUpdate do
     end
 
     it 'is the value itself when its id is not public' do
-      hidden = Class.new do
-        private
-
-        def id = 1
-      end.new
+      hidden_class = Class.new { define_method(:id) { 1 } }
+      hidden_class.__send__(:private, :id)
+      hidden = hidden_class.new
 
       expect(described_class.id_of(hidden)).to equal(hidden)
     end

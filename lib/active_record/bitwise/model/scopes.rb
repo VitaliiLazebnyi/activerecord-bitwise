@@ -4,6 +4,7 @@
 require 'active_record'
 require 'active_record/bitwise/declaration'
 require 'active_record/bitwise/layout'
+require 'active_record/bitwise/redefinition'
 require 'active_record/bitwise/scope_query'
 require 'sorbet-runtime'
 
@@ -42,6 +43,7 @@ module ActiveRecord
         # @return [void]
         sig { params(name: String, layout: Layout, query: Symbol).void }
         def _bitwise_scope(name, layout, query)
+          Redefinition.release(singleton_class, name)
           scope(name, lambda do |*values|
             clause = ScopeQuery.new(layout, values).public_send(query)
             clause ? where(*clause.arguments(connection, table_name)) : all

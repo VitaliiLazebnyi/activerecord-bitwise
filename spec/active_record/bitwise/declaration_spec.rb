@@ -7,12 +7,12 @@ RSpec.describe ActiveRecord::Bitwise::Declaration do
   let(:declaration) { described_class.new(layout, options) }
 
   describe '.from' do
+    subject(:rebuilt) { described_class.from(:roles, definition) }
+
     let(:definition) do
       { mapping: { admin: 0, editor: 1 }, default: [:editor], prefix: :can, suffix: 'now', validated: true,
         generated_methods: [] }
     end
-
-    subject(:rebuilt) { described_class.from(:roles, definition) }
 
     it('rebuilds the layout') { expect(rebuilt.layout.mapping).to eq(admin: 0, editor: 1) }
     it('rebuilds the column') { expect(rebuilt.column_name).to eq(:roles) }
@@ -36,7 +36,8 @@ RSpec.describe ActiveRecord::Bitwise::Declaration do
     end
 
     it 'derives the affix from the singular column name when it is true' do
-      derived = described_class.new(layout, ActiveRecord::Bitwise::Options.new(default: nil, prefix: true, suffix: true))
+      affixes = ActiveRecord::Bitwise::Options.new(default: nil, prefix: true, suffix: true)
+      derived = described_class.new(layout, affixes)
 
       expect(derived.method_name(:admin)).to eq('role_admin_role')
     end
@@ -50,11 +51,12 @@ RSpec.describe ActiveRecord::Bitwise::Declaration do
 
   describe '#flags' do
     it 'maps each generated name to its flag' do
-      expect(declaration.flags.transform_values(&:key)).to eq('can_admin_now' => :admin, 'can_editor_now' => :editor)
+      expect(declaration.flags.map { |name, flag| [name, flag.key] })
+        .to eq([['can_admin_now', :admin], ['can_editor_now', :editor]])
     end
 
     it 'gives every flag the column name' do
-      expect(declaration.flags.values.map(&:column_name).uniq).to eq([:roles])
+      expect(declaration.flags.values).to all(have_attributes(column_name: :roles))
     end
   end
 

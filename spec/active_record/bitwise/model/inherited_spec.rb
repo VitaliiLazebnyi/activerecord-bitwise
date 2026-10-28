@@ -40,13 +40,13 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#inherited' do
       expect(sibling.bitwise_schema(:roles)).to eq(admin: 0, editor: 1, author: 2, subscriber: 3)
     end
 
-    # Redeclaring a column on the same class redefines its generated methods; Ruby says so in verbose
-    # mode, so the example consumes and asserts that warning instead of hiding it.
+    # Redeclaring a column on the same class replaces its generated methods without Ruby's
+    # "method redefined" warning.
     it 'keeps the subclass unchanged when the parent redeclares a column later', :aggregate_failures do
       child
       model.bitwise :roles, { owner: 0 }
 
-      expect(WarningGuard.drain.join).to include('method redefined')
+      expect(WarningGuard.drain).to be_empty
       expect(child.bitwise_schema(:roles)).to eq(admin: 0, editor: 1, author: 2, subscriber: 3)
     end
 
