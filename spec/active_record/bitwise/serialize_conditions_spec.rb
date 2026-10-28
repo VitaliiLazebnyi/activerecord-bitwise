@@ -15,6 +15,13 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
   end
 
   context 'with flag values for a bitwise column' do
+    # Mixed Symbol and String keys are the point of the examples that use this helper.
+    let(:both_keys) do
+      lambda do |symbol_value, string_value|
+        { roles: symbol_value }.tap { |conditions| conditions.store('roles', string_value) }
+      end
+    end
+
     it 'turns a Symbol array into its exact bitmask' do
       expect(serialize.call(roles: %i[admin author])).to eq(roles: 0b101)
     end
@@ -41,16 +48,13 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
       expect(serialize.call(string_keyed)).to eq({ roles: 1 }.transform_keys(&:to_s))
     end
 
-    # Mixed Symbol and String keys are the point of these examples.
-    # rubocop:disable Style/StringHashKeys
     it 'rewrites the String key of a column whose Symbol key needs no rewriting' do
-      expect(serialize.call({ roles: 5, 'roles' => [:admin] })).to eq({ roles: 5, 'roles' => 1 })
+      expect(serialize.call(both_keys.call(5, [:admin]))).to eq(both_keys.call(5, 1))
     end
 
     it 'rewrites the String key of a column whose Symbol key is a non-empty Integer array' do
-      expect(serialize.call({ roles: [1, 5], 'roles' => [:admin] })).to eq({ roles: [1, 5], 'roles' => 1 })
+      expect(serialize.call(both_keys.call([1, 5], [:admin]))).to eq(both_keys.call([1, 5], 1))
     end
-    # rubocop:enable Style/StringHashKeys
 
     it 'does not modify the hash it was given' do
       conditions = { roles: [:admin] }

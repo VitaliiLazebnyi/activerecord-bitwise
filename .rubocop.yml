@@ -1,9 +1,9 @@
 inherit_from: .rubocop_todo.yml
 
 # Maximum-strictness configuration. Every cop is run in "fail the build" mode.
-# New code has no exclusions: fix the code, or use a narrowly scoped inline `# rubocop:disable`
-# with a justification. The only exceptions are the offenses lib/ already had on main, which are
-# listed in .rubocop_todo.yml so that the existing code does not have to change.
+# New code has no exclusions: fix the code. A cop that cannot apply to a file is configured narrowly
+# below, with the reason; inline `rubocop:disable` directives are not used. The only other exceptions
+# are the offenses lib/ already had on main, which are listed in .rubocop_todo.yml.
 plugins:
   - rubocop-md
   - rubocop-performance
@@ -91,3 +91,9 @@ Style/OneClassPerFile:
 Style/FrozenStringLiteralComment:
   Exclude:
     - '**/*.md'
+
+# The concurrency examples need real threads that start together; the helper that spawns them is the
+# one place in the repository allowed to create a Thread.
+ThreadSafety/NewThread:
+  Exclude:
+    - 'spec/support/concurrent_runner.rb'

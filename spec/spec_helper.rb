@@ -132,7 +132,6 @@ RSpec.configure do |config|
   config.include ModelFactory
   config.include RawMarker
   config.include ErrorCapture
-  config.include QuietWarnings
   config.include SqlCapture
   config.include RowLockSpy
   config.include ConcurrentRunner

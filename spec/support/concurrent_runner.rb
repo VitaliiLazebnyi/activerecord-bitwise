@@ -26,8 +26,7 @@ module ConcurrentRunner
   # @param start [Queue]
   # @return [Thread]
   def spawn_parked(task, ready, start)
-    # Threads are the point of the concurrency examples.
-    Thread.new do # rubocop:disable ThreadSafety/NewThread
+    Thread.new do
       ready << :ready
       start.pop
       ActiveRecord::Base.connection_pool.with_connection { task.call }

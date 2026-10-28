@@ -53,6 +53,8 @@ mutation:
     - or{left=send{selector=cast}}
     # `Array#to_s` equals `Array#inspect`, `Hash#to_s` equals `Hash#inspect` (error messages).
     - send{selector=inspect}
+    # `"#{affix}_"` interpolates a Symbol or String exactly like its `to_s` (`_bitwise_affix`).
+    - send{receiver=lvar{value=affix} selector=to_s}
     # The two flag sets joined by `|` are disjoint ((raw & ~known) and the mask), so `|` equals `^`.
     - send{receiver=begin selector=|}
     # After mapping, equal flags are the same Symbol or String, so `uniq` equals `uniq(&:to_s)`.

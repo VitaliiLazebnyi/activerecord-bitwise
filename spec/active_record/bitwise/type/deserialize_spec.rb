@@ -102,11 +102,14 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#deserialize' do
   end
 
   context 'when an Array cannot be cast' do
-    it 'raises a descriptive error instead of returning nil' do
-      # No real input makes #cast return nil for an Array, so the guard can only be reached with a stub.
-      allow(type).to receive(:cast).and_return(nil) # rubocop:disable RSpec/SubjectStub -- see above
+    # No real input makes #cast return nil for an Array, so the guard is reached through a subclass
+    # whose #cast refuses.
+    let(:refusing_type) do
+      Class.new(described_class) { define_method(:cast) { |_value| nil } }.new(:roles, { admin: 0 }, nil)
+    end
 
-      expect { type.deserialize([:admin]) }.to raise_error(ActiveRecord::Bitwise::Error, 'Casting failed')
+    it 'raises a descriptive error instead of returning nil' do
+      expect { refusing_type.deserialize([:admin]) }.to raise_error(ActiveRecord::Bitwise::Error, 'Casting failed')
     end
   end
 

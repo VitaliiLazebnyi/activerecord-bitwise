@@ -73,7 +73,8 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
           real = model.columns_hash
           reported = SimpleDelegator.new(real.fetch('regular'))
           reported.define_singleton_method(:limit) { reported_limit }
-          allow(model).to receive(:columns_hash).and_return(real.merge('regular' => reported)) # rubocop:disable Style/StringHashKeys
+          columns = real.dup.tap { |copy| copy.store('regular', reported) }
+          allow(model).to receive(:columns_hash).and_return(columns)
           model
         end
       end

@@ -52,10 +52,10 @@ FileUtils.mkdir_p(File.join(work, 'lib'))
 FileUtils.cp_r(File.join(root, 'lib', 'tapioca'), File.join(work, 'lib'))
 
 result = File.join(work, 'result.json')
-env = { 'BUNDLE_GEMFILE' => File.join(root, 'Gemfile') } # rubocop:disable Style/StringHashKeys -- ENV names are Strings
+ENV['BUNDLE_GEMFILE'] = File.join(root, 'Gemfile')
 # The original spec_helper enforces its own coverage floor on the files it loads; the exit code is
 # therefore ignored and the per-example JSON result is judged instead.
-system(env, 'bundle', 'exec', 'rspec', '--options', File::NULL, '-I', File.join(root, 'lib'), '-I', 'spec',
+system('bundle', 'exec', 'rspec', '--options', File::NULL, '-I', File.join(root, 'lib'), '-I', 'spec',
        '-r', 'spec_helper', '--format', 'json', '--out', result, *Dir.glob('spec/*_spec.rb', base: work),
        chdir: work, out: File::NULL)
 
