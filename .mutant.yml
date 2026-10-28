@@ -121,6 +121,52 @@ mutation:
     # * explicit raw-cache writes are redundant: the `write_attribute` that follows (or the next read)
     #   refreshes the same entry through `_bitwise_hydrate_raw_cache`;
     - indexasgn{receiver=send}
+    # * the key lookups in `serialize_conditions`/`update_all`/`update_columns`/`_bitwise_intercept_write`
+    #   are followed by a nil check or a type check that skips the same keys, so the explicit
+    #   `key?` guard in front of them is redundant; so are the `is_a?(Type)` type guards (a bitwise
+    #   column always has the bitwise type) and the "Integer or nil is written verbatim" shortcut
+    #   (an Integer or nil routed through the general path produces the same value);
+    - if{condition=send{selector=key?}}
+    - if{condition=send{selector=is_a?}}
+    - if{condition=or{left=send{selector=is_a?} right=send{selector=nil?}}}
+    - or{left=send{selector=is_a?} right=send{selector=nil?}}
+    - send{selector=nil?}
+    - if{condition=send{selector=nil?}}
+    # * the memo that skips re-validation, and the flag that decides to set it, only save work:
+    #   a definition that is not validated is always checked again;
+    - if{condition=and{left=and}}
+    - and{left=and}
+    - block{receiver=send{selector=values}}
+    - lvasgn{name=all_validated}
+    - if{condition=and{left=lvar{value=all_validated}}}
+    - and{left=lvar{value=all_validated}}
+    # * `limit 4` and `nil` share the fallback of 31 flags, positions never reach the 63-flag limit
+    #   of an 8-byte column (the maximum position is 62), and an empty mapping fits any column. The
+    #   capacity table as a whole is verified by the column-validation examples instead (every byte
+    #   size from 1 to 8, with the exact error message);
+    - case{value=send{selector=limit}}
+    - or{left=send{selector=max}}
+    # * a flag name already present is dropped by the `uniq` of the cast, and an unmapped name
+    #   contributes `nil` to a `filter_map` either way;
+    - if{condition=send{receiver=lvar{value=current_values} selector=include?}}
+    - if{condition=send{receiver=lvar{value=mapping_strings} selector=include?}}
+    # * the attribute set already returns frozen, stamped arrays, so re-stamping in the getter only
+    #   matters for an override that returns something else;
+    - and{left=send{selector=is_a?} right=begin}
+    - if{condition=and{left=send{selector=is_a?} right=begin}}
+    - or{left=send{receiver=send{selector=frozen?} selector=!}}
+    - send{receiver=send{selector=frozen?} selector=!}
+    - send{receiver=send{selector=instance_variable_defined?} selector=!}
+    # * `col == column_name.to_sym ? [] : methods` (nil is flattened away by `include?`);
+    - if{condition=send{receiver=lvar{value=col}}}
+    # * the setter of a flag name that is also a getter collision is rejected by the first generated
+    #   name, and the tail of `cast`/`deserialize` returns the frozen array either way;
+    - lvar{value=processed}
+    - lvar{value=array}
+    # * an empty suffix interpolates identically to nil;
+    - if{condition=send{receiver=send{selector=size} selector=>}}
+    # * a relation delegates `connection` to its model.
+    - send{receiver=send{receiver=send{selector=unsafe} selector=klass}}
     # * AR::Base has no protected instance methods that look like generated flag methods, so the
     #   protected set added to the collision list is empty.
     - lvasgn{name=core_methods}

@@ -81,6 +81,16 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
     end
   end
 
+  context 'with a key whose setter alone would clobber a core ActiveRecord method' do
+    it 'rejects :attributes because it generates #attributes=' do
+      message = 'Bitwise column roles mapping key attributes generates method #attributes= ' \
+                'which collides with core ActiveRecord::Base instance methods.'
+
+      expect { build_model { bitwise :roles, { attributes: 0 } } }
+        .to raise_error(an_instance_of(ArgumentError).and(having_attributes(message: message)))
+    end
+  end
+
   context 'with a suffix that makes the generated name collide' do
     it 'rejects a flag whose suffixed name equals a method of another column' do
       model = build_model { bitwise :roles, { ad_min: 0 } }

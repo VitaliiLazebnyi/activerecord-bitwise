@@ -95,6 +95,12 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#deserialize' do
     end
   end
 
+  context 'with a String that only starts with digits' do
+    it 'reads the leading digits, like a raw SQLite value' do
+      expect(type.deserialize('5abc')).to eq(%i[admin author])
+    end
+  end
+
   context 'when an Array cannot be cast' do
     it 'raises a descriptive error instead of returning nil' do
       # No real input makes #cast return nil for an Array, so the guard can only be reached with a stub.

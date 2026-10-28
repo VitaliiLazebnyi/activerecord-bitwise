@@ -17,6 +17,10 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       expect(define.call({ a: '3' }).bitwise_schema(:roles)).to eq(a: 3)
     end
 
+    it 'reads a numeric String position with a leading zero as decimal' do
+      expect(define.call({ a: '010' }).bitwise_schema(:roles)).to eq(a: 10)
+    end
+
     it 'accepts a multi-digit numeric String position' do
       expect(define.call({ a: '12' }).bitwise_schema(:roles)).to eq(a: 12)
     end
