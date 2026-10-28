@@ -15,6 +15,13 @@ matcher:
     # with `nil`/`[]`-equivalents: `flat_map` over `[nil]` vs `[]` never changes `include?` of a
     # String, so nothing observable depends on them.
     - ActiveRecord::Bitwise::Model::Collisions.other_generated
+    # The explicit cache writes below are redundant by design: the `write_attribute` that follows
+    # (reload_locked) or the nil assignment itself (forget_raw) refreshes the same cache entry
+    # through `_bitwise_adopt_raw` / `_bitwise_hydrate_raw_cache`, so removing or corrupting the
+    # explicit write cannot be observed. The remaining behavior of both methods (the value read
+    # under the row lock, the record staying clean, nil staying nil) is specified directly.
+    - ActiveRecord::Bitwise::InstanceMethods::AtomicOperations#_bitwise_reload_locked
+    - ActiveRecord::Bitwise::InstanceMethods::AttributeWrites#_bitwise_forget_raw
 mutation:
   timeout: 20.0
   # Mutations that cannot change observable behavior, grouped by reason. Each pattern is
@@ -93,6 +100,8 @@ mutation:
     # `AttributeWrites#_bitwise_typecaster`: the `key?` guard only skips the type lookup for
     # ordinary columns, whose type is not a `Type` either way.
     - if{condition=send{selector=key?}}
+    # `RawMask.coerce(written)`: `Type#serialize` already returns an Integer.
+    - send{receiver=const{name=RawMask} selector=coerce}
     # `x&.dup` on nil vs `x.dup`: nil.dup is nil.
     - csend{selector=dup}
 coverage_criteria:
