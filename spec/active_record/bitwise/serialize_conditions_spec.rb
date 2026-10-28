@@ -41,6 +41,21 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
       expect(serialize.call(string_keyed)).to eq({ roles: 1 }.transform_keys(&:to_s))
     end
 
+    it 'rewrites the String key of a column whose Symbol key needs no rewriting' do
+      expect(serialize.call({ roles: 5, 'roles' => [:admin] })).to eq({ roles: 5, 'roles' => 1 })
+    end
+
+    it 'rewrites the String key of a column whose Symbol key is a non-empty Integer array' do
+      expect(serialize.call({ roles: [1, 5], 'roles' => [:admin] })).to eq({ roles: [1, 5], 'roles' => 1 })
+    end
+
+    it 'does not modify the hash it was given' do
+      conditions = { roles: [:admin] }
+      serialize.call(conditions)
+
+      expect(conditions).to eq(roles: [:admin])
+    end
+
     it 'rewrites several bitwise columns at once' do
       expect(serialize.call(roles: [:admin], permissions: [:manage])).to eq(roles: 1, permissions: 2)
     end

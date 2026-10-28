@@ -79,6 +79,12 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
 
       expect(raw_value(plain)).to eq(0b0100)
     end
+
+    it 'keeps the unmapped bits like a Symbol key does' do
+      model.where(id: ghosted.id).update_all({ roles: ['author'] }.transform_keys(&:to_s))
+
+      expect(raw_value(ghosted)).to eq(0b1_0000_0100)
+    end
   end
 
   context 'with an unknown flag' do

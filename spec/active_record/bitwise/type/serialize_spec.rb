@@ -100,6 +100,16 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#serialize' do
       expect(type.serialize(with_raw_marker([:admin], Object.new))).to eq(1)
     end
 
+    it 'reads the leading digits of a lenient String marker' do
+      expect(type.serialize(with_raw_marker([:admin], '16abc'))).to eq(0b1_0001)
+    end
+
+    it 'does not borrow bits from a value that is not an Array' do
+      narrow = described_class.new(:roles, { top: 1 }, nil)
+
+      expect(narrow.serialize(:top)).to eq(0b10)
+    end
+
     it 'treats a numeric marker that is not an Integer like its integer value' do
       expect(type.serialize(with_raw_marker([:admin], Rational(16)))).to eq(0b1_0001)
     end

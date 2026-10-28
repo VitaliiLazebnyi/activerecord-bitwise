@@ -24,6 +24,29 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#update_columns' do
     end
   end
 
+  context 'with the attributes hash the caller passed' do
+    it 'does not modify it' do
+      attributes = { roles: [:author] }
+      record.update_columns(attributes)
+
+      expect(attributes).to eq(roles: [:author])
+    end
+  end
+
+  context 'with an Integer or nil' do
+    it 'leaves the attribute clean for an Integer' do
+      record.update_columns(roles: 0b11_0000_0100)
+
+      expect(record.roles_changed?).to be(false)
+    end
+
+    it 'leaves the attribute clean for nil' do
+      record.update_columns(roles: nil)
+
+      expect(record.roles_changed?).to be(false)
+    end
+  end
+
   context 'with the singular update_column' do
     it 'keeps the unmapped bits' do
       record.update_column(:roles, [:subscriber])
