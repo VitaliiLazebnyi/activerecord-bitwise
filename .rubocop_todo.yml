@@ -1,0 +1,132 @@
+# Offenses that already exist in lib/ on main@7f2f61b. They are listed per cop and file so the code
+# stays exactly as it was (minimal diff); every other file, and every new line, is checked in full.
+# Generated with: rubocop lib --auto-gen-config --auto-gen-only-exclude --exclude-limit 1000 --no-offense-counts --no-auto-gen-timestamp
+
+# pre-existing on main, not changed to keep the diff minimal
+Layout/ClassStructure:
+  Exclude:
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Layout/EmptyLineAfterMultilineCondition:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Layout/LineLength:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Lint/DuplicateBranch:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Lint/NumberConversion:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Metrics/AbcSize:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/active_record/bitwise/bitwise_validator.rb'
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Metrics/BlockLength:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/active_record/bitwise/bitwise_validator.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Metrics/MethodLength:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Metrics/ModuleLength:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Metrics/PerceivedComplexity:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/active_record/bitwise/bitwise_validator.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Performance/ChainArrayAllocation:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Sorbet/FalseSigil:
+  Exclude:
+    - 'lib/activerecord-bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Sorbet/RedundantTLet:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Sorbet/StrictSigil:
+  Exclude:
+    - 'lib/activerecord-bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/ConstantVisibility:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/active_record/bitwise/bitwise_validator.rb'
+    - 'lib/active_record/bitwise/version.rb'
+    - 'lib/tapioca/dsl/compilers/activerecord_bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/IfUnlessModifier:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/InvertibleUnlessCondition:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/active_record/bitwise/bitwise_validator.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/MethodCalledOnDoEndBlock:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/MultilineBlockChain:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/RequireOrder:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'
+    - 'lib/active_record/bitwise/bitwise_validator.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/Send:
+  Exclude:
+    - 'gem_practices_guide.md'
+    - 'lib/active_record/bitwise.rb'
+
+# pre-existing on main, not changed to keep the diff minimal
+Style/SingleLineBlockParams:
+  Exclude:
+    - 'lib/active_record/bitwise.rb'

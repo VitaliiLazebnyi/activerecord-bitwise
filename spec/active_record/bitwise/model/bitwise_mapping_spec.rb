@@ -32,6 +32,22 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
     end
   end
 
+  context 'with an Array mapping whose index is the bit position' do
+    it 'accepts 63 entries (positions 0..62)' do
+      names = Array.new(63) { |index| :"flag_#{index}" }
+
+      expect(define.call(names).bitwise_schema(:roles).values.last).to eq(62)
+    end
+
+    it 'rejects the 64th entry, whose position 63 is the sign bit' do
+      names = Array.new(64) { |index| :"flag_#{index}" }
+      message = 'Bitwise column roles mapping key flag_63 has invalid bit position 63. Positions must be ' \
+                'Integers between 0 and 62; they are bit POSITIONS (1 << position), not masks.'
+
+      expect { define.call(names) }.to raise_error(ActiveRecord::Bitwise::ConfigurationError, message)
+    end
+  end
+
   context 'with an Array mapping' do
     it 'uses the index as the bit position' do
       expect(define.call(%i[admin moderator author]).bitwise_schema(:roles)).to eq(admin: 0, moderator: 1, author: 2)

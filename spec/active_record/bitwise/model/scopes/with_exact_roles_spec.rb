@@ -41,10 +41,16 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
   end
 
   context 'with a NULL column' do
-    it 'does not match the empty set' do
+    it 'matches the empty set, because a NULL column reads as no flags' do
       plant_raw_value(fixtures[:none], nil)
 
-      expect(names_in.call(model.with_exact_roles)).to eq([])
+      expect(names_in.call(model.with_exact_roles)).to eq(%i[none])
+    end
+
+    it 'does not match a non-empty set' do
+      plant_raw_value(fixtures[:none], nil)
+
+      expect(names_in.call(model.with_exact_roles(:admin))).to eq(%i[admin])
     end
   end
 
@@ -64,7 +70,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
     end
 
     it 'compares the column with zero when no flag is given' do
-      expect(model.with_exact_roles.to_sql).to include("#{column} = 0")
+      expect(model.with_exact_roles.to_sql).to include("COALESCE(#{column}, 0) = 0")
     end
 
     it 'matches nothing when any flag is unknown' do

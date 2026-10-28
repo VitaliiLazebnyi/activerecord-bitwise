@@ -3,17 +3,13 @@
 
 RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   # Validation of the column against the mapping happens lazily, on first instantiation.
-  # Capacity tiers: the highest usable bit position is (bytes * 8 - 2), a signed column's
-  # sign bit is never used. Unusual byte sizes (3) fall back to the 4-byte capacity.
+  # A signed column of N bytes holds N * 8 - 1 flags (positions 0..N * 8 - 2): the sign bit is
+  # never used. A column without a byte limit is a 4-byte INTEGER.
   let(:define) do
     lambda do |column, position|
       build_model('capacity_records') { bitwise column, { flag: position } }
     end
   end
-
-  # Declared byte size of each column of capacity_records, and the number of flags a signed
-  # column of the size the database actually reports (PostgreSQL widens 1 byte to 2) can hold.
-  let(:flags_per_byte_size) { { 1 => 7, 2 => 15, 8 => 63 } }
 
   [
     { column: :tiny, limit: 1 },
@@ -24,10 +20,8 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
   ].each do |tier|
     context "with a #{tier[:limit]}-byte column" do
       let(:column_limit) { build_model('capacity_records').columns_hash[tier[:column].to_s].limit || 4 }
-      let(:usable_flags) { flags_per_byte_size.fetch(column_limit, 31) }
-      # The gem validates an unusual byte size (3) against the 4-byte capacity, but a MySQL
-      # MEDIUMINT physically stores only 23 signed bits, so that is how many flags can be written.
-      let(:storable_flags) { tier[:limit] == 3 && mysql_adapter? ? 23 : usable_flags }
+      # The byte size the database actually reports (PostgreSQL widens 1 byte to 2 and 3 to 4).
+      let(:usable_flags) { (column_limit * 8) - 1 }
 
       it 'accepts the highest bit position that fits' do
         expect { define.call(tier[:column], usable_flags - 1).new }.not_to raise_error
@@ -44,9 +38,27 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
       end
 
       it 'stores the highest flag exactly' do
-        record = define.call(tier[:column], storable_flags - 1).create!(tier[:column] => [:flag])
+        record = define.call(tier[:column], usable_flags - 1).create!(tier[:column] => [:flag])
 
-        expect(raw_value(record, tier[:column])).to eq(1 << (storable_flags - 1))
+        expect(raw_value(record, tier[:column])).to eq(1 << (usable_flags - 1))
+      end
+    end
+  end
+
+  # A 5-byte column is not a size any database offers natively (MySQL and PostgreSQL widen it to
+  # BIGINT); where it is kept (SQLite) the gem assumes the 4-byte capacity of a plain INTEGER.
+  context "with an unusual byte size (reported as #{DatabaseHelpers.column_limit('capacity_records', 'odd')} bytes)" do
+    let(:odd_flags) { DatabaseHelpers.column_limit('capacity_records', 'odd') == 5 ? 31 : 63 }
+
+    it 'accepts the highest bit position that fits' do
+      expect { define.call(:odd, odd_flags - 1).new }.not_to raise_error
+    end
+
+    if DatabaseHelpers.column_limit('capacity_records', 'odd') == 5
+      it 'rejects the first bit position that does not fit' do
+        message = 'Bitwise column odd has limit of 5 bytes (max 31 flags), but mapping requires bit shift position 31.'
+
+        expect { define.call(:odd, 31).new }.to raise_error(ArgumentError, message)
       end
     end
   end

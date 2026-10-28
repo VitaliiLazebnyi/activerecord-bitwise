@@ -1,7 +1,5 @@
 --dir
-lib
---dir
-sorbet
+.
 --ignore
 vendor/
 --ignore
@@ -9,7 +7,8 @@ coverage/
 --ignore
 doc/
 --ignore
+spec/
+--ignore
 .yardoc/
 --ignore
 tmp/
---enable-experimental-requires-ancestor

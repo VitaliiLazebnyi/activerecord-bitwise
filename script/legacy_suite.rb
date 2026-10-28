@@ -1,9 +1,11 @@
 #!/usr/bin/env ruby
+# typed: false
 # frozen_string_literal: true
 
 # Runs the ORIGINAL spec files of this gem (as they were on `main` before the test and
 # refactoring pass) against the current `lib/`, to prove that behavior did not change.
-# Every example of the original suite must pass; there is no list of tolerated failures.
+# Every example of the original suite must pass; there is no list of tolerated failures. The only
+# edit made to the original files is the corrected 3-byte column capacity described below.
 
 require 'fileutils'
 require 'json'
@@ -23,6 +25,28 @@ archive, status = Open3.capture2('git', 'archive', ORIGINAL_COMMIT, 'spec', chdi
 abort "git archive #{ORIGINAL_COMMIT} failed (is the full history fetched?)" unless status.success?
 _, status = Open3.capture2('tar', '-x', '-C', work, stdin_data: archive, binmode: true)
 abort 'tar failed' unless status.success?
+
+# The one deliberate difference: the original suite pins the bug fixed in this release, that a 3-byte
+# column (MySQL MEDIUMINT, which holds 23 signed bits) was validated as if it held 31. Its limit-3
+# assertions are updated to the correct capacity (position 22 fits, 23 does not); nothing else changes.
+CORRECTED_LIMIT_THREE = {
+  "# Position 30 -> valid\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+  'TestUser.bitwise_definitions[:roles][:mapping] = { a: 30 }' =>
+    "# Position 22 -> valid\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+    'TestUser.bitwise_definitions[:roles][:mapping] = { a: 22 }',
+  "# Position 31 -> fails (max 31 flags)\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+  'TestUser.bitwise_definitions[:roles][:mapping] = { a: 31 }' =>
+    "# Position 23 -> fails (max 23)\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+    'TestUser.bitwise_definitions[:roles][:mapping] = { a: 23 }'
+}.freeze
+original_spec = File.join(work, 'spec', 'activerecord_bitwise_spec.rb')
+text = File.read(original_spec)
+CORRECTED_LIMIT_THREE.each do |before, after|
+  abort "the original suite no longer contains the limit-3 assertion:\n#{before}" unless text.include?(before)
+
+  text = text.sub(before, after)
+end
+File.write(original_spec, text)
 # One original example looks for the Tapioca compiler relative to the spec directory.
 FileUtils.mkdir_p(File.join(work, 'lib'))
 FileUtils.cp_r(File.join(root, 'lib', 'tapioca'), File.join(work, 'lib'))

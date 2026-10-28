@@ -38,6 +38,14 @@ module DatabaseHelpers
     record.reload
   end
 
+  # The byte limit the connected database reports for a column.
+  # @param table [String]
+  # @param column [String]
+  # @return [Integer, nil]
+  def self.column_limit(table, column)
+    ActiveRecord::Base.connection.columns(table).find { |candidate| candidate.name == column }&.limit
+  end
+
   # Whether the examples run against MySQL (or a compatible server such as MariaDB).
   # @return [Boolean]
   def mysql_adapter?

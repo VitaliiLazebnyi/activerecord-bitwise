@@ -11,10 +11,27 @@ RSpec.describe ActiveRecord::Bitwise::Type, '#serialize' do
   end
 
   context 'with an Integer' do
-    [0, 5, -5, 2**70].each do |bitmask|
+    [0, 5, -5, (2**63) - 1, -(2**63)].each do |bitmask|
       it "passes #{bitmask} through untouched" do
         expect(type.serialize(bitmask)).to eq(bitmask)
       end
+    end
+  end
+
+  # SQLite would store an out-of-range Integer as a lossy REAL, other adapters fail late and differently,
+  # so the type refuses everything beyond a signed 64-bit column, like ActiveModel's own Integer type.
+  context 'with an Integer outside the signed 64-bit range' do
+    [2**63, 2**64, 2**70, -(2**63) - 1].each do |bitmask|
+      it "raises ActiveModel::RangeError for #{bitmask}" do
+        message = "#{bitmask} is out of range for column roles: it must fit a signed 64-bit integer"
+
+        expect { type.serialize(bitmask) }.to raise_error(ActiveModel::RangeError, message)
+      end
+    end
+
+    it 'raises for flags whose raw bitmask marker is out of range' do
+      expect { type.serialize(with_raw_marker([:admin], 2**70)) }
+        .to raise_error(ActiveModel::RangeError, /out of range for column roles/)
     end
   end
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# typed: false
 # frozen_string_literal: true
 
 # Fails when `bundle outdated` reports a gem that is not on the documented hold list

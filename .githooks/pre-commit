@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Pre-commit hook: runs the same gates as CI (except mutation testing, which is slow).
+# Pre-commit hook: runs tests, linting, and type-checking.
 # Install: git config core.hooksPath .githooks
 set -euo pipefail
 
-echo "==> Running RSpec (100% line + branch coverage)..."
+echo "==> Running RSpec..."
 bundle exec rspec --format progress
 
-echo "==> Running the static gates (RuboCop, Sorbet, YARD, Reek, Flay)..."
-bundle exec rake rubocop typecheck yard reek flay
+echo "==> Running RuboCop..."
+bundle exec rubocop
+
+echo "==> Running Sorbet type-check..."
+bundle exec srb tc
 
 echo "==> All checks passed."

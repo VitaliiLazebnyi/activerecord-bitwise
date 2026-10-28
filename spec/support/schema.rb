@@ -21,6 +21,7 @@ ActiveRecord::Schema.define do
     t.integer :medium, limit: 3, default: 0, null: false
     t.integer :regular, default: 0, null: false
     t.integer :big, limit: 8, default: 0, null: false
+    t.integer :odd, limit: 5, default: 0, null: false
     t.string :label
   end
 

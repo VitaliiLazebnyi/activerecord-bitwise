@@ -39,10 +39,10 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
   end
 
   context 'with a NULL column' do
-    it 'excludes the row, because SQL NULL never satisfies a comparison' do
+    it 'includes the row, because a NULL column reads as no flags' do
       plant_raw_value(fixtures[:none], nil)
 
-      expect(names_in.call(model.without_roles(:admin))).to eq(%i[author])
+      expect(names_in.call(model.without_roles(:admin))).to eq(%i[none author])
     end
   end
 
@@ -58,7 +58,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
     let(:column) { qualified_column(model) }
 
     it 'tests that no mask bit is set' do
-      expect(normalized_sql(model.without_roles(:admin, :author).to_sql)).to include("#{column} & 5 = 0")
+      expect(normalized_sql(model.without_roles(:admin, :author).to_sql)).to include("COALESCE(#{column}, 0) & 5 = 0")
     end
 
     it 'adds no condition when every flag is unknown' do

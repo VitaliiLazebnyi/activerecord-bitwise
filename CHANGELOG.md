@@ -5,32 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.0] - 2026-10-28
 
-### Changed
+### Changed (breaking)
 
-- Internal refactor of `lib/` into small single-purpose modules (types, mapping,
-  collisions, definers, instance-method concerns). Public behavior is unchanged.
-- **Breaking:** the minimum supported Ruby is now 3.3 (`required_ruby_version >= 3.3.0`);
-  Ruby 3.2 is no longer supported or tested. ActiveRecord 7.1 to 8.x remain supported.
-- Development dependencies upgraded to their latest releases (SimpleCov 1.x,
-  rubocop-md 2.x, ...); the repository develops on Ruby 4.0.9 (`.ruby-version`) and CI tests
-  Ruby 3.3, 3.4 and 4.0. All development tooling is declared as ordinary development
-  dependencies in the gemspec.
+- **The minimum supported Ruby is now 3.3** (`required_ruby_version >= 3.3.0`); Ruby 3.2 is no
+  longer supported or tested. ActiveRecord 7.1 to 8.x remain supported.
+
+### Fixed
+
+- A 3-byte integer column (MySQL `MEDIUMINT`, 23 usable signed bits) was validated as if it held
+  31 flags, so a mapping with a flag at position 23..30 was accepted and could overflow when
+  written. The capacity of a 3-byte column is now 23 flags.
+- A bitmask outside the signed 64-bit range (for example `record.roles = 2**70`) was stored by
+  SQLite as a lossy floating-point number. `Type#serialize` now raises `ActiveModel::RangeError`,
+  like ActiveModel's own Integer type; `where` with such a value matches nothing.
+- Array mappings did not check their bit positions: an Array of more than 63 flags was accepted
+  at definition time. Positions are now validated exactly like Hash mappings (0 to 62).
+- `without_<column>`, `with_exact_<column>` with no flags and `with_<column>(0)` ignored rows whose
+  column is NULL, although the getter reads NULL as "no flags". They now treat NULL as 0.
 
 ### Added
 
 - Mutation testing (mutant), Reek, Flay, bundler-audit, CodeQL (security-extended and
   security-and-quality), dependency review, gitleaks, OpenSSF Scorecard, actionlint and
   zizmor; all CI actions are pinned to commit SHAs with least-privilege permissions.
+- A much larger, behavior-oriented spec suite (100% line and branch coverage).
 
-### Removed
+### Changed
 
-- The class-level "columns validated" memo flag; each definition records its own `validated`
-  state.
-- Two unreachable defensive branches (`Type#deserialize` "Casting failed" guard and the
-  non-Hash/Array mapping guard, which Sorbet's signature already rejects) and the unused
-  internal `#_bitwise_coerce_raw`.
+- Development dependencies upgraded to their latest releases (SimpleCov 1.x, rubocop-md 2.x, ...)
+  and declared as ordinary development dependencies in the gemspec; the repository develops on
+  Ruby 4.0.9 (`.ruby-version`) and CI tests Ruby 3.3, 3.4 and 4.0.
 
 ## [0.11.0] - 2026-07-20
 
