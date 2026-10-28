@@ -14,7 +14,11 @@ jobs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_I
 status=0
 while IFS=$'\t' read -r id name; do
   [ -n "$id" ] || continue
-  log=$(gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/${id}/logs")
+  # Downloaded with curl: depending on its version, gh refuses to print a log that contains terminal escape
+  # sequences (colored tool output), and older versions do not know the flag that allows them.
+  log=$(curl --fail --silent --show-error --location \
+    --header "Authorization: Bearer ${GH_TOKEN}" --header 'Accept: application/vnd.github+json' \
+    "${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/actions/jobs/${id}/logs")
   hits=$(printf '%s\n' "$log" | grep -nE -e "$pattern" || true)
   if [ -n "$hits" ]; then
     printf '::error::Warnings in the log of job "%s"\n%s\n\n' "$name" "$hits"

@@ -30,12 +30,15 @@ jobs:
         fetch-depth: 0
         persist-credentials: false
 
+    # Mutant parses the code with the `parser` gem (it requires `parser/current`), whose newest release
+    # (3.3.13.0) has no grammar for Ruby 3.4 or 4.0 and warns on any Ruby other than 3.3.13. Mutation
+    # testing therefore runs on Ruby 3.3.13, the oldest supported Ruby, which every other job also tests.
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: .ruby-version
+        ruby-version: "3.3.13"
         bundler-cache: true
     - name: Check the Ruby version
-      run: script/check_ruby.sh
+      run: script/check_ruby.sh 3.3.13
     # Pull requests only mutate subjects touched since the base branch (fast feedback);
     # pushes to main run the complete set of mutations. Any alive mutation fails the build.
     - name: Mutant (changed subjects)
