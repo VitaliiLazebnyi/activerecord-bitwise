@@ -63,6 +63,34 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
     end
   end
 
+  # Not every adapter offers every byte size (PostgreSQL has no 1- or 3-byte integers), so the capacity
+  # table is also checked against a wrapper around the real column that reports another limit.
+  { 1 => 7, 2 => 15, 3 => 23, 4 => 31, 8 => 63, 5 => 31, nil => 31 }.each do |limit, flags|
+    context "with a column reported as #{limit.inspect} bytes" do
+      let(:model_with_limit) do
+        lambda do |reported_limit, position|
+          model = define.call(:regular, position)
+          real = model.columns_hash
+          reported = SimpleDelegator.new(real.fetch('regular'))
+          reported.define_singleton_method(:limit) { reported_limit }
+          allow(model).to receive(:columns_hash).and_return(real.merge('regular' => reported)) # rubocop:disable Style/StringHashKeys
+          model
+        end
+      end
+
+      it "accepts position #{flags - 1}" do
+        expect { model_with_limit.call(limit, flags - 1).new }.not_to raise_error
+      end
+
+      # An 8-byte column holds every position the mapping itself accepts, so there is nothing to reject.
+      next if limit == 8
+
+      it "rejects position #{flags}" do
+        expect { model_with_limit.call(limit, flags).new }.to raise_error(ArgumentError, /max #{flags} flags/)
+      end
+    end
+  end
+
   context 'with the default (4-byte) capacity on SQLite' do
     it 'allows 31 flags (positions 0..30)' do
       expect { define.call(:regular, 30).new }.not_to raise_error

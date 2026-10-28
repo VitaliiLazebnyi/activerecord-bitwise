@@ -41,6 +41,8 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
       expect(serialize.call(string_keyed)).to eq({ roles: 1 }.transform_keys(&:to_s))
     end
 
+    # Mixed Symbol and String keys are the point of these examples.
+    # rubocop:disable Style/StringHashKeys
     it 'rewrites the String key of a column whose Symbol key needs no rewriting' do
       expect(serialize.call({ roles: 5, 'roles' => [:admin] })).to eq({ roles: 5, 'roles' => 1 })
     end
@@ -48,6 +50,7 @@ RSpec.describe ActiveRecord::Bitwise, '.serialize_conditions' do
     it 'rewrites the String key of a column whose Symbol key is a non-empty Integer array' do
       expect(serialize.call({ roles: [1, 5], 'roles' => [:admin] })).to eq({ roles: [1, 5], 'roles' => 1 })
     end
+    # rubocop:enable Style/StringHashKeys
 
     it 'does not modify the hash it was given' do
       conditions = { roles: [:admin] }
