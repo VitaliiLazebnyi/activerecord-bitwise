@@ -1,0 +1,15 @@
+# Examples of the original suite (main@7f2f61b) that fail on purpose, one full description per line.
+# Each asserts a private implementation detail with no observable effect, or reaches an
+# unreachable branch through a contrived stub.
+
+# Reaches the unreachable "Casting failed" guard of Type#deserialize by stubbing #cast to return nil
+# (no real input makes #cast return nil for a non-nil value) and reads a private ivar. The guard was removed.
+ActiveRecord::Bitwise Extra Coverage Tests for 100% Branch and Line Coverage covers extra edge cases and unreachable conditions
+
+# Reads the private class-level ivar @_bitwise_columns_validated. Each definition's own `validated`
+# flag (public through bitwise_definitions) carries the same information and is asserted by the same example.
+ActiveRecord::Bitwise BUG-PERF-001: Validation performance optimization exits early if all columns have been validated
+
+# Fakes #is_a? by inspecting the caller's path to get past Sorbet's signature and reach a dead
+# "Mapping must be a Hash or an Array" branch. Real input raises Sorbet's TypeError before that branch.
+ActiveRecord::Bitwise Extra Coverage Boosters covers the invalid mapping type else branch in bitwise definition

@@ -187,6 +187,25 @@ jobs:
         bundler-cache: true
     - run: bundle exec rake reek flay
 
+  # Behavior is unchanged: the spec files that were on `main` before the refactoring pass must
+  # still pass against the current lib/ (see script/legacy_suite.rb for the few justified exceptions).
+  legacy-suite:
+    name: Original spec suite
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: "3.3"
+        bundler-cache: true
+    - run: bundle exec rake legacy_suite
+
   build:
     name: Build gem
     runs-on: ubuntu-latest

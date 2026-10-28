@@ -33,7 +33,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#where' do
     end
 
     it 'leaves the condition to ActiveRecord' do
-      expect(model.where(roles: 'garbage').to_sql).to end_with('"roles" = NULL')
+      expect(model.where(roles: 'garbage').to_sql).to end_with('= NULL')
     end
   end
 

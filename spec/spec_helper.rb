@@ -68,7 +68,8 @@ else
   parent_pid = Process.pid
   at_exit do
     # Forked workers (mutant) inherit this hook; only the owning process may delete the file.
-    FileUtils.rm_f(db_file) if Process.pid == parent_pid
+    # That includes the copies (and SQLite's -wal/-shm files) of workers that were killed on a timeout.
+    FileUtils.rm_f(Dir[File.join(db_dir, 'test*')]) if Process.pid == parent_pid
   end
 
   # Mutant runs mutations in parallel forked workers that all inherit the connection
@@ -85,7 +86,7 @@ else
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: worker_file, timeout: 10_000)
     end
 
-    config.after(:suite) { FileUtils.rm_f(worker_file) if worker_file }
+    config.after(:suite) { FileUtils.rm_f(Dir["#{worker_file}*"]) if worker_file }
   end
 end
 

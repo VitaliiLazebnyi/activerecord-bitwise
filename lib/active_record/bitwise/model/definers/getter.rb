@@ -23,7 +23,7 @@ module ActiveRecord
             column = column_name.to_sym
             model.define_method(column_name) do
               record = T.unsafe(self)
-              raw = record._bitwise_raw(column)
+              raw = record._bitwise_hydrate_raw_cache(column)
               Getter.stamped(record.class.attribute_types[column_name.to_s], super(), raw)
             end
           end

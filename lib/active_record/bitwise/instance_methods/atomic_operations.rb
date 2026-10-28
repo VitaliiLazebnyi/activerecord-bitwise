@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require 'active_record/bitwise/instance_methods/model_access'
+require 'active_record/bitwise/instance_methods/raw_cache'
 require 'active_record/bitwise/raw_mask'
 require 'sorbet-runtime'
 
@@ -15,6 +16,7 @@ module ActiveRecord
 
         requires_ancestor { ActiveRecord::Base }
         requires_ancestor { ModelAccess }
+        requires_ancestor { RawCache }
 
         # Shared implementation of the instance-level atomic methods
         # (`add_<singular>!` / `remove_<singular>!`).
@@ -57,6 +59,7 @@ module ActiveRecord
         sig { params(column_name: Symbol).void }
         def _bitwise_reload_locked(column_name)
           raw = _bitwise_locked_raw(column_name)
+          _bitwise_raw_cache[column_name] = raw
           write_attribute(column_name, raw)
           clear_attribute_changes([column_name])
         end

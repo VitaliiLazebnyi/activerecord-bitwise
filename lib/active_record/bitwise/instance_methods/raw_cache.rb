@@ -3,14 +3,14 @@
 
 require 'active_record/bitwise/instance_methods/model_access'
 require 'active_record/bitwise/raw_mask'
+require 'active_record/bitwise/types'
 require 'sorbet-runtime'
 
 module ActiveRecord
   module Bitwise
     module InstanceMethods
-      # Access to the raw database bitmask of a bitwise column, including the unmapped
-      # ("forgotten") bits that the flag arrays cannot express. Saves write those bits back
-      # unchanged, so legacy data survives ordinary updates.
+      # Per-record cache of the raw database bitmask of every bitwise column. It lets
+      # saves write back unmapped ("forgotten") bits that the flag arrays cannot express.
       module RawCache
         extend T::Sig
         extend T::Helpers
@@ -18,19 +18,70 @@ module ActiveRecord
         requires_ancestor { ActiveRecord::Base }
         requires_ancestor { ModelAccess }
 
-        # Kept for backwards compatibility: the raw bitmask used to be cached per record and
-        # is now always read from the attribute itself, so there is nothing left to clear.
+        # Manually clears the cached raw bitmask values.
         # @return [void]
         sig { void }
-        def clear_bitwise_raw_values_cache!; end
+        def clear_bitwise_raw_values_cache!
+          instance_variable_set(:@_bitwise_raw_values, {})
+        end
 
-        # The raw bitmask currently held by +column_name+: the loaded database value, or the one
-        # carried by the flags last assigned to it (0 for nil).
+        # Reloads the record, invalidating the raw bitmask cache first.
+        # @param args [T.untyped]
+        # @return [T.untyped]
+        sig { params(args: T.untyped).returns(T.untyped) }
+        def reload(*args)
+          clear_bitwise_raw_values_cache!
+          super
+        end
+
+        # Returns (initializing when necessary) the per-record cache of raw database bitmasks.
+        # @return [T::Hash[Symbol, Integer]]
+        sig { returns(Types::Positions) }
+        def _bitwise_raw_cache
+          instance_variable_get(:@_bitwise_raw_values) || instance_variable_set(:@_bitwise_raw_values, {})
+        end
+
+        # Hydrates the raw cache for +column_name+ from the attribute's before-type-cast
+        # value unless already present, and returns the cached raw integer.
         # @param column_name [Symbol]
         # @return [Integer]
         sig { params(column_name: Symbol).returns(Integer) }
-        def _bitwise_raw(column_name)
-          RawMask.extract(read_attribute_before_type_cast(column_name))
+        def _bitwise_hydrate_raw_cache(column_name)
+          cache = _bitwise_raw_cache
+          cache[column_name] ||= RawMask.extract(read_attribute_before_type_cast(column_name))
+          T.must(cache[column_name])
+        end
+
+        # Resets the raw bitmask cache after every save.
+        # @return [void]
+        sig { void }
+        def _reset_bitwise_raw_value_caches
+          clear_bitwise_raw_values_cache!
+        end
+
+        # Duplicated records intentionally drop the source record's unmapped
+        # ("forgotten") bits: a dup is a new record and should only carry the flags
+        # visible in Ruby, never invisible legacy bits.
+        # @param other [T.untyped]
+        # @return [T.untyped]
+        sig { params(other: T.untyped).returns(T.untyped) }
+        def initialize_dup(other)
+          result = super
+          clear_bitwise_raw_values_cache!
+          _bitwise_model.bitwise_definitions.each_key do |column_name|
+            _bitwise_raw_cache[column_name] = 0
+            _bitwise_copy_flags(column_name)
+          end
+          result
+        end
+
+        # Re-assigns the visible flags of +column_name+ so the duplicate owns a fresh array.
+        # @param column_name [Symbol]
+        # @return [void]
+        sig { params(column_name: Symbol).void }
+        def _bitwise_copy_flags(column_name)
+          flags = read_attribute(column_name)
+          write_attribute(column_name, [*flags]) if flags in Array
         end
       end
     end

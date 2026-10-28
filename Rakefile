@@ -52,4 +52,9 @@ task :mutant do
   sh 'bundle exec mutant run'
 end
 
-task default: %i[spec rubocop typecheck yard reek flay audit]
+desc 'Run the original (pre-refactoring) spec suite against the current lib/'
+task :legacy_suite do
+  ruby 'script/legacy_suite.rb'
+end
+
+task default: %i[spec legacy_suite rubocop typecheck yard reek flay audit]
