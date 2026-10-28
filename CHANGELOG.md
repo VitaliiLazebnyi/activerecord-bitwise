@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- The per-record raw bitmask cache and the `after_save` callback that reset it: the raw
+  bitmask is derived from the attribute's value before type cast on demand, so nothing can go
+  stale. `clear_bitwise_raw_values_cache!` remains as a no-op for compatibility.
+- The class-level "columns validated" memo flag and the `reload` override that existed only to
+  reset the cache; each definition now records its own `validated` state.
 - Two unreachable defensive branches (`Type#deserialize` "Casting failed" guard and the
   non-Hash/Array mapping guard, which Sorbet's signature already rejects) and the unused
   internal `#_bitwise_coerce_raw`.
