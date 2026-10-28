@@ -7,15 +7,16 @@ if DatabaseHelpers.postgres_adapter?
   RSpec.describe 'NULL-aware scopes on PostgreSQL' do
     include_context 'with a user model'
 
-    let(:plan) do
-      connection = model.connection
-      connection.execute('SET enable_seqscan = off')
-      lines = connection.select_values("EXPLAIN #{model.with_exact_roles.to_sql}")
-      RSpec.configuration.reporter.message("EXPLAIN for with_exact_roles:\n#{lines.join("\n")}")
-      lines.join("\n")
+    let(:plan) { ActiveRecord::Base.connection.select_values("EXPLAIN #{model.with_exact_roles.to_sql}").join("\n") }
+
+    around do |example|
+      ActiveRecord::Base.connection.execute('SET enable_seqscan = off')
+      example.run
     ensure
-      connection.execute('RESET enable_seqscan')
+      ActiveRecord::Base.connection.execute('RESET enable_seqscan')
     end
+
+    after { RSpec.configuration.reporter.message("EXPLAIN for with_exact_roles:\n#{plan}") }
 
     it 'uses the index on the column for the "no flags" comparison' do
       expect(plan).to match(/Index|Bitmap/)

@@ -51,11 +51,13 @@ RSpec.describe 'Integer bitmasks outside the signed 64-bit range' do
     end
   end
 
-  context 'with the largest valid bitmask' do
+  # Only a BIGINT column can hold it: the users.roles column is a 4-byte INTEGER on PostgreSQL and MySQL.
+  context 'with the largest valid bitmask in a BIGINT column' do
     it 'is stored exactly' do
-      record = model.create!(roles: (2**63) - 1)
+      wide = build_model('capacity_records') { bitwise :big, { flag: 62 } }
+      record = wide.create!(big: (2**63) - 1)
 
-      expect(raw_value(record)).to eq((2**63) - 1)
+      expect(raw_value(record, :big)).to eq((2**63) - 1)
     end
   end
 end
