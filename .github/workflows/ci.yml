@@ -52,10 +52,21 @@ jobs:
     runs-on: ubuntu-26.04
     permissions:
       contents: read
+    # ActiveRecord 7.1 and 7.2 predate Ruby 4.0: their ActiveSupport still requires "cgi", which Ruby 4.0
+    # removed from the standard library (Ruby warns about it on every run). They are tested on the newest
+    # Ruby 3.x; ActiveRecord 8.x runs on the primary Ruby.
     strategy:
       fail-fast: false
       matrix:
-        activerecord: ["~> 7.1.0", "~> 7.2.0", "~> 8.0.0", "~> 8.1.0"]
+        include:
+        - activerecord: "~> 7.1.0"
+          ruby: "3.4.12"
+        - activerecord: "~> 7.2.0"
+          ruby: "3.4.12"
+        - activerecord: "~> 8.0.0"
+          ruby: "4.0.9"
+        - activerecord: "~> 8.1.0"
+          ruby: "4.0.9"
     env:
       RUBYOPT: -w -W:deprecated -W:performance
       AR_VERSION: ${{ matrix.activerecord }}
@@ -66,10 +77,12 @@ jobs:
 
     - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
-        ruby-version: .ruby-version
+        ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
     - name: Check the Ruby version
-      run: script/check_ruby.sh
+      env:
+        EXPECTED_RUBY: ${{ matrix.ruby }}
+      run: script/check_ruby.sh "$EXPECTED_RUBY"
     - run: bundle exec rspec
 
   # Run the suite against a real PostgreSQL server so row locking (FOR UPDATE)
@@ -84,6 +97,8 @@ jobs:
         image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
         env:
           POSTGRES_PASSWORD: postgres
+          # Explicit authentication methods: initdb warns when it has to default them to "trust".
+          POSTGRES_INITDB_ARGS: --auth-local=trust --auth-host=scram-sha-256
         ports:
           - 5432:5432
         options: >-
