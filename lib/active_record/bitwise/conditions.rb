@@ -73,7 +73,7 @@ module ActiveRecord
       # @return [T::Array[[Symbol, T.untyped, Type]]]
       sig { params(klass: T.untyped, hash: Types::Params, column_name: Symbol).returns(T::Array[[Symbol, T.untyped, Type]]) }
       def self.column_entries(klass, hash, column_name)
-        typecaster = klass.attribute_types[column_name.to_s]
+        typecaster = klass.attribute_types.fetch(column_name.to_s)
         keys = [column_name, column_name.to_s].select { |key| hash.key?(key) }
         typecaster.is_a?(Type) ? keys.map { |key| [column_name, key, typecaster] } : []
       end
@@ -84,7 +84,7 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def self.verbatim?(value)
-        value.is_a?(Integer) || value.nil? || value.is_a?(Arel::Nodes::Node) || value.is_a?(Arel::Nodes::SqlLiteral)
+        RawMask.integer?(value) || value.nil? || value.is_a?(Arel::Nodes::Node) || value.is_a?(Arel::Nodes::SqlLiteral)
       end
       private_class_method :verbatim?
 
@@ -93,7 +93,7 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def self.passthrough?(value)
-        value.is_a?(Integer) || value.nil? || (value.is_a?(Array) && !value.empty? && value.all?(Integer))
+        RawMask.integer?(value) || value.nil? || (value.is_a?(Array) && !value.empty? && value.all?(Integer))
       end
       private_class_method :passthrough?
 

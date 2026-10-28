@@ -93,7 +93,7 @@ module ActiveRecord
         return if definitions.blank?
 
         T.unsafe(subclass).bitwise_definitions = definitions.transform_values do |config|
-          config.dup.tap { |copied| copied[:mapping] = config[:mapping].dup }
+          config.dup.tap { |copied| copied[:mapping] = config.fetch(:mapping).dup }
         end
       end
 
@@ -142,8 +142,8 @@ module ActiveRecord
                affixes: T::Hash[Symbol, T.untyped]).void
       end
       def _bitwise_declare(column_name, mapping, defaults, affixes)
-        prefix = Mapping.prefix(column_name, affixes[:prefix])
-        suffix = Mapping.suffix(column_name, affixes[:suffix])
+        prefix = Mapping.prefix(column_name, affixes.fetch(:prefix))
+        suffix = Mapping.suffix(column_name, affixes.fetch(:suffix))
         generated = Collisions.check!(self, column_name, mapping, prefix, suffix)
         _bitwise_register(column_name, mapping, defaults, affixes.merge(generated_methods: generated))
         _bitwise_define_accessors(column_name, mapping, prefix, suffix)

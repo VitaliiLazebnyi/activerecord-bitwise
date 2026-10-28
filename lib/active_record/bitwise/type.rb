@@ -68,7 +68,7 @@ module ActiveRecord
       sig { override.params(value: T.untyped).returns(T.nilable(Types::Flags)) }
       def cast(value)
         return nil if value.nil?
-        return deserialize(value) if value.is_a?(Integer)
+        return deserialize(value) if RawMask.integer?(value)
         return value if value.is_a?(Array) && value.frozen? && RawMask.stamped?(value)
 
         assert_castable(value)
@@ -99,7 +99,7 @@ module ActiveRecord
       sig { override.params(value: T.untyped).returns(T.nilable(Integer)) }
       def serialize(value)
         return nil if value.nil?
-        return value if value.is_a?(Integer)
+        return value if RawMask.integer?(value)
 
         (RawMask.mask_of(value) & ~@known_mask) | mask_for(Array(value))
       end

@@ -48,7 +48,7 @@ class BitwiseValidator < ActiveModel::EachValidator
     definition = T.unsafe(record.class).bitwise_definitions[attribute.to_sym]
     return [] unless definition
 
-    names = definition[:mapping].keys.map(&:to_s)
+    names = definition.fetch(:mapping).keys.map(&:to_s)
     Array(value).reject { |element| element.nil? || element == '' || names.include?(element.to_s) }
   end
 

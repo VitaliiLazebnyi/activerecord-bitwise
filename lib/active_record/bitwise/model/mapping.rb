@@ -108,7 +108,7 @@ module ActiveRecord
         # @return [Integer]
         sig { params(column_name: Types::Name, key: T.untyped, value: T.untyped).returns(Integer) }
         def self.position(column_name, key, value)
-          digits = value.is_a?(Integer) || (value.is_a?(String) && value.match?(/\A\d+\z/))
+          digits = RawMask.integer?(value) || (value.is_a?(String) && value.match?(/\A\d+\z/))
           candidate = RawMask.integer(value) if digits
           return candidate if candidate&.between?(0, MAX_BIT_POSITION)
 

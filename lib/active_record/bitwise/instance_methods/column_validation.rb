@@ -49,7 +49,7 @@ module ActiveRecord
         def _bitwise_columns_validated?
           return false unless T.unsafe(self).class.instance_variable_get(:@_bitwise_columns_validated) == true
 
-          _bitwise_definitions.values.all? { |config| config[:validated] }
+          _bitwise_definitions.values.all? { |config| config.fetch(:validated) }
         end
 
         # Validates a single definition once. Configuration errors (ArgumentError) are
@@ -61,7 +61,7 @@ module ActiveRecord
         # @return [Boolean] False when the check could not be completed.
         sig { params(column: Symbol, config: T::Hash[Symbol, T.untyped]).returns(T::Boolean) }
         def _bitwise_validate_definition(column, config)
-          _bitwise_check_definition(column, config) unless config[:validated]
+          _bitwise_check_definition(column, config) unless config.fetch(:validated)
           true
         rescue StandardError => e
           raise if e.is_a?(ArgumentError)
@@ -80,7 +80,7 @@ module ActiveRecord
           return unless klass.connection.active? && klass.table_exists?
 
           db_column = ColumnValidation.integer_column(klass, column)
-          ColumnValidation.check_capacity(column, db_column.limit, config[:mapping].values.max || 0)
+          ColumnValidation.check_capacity(column, db_column.limit, config.fetch(:mapping).values.max || 0)
           config[:validated] = true
         end
 

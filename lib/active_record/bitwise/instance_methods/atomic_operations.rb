@@ -45,7 +45,7 @@ module ActiveRecord
         sig { params(column_name: Symbol).void }
         def _bitwise_reload_locked(column_name)
           record = T.unsafe(self)
-          typecaster = record.class.attribute_types[column_name.to_s]
+          typecaster = record.class.attribute_types.fetch(column_name.to_s)
           raw = _bitwise_locked_raw(column_name, typecaster)
           record._bitwise_raw_cache[column_name] = raw
           record.write_attribute(column_name, typecaster.deserialize(raw))

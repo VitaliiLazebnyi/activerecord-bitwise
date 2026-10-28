@@ -16,6 +16,17 @@ module ActiveRecord
       IVAR = :@_bitwise_raw_value
       private_constant :IVAR
 
+      # Whether +value+ is an Integer (Integer has no subclasses, so this is an exact check).
+      # @param value [T.untyped] Any object.
+      # @return [Boolean]
+      sig { params(value: T.untyped).returns(T::Boolean) }
+      def self.integer?(value)
+        case value
+        when Integer then true
+        else false
+        end
+      end
+
       # Whether +value+ is an Array carrying a raw-bitmask marker.
       # @param value [T.untyped] Any object.
       # @return [Boolean]
@@ -59,7 +70,7 @@ module ActiveRecord
       # @return [Integer]
       sig { params(value: T.untyped).returns(Integer) }
       def self.coerce(value)
-        return value if value.is_a?(Integer)
+        return value if integer?(value)
 
         value.respond_to?(:to_i) ? integer(value) : 0 # rubocop:disable Lint/NumberConversion -- capability check, not a conversion
       end

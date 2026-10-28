@@ -59,7 +59,7 @@ module ActiveRecord
         def _bitwise_typecaster(column_name)
           return nil unless T.unsafe(self).class.bitwise_definitions.key?(column_name)
 
-          typecaster = T.unsafe(self).class.attribute_types[column_name.to_s]
+          typecaster = T.unsafe(self).class.attribute_types.fetch(column_name.to_s)
           typecaster if typecaster.is_a?(ActiveRecord::Bitwise::Type)
         end
 
@@ -128,7 +128,7 @@ module ActiveRecord
         sig { params(key: T.untyped, value: T.untyped).returns(T.untyped) }
         def _bitwise_update_value(key, value)
           typecaster = _bitwise_typecaster(key.to_sym)
-          return value if typecaster.nil? || value.is_a?(Integer) || value.nil?
+          return value if typecaster.nil? || RawMask.integer?(value) || value.nil?
 
           _bitwise_prepare_value(key.to_sym, typecaster, value)
         end
