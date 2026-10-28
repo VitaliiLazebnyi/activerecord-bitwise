@@ -24,6 +24,6 @@ mutation:
     # `T.type_alias`) are Sorbet types whose arguments sorbet-runtime erases: `T.let(x, T::Array[String])`
     # only checks that x is an Array at runtime, so a mutated type argument behaves exactly like the
     # original. `srb tc` checks them statically.
-    - send{selector=[] receiver=const{base=const{name=T}}}
+    - index{receiver=const{base=const{name=T}}}
 coverage_criteria:
   process_abort: true

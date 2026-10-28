@@ -118,8 +118,17 @@ module ActiveRecord
         case value
         in nil then nil
         in Integer => bitmask then checked(bitmask)
-        else checked(@layout.merge(value))
+        else bitmask_of(value)
         end
+      end
+
+      # The bitmask of a flag array including the unmapped bits its raw marker carries (0 for nil).
+      # @param value [Object, nil] Flags.
+      # @raise [ActiveModel::RangeError] When the bitmask does not fit a signed 64-bit column.
+      # @return [Integer]
+      sig { params(value: T.nilable(Object)).returns(Integer) }
+      def bitmask_of(value)
+        checked(@layout.merge(value))
       end
 
       private

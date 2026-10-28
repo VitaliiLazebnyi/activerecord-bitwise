@@ -55,11 +55,11 @@ module ActiveRecord
 
         # Stores +plucked+, the value just read from the database, as the record's value for +column_name+.
         # @param column_name [Symbol]
-        # @param plucked [Object, nil] The raw column value.
+        # @param plucked [Object, nil] The column value as read (the flag array, stamped with the raw bitmask).
         # @return [void]
         sig { params(column_name: Symbol, plucked: T.nilable(Object)).void }
         def _bitwise_store(column_name, plucked)
-          write_attribute(column_name, self.class.attribute_types.fetch(column_name.to_s).deserialize(plucked))
+          write_attribute(column_name, plucked)
           _bitwise_settle(column_name)
         end
 

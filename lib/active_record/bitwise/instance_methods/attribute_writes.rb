@@ -70,7 +70,7 @@ module ActiveRecord
           casted = typecaster.cast(value)
           return _bitwise_forget(column_name) unless casted
 
-          RawMask.stamped?(casted) ? _bitwise_adopt(column_name, casted) : RawMask.stamp(casted.dup, current).freeze
+          RawMask.stamped?(casted) ? _bitwise_adopt(column_name, casted) : RawMask.stamp(casted.dup, current)
         end
 
         # Intercepts update_columns (and therefore update_column) so the write is
@@ -136,7 +136,7 @@ module ActiveRecord
         # @return [Integer]
         sig { params(column: Symbol, type: Type).returns(Integer) }
         def _bitwise_refresh(column, type)
-          _bitwise_raw_cache[column] = _bitwise_coerce_raw(type.serialize(read_attribute(column)))
+          _bitwise_raw_cache[column] = type.bitmask_of(read_attribute(column))
         end
 
         # Clears the cached raw bitmask of +column_name+ (assigning nil drops the unmapped bits).

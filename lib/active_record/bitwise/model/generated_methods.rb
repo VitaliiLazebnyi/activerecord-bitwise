@@ -45,7 +45,7 @@ module ActiveRecord
         # @return [String, Symbol] +name+.
         sig { params(name: T.any(String, Symbol)).returns(T.any(String, Symbol)) }
         def _bitwise_release(name)
-          remove_method(name) if method_defined?(name, false) || private_method_defined?(name, false)
+          remove_method(name) if method_defined?(name, false)
           name
         end
 
@@ -158,13 +158,12 @@ module ActiveRecord
           define_method(_bitwise_release(name)) { |*values| __send__(ATOMIC_UPDATE, column, operation, values) }
         end
 
-        # Defines +name+ as an alias of +implementation+.
+        # Defines +name+ as an alias of +implementation+ (Ruby does not warn when an alias replaces a method).
         # @param name [Symbol] The method to define.
         # @param implementation [Symbol] The method it aliases.
         # @return [void]
         sig { params(name: Symbol, implementation: Symbol).void }
         def _bitwise_define_atomic_alias(name, implementation)
-          _bitwise_release(name)
           alias_method(name, implementation)
         end
       end

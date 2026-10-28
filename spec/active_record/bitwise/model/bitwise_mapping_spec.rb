@@ -148,6 +148,16 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
 
     # ActiveRecord itself warns when a scope is defined over one of the same class; that warning comes
     # from ActiveRecord's code, so the example watches standard error rather than the warning guard.
+    # A column whose name is already singular gets no alias for its atomic methods, so Ruby would warn
+    # about each of them.
+    it 'replaces the atomic methods of a column with a singular name without a warning', :aggregate_failures do
+      model = build_model('singular_models') { bitwise :status, { active: 0 } }
+      model.bitwise :status, { active: 0, archived: 1 }
+
+      expect(WarningGuard.drain).to be_empty
+      expect(model.method_defined?(:add_status!)).to be(true)
+    end
+
     it 'replaces the scopes without a warning' do
       model = define.call({ admin: 0 })
 

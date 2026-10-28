@@ -4,41 +4,41 @@
 # Must come first: it has to see warnings emitted while lib/ and spec/ are loaded.
 require_relative 'support/warning_guard'
 
-require 'simplecov'
-require 'simplecov-ai'
+# Mutation runs execute the suite thousands of times against deliberately broken code; coverage is not
+# measured there (the gate would be meaningless, and its report noise).
+unless defined?(Mutant)
+  require 'simplecov'
+  require 'simplecov-ai'
 
-SimpleCov::Formatter::AIFormatter.configure do |config|
-  config.report_path = 'coverage/ai_report.md'
-  config.max_file_size_kb = 50
-  config.max_snippet_lines = 5
-  config.output_to_console = false
-  config.granularity = :fine
-  config.include_bypasses = true
-end
-
-# Mutation runs execute the suite thousands of times against deliberately broken
-# code; the coverage gate is meaningless (and noisy) there.
-SimpleCov.start do
-  next if defined?(Mutant)
-
-  enable_coverage :branch
-  # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
-  # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
-  # adapter-specific branches (e.g. PostgreSQL widens limit: 1 columns to
-  # smallint, making the tinyint limit branch unreachable), but a 99% gate still
-  # fails the run if real coverage regresses.
-  if ENV['DATABASE_URL']
-    minimum_coverage line: 99, branch: 99
-  else
-    minimum_coverage line: 100, branch: 100
+  SimpleCov::Formatter::AIFormatter.configure do |config|
+    config.report_path = 'coverage/ai_report.md'
+    config.max_file_size_kb = 50
+    config.max_snippet_lines = 5
+    config.output_to_console = false
+    config.granularity = :fine
+    config.include_bypasses = true
   end
-  SimpleCov.skip(%r{/spec/})
-  SimpleCov.skip(%r{/vendor/})
 
-  self.formatters = SimpleCov::Formatter::MultiFormatter.new([
-                                                               SimpleCov::Formatter::HTMLFormatter,
-                                                               SimpleCov::Formatter::AIFormatter
-                                                             ])
+  SimpleCov.start do
+    enable_coverage :branch
+    # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
+    # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
+    # adapter-specific branches (e.g. PostgreSQL widens limit: 1 columns to
+    # smallint, making the tinyint limit branch unreachable), but a 99% gate still
+    # fails the run if real coverage regresses.
+    if ENV['DATABASE_URL']
+      minimum_coverage line: 99, branch: 99
+    else
+      minimum_coverage line: 100, branch: 100
+    end
+    SimpleCov.skip(%r{/spec/})
+    SimpleCov.skip(%r{/vendor/})
+
+    self.formatters = SimpleCov::Formatter::MultiFormatter.new([
+                                                                 SimpleCov::Formatter::HTMLFormatter,
+                                                                 SimpleCov::Formatter::AIFormatter
+                                                               ])
+  end
 end
 
 require 'active_record'

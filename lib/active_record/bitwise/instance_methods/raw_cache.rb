@@ -75,7 +75,7 @@ module ActiveRecord
         def _bitwise_read(column, value)
           raw = _bitwise_hydrate_raw_cache(column)
           flags = (value in nil) ? self.class.attribute_types.fetch(column.to_s).deserialize(nil) : value
-          return flags unless flags.is_a?(Array) && !RawMask.stamped?(flags)
+          return flags unless flags.instance_of?(Array) && !RawMask.stamped?(flags)
 
           RawMask.stamp(flags.dup, raw).freeze
         end
