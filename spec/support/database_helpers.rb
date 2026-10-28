@@ -38,6 +38,23 @@ module DatabaseHelpers
     record.reload
   end
 
+  # Whether the examples run against MySQL (or a compatible server such as MariaDB).
+  # @return [Boolean]
+  def mysql_adapter?
+    ActiveRecord::Base.connection.adapter_name.match?(/mysql|trilogy|maria/i)
+  end
+
+  # Makes SQL comparable across adapters: ActiveRecord's MySQL adapter quotes every bound
+  # number as a string (+& '5' > 0+), the other adapters leave it bare (+& 5 > 0+). The gem
+  # binds plain Integers through ActiveRecord in both cases, so the quotes carry no meaning.
+  # @param sql [String, Array<String>] a statement or statements
+  # @return [String, Array<String>] the same with quoted integer literals unquoted
+  def normalized_sql(sql)
+    return sql.map { |statement| normalized_sql(statement) } if sql.is_a?(Array)
+
+    sql.gsub(/'(-?\d+)'/, '\1')
+  end
+
   # The fully qualified, adapter-quoted column reference used in generated SQL.
   # @param model [Class] an ActiveRecord model
   # @param column [Symbol] the column name

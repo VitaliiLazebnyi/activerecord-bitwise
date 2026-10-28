@@ -100,10 +100,11 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#update_columns' do
 
   context 'with a column whose type was replaced after declaring it bitwise' do
     it 'writes the value untouched' do
+      planted = record
       model.attribute :roles, :integer
-      record.update_columns(roles: 5)
+      planted.update_columns(roles: 5)
 
-      expect(raw_value(record)).to eq(5)
+      expect(raw_value(planted)).to eq(5)
     end
   end
 

@@ -21,10 +21,7 @@ module ActiveRecord
       # @return [Boolean]
       sig { params(value: T.untyped).returns(T::Boolean) }
       def self.integer?(value)
-        case value
-        when Integer then true
-        else false
-        end
+        value in Integer
       end
 
       # Whether +value+ is an Array carrying a raw-bitmask marker.

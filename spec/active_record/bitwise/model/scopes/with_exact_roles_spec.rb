@@ -60,7 +60,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
     let(:column) { qualified_column(model) }
 
     it 'compares the column with the mask' do
-      expect(model.with_exact_roles(:admin, :author).to_sql).to include("#{column} = 5")
+      expect(normalized_sql(model.with_exact_roles(:admin, :author).to_sql)).to include("#{column} = 5")
     end
 
     it 'compares the column with zero when no flag is given' do

@@ -58,7 +58,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
     let(:column) { qualified_column(model) }
 
     it 'tests that no mask bit is set' do
-      expect(model.without_roles(:admin, :author).to_sql).to include("#{column} & 5 = 0")
+      expect(normalized_sql(model.without_roles(:admin, :author).to_sql)).to include("#{column} & 5 = 0")
     end
 
     it 'adds no condition when every flag is unknown' do

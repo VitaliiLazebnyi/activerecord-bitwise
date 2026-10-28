@@ -153,7 +153,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.add_roles!' do
   context 'with the generated SQL' do
     it 'ORs the mask into the COALESCEd column in one UPDATE' do
       column = model.connection.quote_column_name('roles')
-      statements = capture_sql { model.add_roles!(:admin, records: admin.id) }
+      statements = normalized_sql(capture_sql { model.add_roles!(:admin, records: admin.id) })
 
       expect(statements).to include(a_string_including("#{column} = COALESCE(#{column}, 0) | 1"))
     end

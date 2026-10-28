@@ -290,7 +290,7 @@ RSpec.describe 'README examples' do
 
     it 'issues the documented OR statement' do
       column = user_class.connection.quote_column_name('roles')
-      statements = capture_sql { user_class.add_roles!(:admin, records: record.id) }
+      statements = normalized_sql(capture_sql { user_class.add_roles!(:admin, records: record.id) })
 
       expect(statements).to include(a_string_including("#{column} = COALESCE(#{column}, 0) | 1"))
     end
@@ -304,7 +304,7 @@ RSpec.describe 'README examples' do
     it 'issues the documented subtraction statement' do
       column = user_class.connection.quote_column_name('roles')
       expected = "#{column} = COALESCE(#{column}, 0) - (COALESCE(#{column}, 0) & 4)"
-      statements = capture_sql { record.remove_role!(:author) }
+      statements = normalized_sql(capture_sql { record.remove_role!(:author) })
 
       expect(statements).to include(a_string_including(expected))
     end

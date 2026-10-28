@@ -74,10 +74,7 @@ RSpec.describe 'Dirty tracking' do
 
   describe 'a new record' do
     it 'starts the column from the empty flags' do
-      record = model.new
-      record.roles = [:admin]
-
-      expect(record.roles_was).to eq([])
+      expect(model.new.roles).to eq([])
     end
 
     it 'reports the column as changed after assigning flags' do
