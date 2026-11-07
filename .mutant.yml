@@ -1,0 +1,29 @@
+usage: opensource
+integration:
+  name: rspec
+requires:
+  - activerecord-bitwise
+includes:
+  - lib
+  - spec
+matcher:
+  subjects:
+    - ActiveRecord::Bitwise*
+    - BitwiseValidator*
+mutation:
+  timeout: 20.0
+  # Mutations that cannot change observable behavior. Each pattern is matched against the node being
+  # mutated, so it also hides the other mutations of that node. Every entry states why the mutation is
+  # equivalent; the PR description lists them.
+  ignore_patterns:
+    # `sig { ... }` blocks are checked statically by `srb tc` (and at runtime by sorbet-runtime when the
+    # method is called with the wrong types, which the specs cover); mutating the signature DSL itself
+    # only produces Sorbet runtime errors that the examples of the method already surface.
+    - block{receiver=send{selector=sig}}
+    # Generic type applications such as `T::Array[String]` or `T::Hash[Symbol, Integer]` (in `T.let` and
+    # `T.type_alias`) are Sorbet types whose arguments sorbet-runtime erases: `T.let(x, T::Array[String])`
+    # only checks that x is an Array at runtime, so a mutated type argument behaves exactly like the
+    # original. `srb tc` checks them statically.
+    - index{receiver=const{base=const{name=T}}}
+coverage_criteria:
+  process_abort: true

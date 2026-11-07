@@ -1,42 +1,50 @@
+# typed: false
 # frozen_string_literal: true
 
-require 'simplecov'
-require 'simplecov-ai'
+# Must come first: it has to see warnings emitted while lib/ and spec/ are loaded.
+require_relative 'support/warning_guard'
 
-SimpleCov::Formatter::AIFormatter.configure do |config|
-  config.report_path = 'coverage/ai_report.md'
-  config.max_file_size_kb = 50
-  config.max_snippet_lines = 5
-  config.output_to_console = false
-  config.granularity = :fine
-  config.include_bypasses = true
-end
+# Mutation runs execute the suite thousands of times against deliberately broken code; coverage is not
+# measured there (the gate would be meaningless, and its report noise).
+unless defined?(Mutant)
+  require 'simplecov'
+  require 'simplecov-ai'
 
-SimpleCov.start do
-  enable_coverage :branch
-  # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
-  # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
-  # adapter-specific branches (e.g. PostgreSQL widens limit: 1 columns to
-  # smallint, making the tinyint limit branch unreachable), but a 99% gate still
-  # fails the run if real coverage regresses.
-  if ENV['DATABASE_URL']
-    minimum_coverage line: 99, branch: 99
-  else
-    minimum_coverage line: 100, branch: 100
+  SimpleCov::Formatter::AIFormatter.configure do |config|
+    config.report_path = 'coverage/ai_report.md'
+    config.max_file_size_kb = 50
+    config.max_snippet_lines = 5
+    config.output_to_console = false
+    config.granularity = :fine
+    config.include_bypasses = true
   end
-  add_filter '/spec/'
-  add_filter '/vendor/'
 
-  self.formatters = SimpleCov::Formatter::MultiFormatter.new([
-                                                               SimpleCov::Formatter::HTMLFormatter,
-                                                               SimpleCov::Formatter::AIFormatter
-                                                             ])
+  SimpleCov.start do
+    enable_coverage :branch
+    # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
+    # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
+    # adapter-specific branches (e.g. PostgreSQL widens limit: 1 columns to
+    # smallint, making the tinyint limit branch unreachable), but a 99% gate still
+    # fails the run if real coverage regresses.
+    if ENV['DATABASE_URL']
+      minimum_coverage line: 99, branch: 99
+    else
+      minimum_coverage line: 100, branch: 100
+    end
+    SimpleCov.skip(%r{/spec/})
+    SimpleCov.skip(%r{/vendor/})
+
+    self.formatters = SimpleCov::Formatter::MultiFormatter.new([
+                                                                 SimpleCov::Formatter::HTMLFormatter,
+                                                                 SimpleCov::Formatter::AIFormatter
+                                                               ])
+  end
 end
 
-require 'sorbet-runtime'
-
-require 'fileutils'
 require 'active_record'
+require 'fileutils'
+require 'securerandom'
+require 'sorbet-runtime'
 
 # By default the suite runs on a shared file-based SQLite database (file-based to
 # support multi-threaded test isolation). Set DATABASE_URL (e.g. to a PostgreSQL
@@ -52,53 +60,42 @@ else
   FileUtils.mkdir_p(db_dir)
   db_file = File.join(db_dir, 'test.sqlite3')
 
-  ActiveRecord::Base.establish_connection(
-    adapter: 'sqlite3',
-    database: db_file
-  )
+  # A busy timeout lets the concurrency examples queue on SQLite's single writer lock.
+  ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: db_file, timeout: 10_000)
 
+  parent_pid = Process.pid
   at_exit do
-    FileUtils.rm_f(db_file)
+    # Forked workers (mutant) inherit this hook; only the owning process may delete the file.
+    # That includes the copies (and SQLite's -wal/-shm files) of workers that were killed on a timeout.
+    FileUtils.rm_f(Dir[File.join(db_dir, 'test*')]) if Process.pid == parent_pid
+  end
+
+  # Mutant runs mutations in parallel forked workers that all inherit the connection
+  # opened above. Give every worker its own copy of the freshly built database so
+  # concurrent suites never contend for one SQLite file.
+  RSpec.configure do |config|
+    worker_file = nil
+
+    config.before(:suite) do
+      next if Process.pid == parent_pid
+
+      worker_file = File.join(db_dir, "test-#{Process.pid}.sqlite3")
+      FileUtils.cp(db_file, worker_file)
+      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: worker_file, timeout: 10_000)
+    end
+
+    config.after(:suite) { FileUtils.rm_f(Dir["#{worker_file}*"]) if worker_file }
   end
 end
 
-# Set up testing database schema
-ActiveRecord::Schema.define do
-  create_table :users, force: true do |t|
-    t.string :type
-    t.integer :roles, default: 0, null: true
-    t.integer :permissions, default: 0, null: false
-    t.integer :legacy_roles, default: 0, null: false
-    t.integer :custom_limits, limit: 1, default: 0, null: false
-  end
+require_relative 'support/schema'
 
-  create_table :over_shifted_models, force: true do |t|
-    t.integer :custom_limits, limit: 1, default: 0, null: false
-  end
-
-  create_table :collision_models, force: true do |t|
-    t.integer :states, default: 0, null: false
-  end
-
-  create_table :saas_users, force: true do |t|
-    t.string :name, null: false
-    t.integer :roles, default: 0, null: false
-    t.integer :features, default: 0, null: false
-  end
-
-  create_table :etl_records, force: true do |t|
-    t.string :external_id, null: false
-    t.integer :legacy_flags, default: 0, null: false
-  end
-
-  create_table :singular_models, force: true do |t|
-    t.integer :status, default: 0, null: false
-    t.integer :fish, default: 0, null: false
-    t.string :name
-  end
-end
+# Flush the WAL into the main database file so per-worker copies (see above) are complete.
+ActiveRecord::Base.connection.execute('PRAGMA wal_checkpoint(TRUNCATE)') unless database_url
 
 require 'activerecord-bitwise'
+
+Dir[File.join(__dir__, 'support', '**', '*.rb')].each { |support_file| require support_file }
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -113,5 +110,48 @@ RSpec.configure do |config|
 
   config.mock_with :rspec do |mocks|
     mocks.verify_partial_doubles = true
+  end
+
+  # Mutation testing maps examples to the code they verify by the constant a spec describes, and for each
+  # subject only uses the examples of the most specific constant that has any. Behavior specified through
+  # the public model API (macro, flags, scopes, atomic updates, dirty tracking, ...) exercises every
+  # internal class, so a unit spec of one class must not hide those examples from that class's subjects:
+  # every example of the gem is offered to every subject of the gem. The validator keeps its own, narrower
+  # mapping.
+  config.define_derived_metadata(file_path: %r{/spec/(active_record|features)/}) do |metadata|
+    metadata[:mutant_expression] = 'ActiveRecord::Bitwise*'
+  end
+
+  config.include DatabaseHelpers
+  config.include ModelFactory
+  config.include RawMarker
+  config.include ErrorCapture
+  config.include SqlCapture
+  config.include RowLockSpy
+  config.include ConcurrentRunner
+
+  # Every example starts from empty tables. Rows are deleted (not rolled back) because
+  # the concurrency examples need data that is committed and visible to other threads.
+  config.before { DatabaseHelpers.truncate_all }
+
+  # Ruby warnings from lib/ or spec/ are failures, never noise.
+  config.before(:suite) do
+    load_time_warnings = WarningGuard.drain
+    raise "Ruby warnings while loading:\n#{load_time_warnings.join}" unless load_time_warnings.empty?
+  end
+
+  config.after do
+    warnings = WarningGuard.drain
+    raise "Ruby warnings emitted by this example:\n#{warnings.join}" unless warnings.empty?
+  end
+
+  # Pending and skipped examples hide missing behavior: the suite must not contain any.
+  config.after(:suite) do
+    unfinished = RSpec.world.all_examples.select do |example|
+      example.execution_result.status == :pending || example.skipped? || example.pending?
+    end
+    unless unfinished.empty?
+      raise "Pending or skipped examples are not allowed:\n#{unfinished.map(&:full_description).join("\n")}"
+    end
   end
 end

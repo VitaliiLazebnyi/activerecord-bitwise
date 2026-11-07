@@ -4,7 +4,7 @@ ActiveRecord::Bitwise is a Ruby on Rails gem providing the ability to store mult
 
 This is useful for `roles`, `permissions`, `preferences`, or `features` mappings where a record may have zero or multiple states concurrently, without requiring junction tables (`has_and_belongs_to_many`) or unstructured JSON/array column types.
 
-It supports **Ruby 3.2+** and **ActiveRecord 7.1+** (up to, and tested against, the 8.x series).
+It supports **Ruby 3.3+** and **ActiveRecord 7.1+** (up to, and tested against, the 8.x series).
 
 ## Installation
 
@@ -370,28 +370,31 @@ This architecture has inherent physical and systemic limitations. Design around 
 
 ### Running the Test Suite
 
-Execute the RSpec tests:
+Execute the RSpec tests (100% line and branch coverage is enforced):
 ```bash
 bundle exec rspec
 ```
 
 To test against a specific ActiveRecord release:
 ```bash
-AR_VERSION="~> 7.1.0" bundle install
-AR_VERSION="~> 7.1.0" bundle exec rspec
+AR_VERSION="~> 7.2.0" bundle update activerecord
+AR_VERSION="~> 7.2.0" bundle exec rspec
 ```
 
 ### Static Analysis and Type Checking
 
-Run the Sorbet static type-checker:
+Run every gate that CI enforces (specs, the original suite, RuboCop, the no-suppression check, Tapioca and
+Sorbet, YARD, Reek, Flay and bundler-audit):
 ```bash
-bundle exec srb tc
+bundle exec rake
 ```
 
-Run RuboCop to verify style guidelines:
+Type checking alone (Tapioca generates the gem RBIs, then Sorbet checks the code):
 ```bash
-bundle exec rubocop
+bundle exec rake typecheck
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for mutation testing and the rules every change must follow.
 
 ### Generating Documentation
 

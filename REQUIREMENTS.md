@@ -3,7 +3,7 @@
 | ID | Description |
 |---|---|
 | AR_BITWISE-REQ-001 | Feature must allow saving multiple symbols to integer via bitwise masking logic. |
-| AR_BITWISE-REQ-002 | System must be Ruby 3.2+ and ActiveRecord 7.1+ (< 9) compatible. |
+| AR_BITWISE-REQ-002 | System must be Ruby 3.3+ and ActiveRecord 7.1+ (< 9) compatible. |
 | AR_BITWISE-REQ-003 | Model Configuration must support Prefix and Suffix options for generated helper methods. |
 | AR_BITWISE-REQ-004 | Database Scopes must include `with_`, `with_any_`, `with_exact_`, and `without_` prefixes with fuzzer immunization and zero-bounds. |
 | AR_BITWISE-REQ-005 | High Concurrency SQL atomic methods must be provided at class and instance levels. |

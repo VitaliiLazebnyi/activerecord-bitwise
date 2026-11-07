@@ -1,0 +1,154 @@
+# typed: false
+# frozen_string_literal: true
+
+RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
+  let(:shadow_hint) { 'Use prefix:/suffix: to disambiguate.' }
+
+  context 'with a key that would shadow a database column' do
+    it 'rejects another column of the table' do
+      expect { build_model { bitwise :roles, { permissions: 0 } } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key permissions would shadow the database column or attribute 'permissions'. " \
+        "#{shadow_hint}"
+      )
+    end
+
+    it 'rejects the bitwise column itself' do
+      expect { build_model { bitwise :roles, { roles: 0 } } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key roles would shadow the database column or attribute 'roles'. #{shadow_hint}"
+      )
+    end
+
+    it 'accepts the same key once a prefix disambiguates it' do
+      model = build_model { bitwise :roles, { permissions: 0 }, prefix: :has }
+
+      expect(model.new).to respond_to(:has_permissions?)
+    end
+  end
+
+  context 'with a key that would clobber a core ActiveRecord method' do
+    {
+      save: '#save!',
+      destroyed: '#destroyed?',
+      changed: '#changed?',
+      valid: '#valid?'
+    }.each do |key, generated|
+      it "rejects :#{key} because it generates #{generated}" do
+        message = "Bitwise column roles mapping key #{key} generates method #{generated} " \
+                  'which collides with core ActiveRecord::Base instance methods.'
+
+        expect { build_model { bitwise :roles, { key => 0 } } }
+          .to raise_error(an_instance_of(ArgumentError).and(having_attributes(message: message)))
+      end
+    end
+  end
+
+  context 'with a key that would shadow a name on a table that is not available' do
+    let(:missing_table) { 'table_that_does_not_exist' }
+
+    it 'rejects the bitwise column itself' do
+      expect { build_model(missing_table) { bitwise :roles, { roles: 0 } } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key roles would shadow the database column or attribute 'roles'. #{shadow_hint}"
+      )
+    end
+
+    it 'rejects the bitwise column itself when declared by its String name' do
+      expect { build_model(missing_table) { bitwise 'roles', { roles: 0 } } }.to raise_error(
+        ActiveRecord::Bitwise::ConfigurationError,
+        "Bitwise column roles mapping key roles would shadow the database column or attribute 'roles'. #{shadow_hint}"
+      )
+    end
+
+    it 'rejects another bitwise column' do
+      model = build_model(missing_table) { bitwise :legacy_roles, { admin: 0 } }
+      message = 'Bitwise column roles mapping key legacy_roles would shadow the database column or attribute ' \
+                "'legacy_roles'. #{shadow_hint}"
+
+      expect { model.bitwise :roles, { legacy_roles: 0 } }
+        .to raise_error(ActiveRecord::Bitwise::ConfigurationError, message)
+    end
+  end
+
+  context 'with a key that would clobber a private ActiveRecord method' do
+    it 'rejects :attribute because it generates the private #attribute?' do
+      message = 'Bitwise column roles mapping key attribute generates method #attribute? ' \
+                'which collides with core ActiveRecord::Base instance methods.'
+
+      expect { build_model { bitwise :roles, { attribute: 0 } } }
+        .to raise_error(an_instance_of(ArgumentError).and(having_attributes(message: message)))
+    end
+  end
+
+  context 'with a key whose setter alone would clobber a core ActiveRecord method' do
+    it 'rejects :attributes because it generates #attributes=' do
+      message = 'Bitwise column roles mapping key attributes generates method #attributes= ' \
+                'which collides with core ActiveRecord::Base instance methods.'
+
+      expect { build_model { bitwise :roles, { attributes: 0 } } }
+        .to raise_error(an_instance_of(ArgumentError).and(having_attributes(message: message)))
+    end
+  end
+
+  context 'with a suffix that makes the generated name collide' do
+    it 'rejects a flag whose suffixed name equals a method of another column' do
+      model = build_model { bitwise :roles, { ad_min: 0 } }
+      message = 'Bitwise column legacy_roles mapping key ad generates method #ad_min? ' \
+                "which is already defined by another bitwise column. #{shadow_hint}"
+
+      expect { model.bitwise :legacy_roles, { ad: 0 }, suffix: :min }
+        .to raise_error(ActiveRecord::Bitwise::ConfigurationError, message)
+    end
+  end
+
+  context 'with a column that is declared twice under a String name' do
+    # Redeclaring a column on the same class replaces its generated methods without Ruby's
+    # "method redefined" warning.
+    it 'does not collide with its own earlier declaration', :aggregate_failures do
+      model = build_model { bitwise 'roles', { admin: 0 } }
+
+      expect { model.bitwise 'roles', { admin: 0 } }.not_to raise_error
+      expect(WarningGuard.drain).to be_empty
+    end
+  end
+
+  context 'with a key already generated by another bitwise column' do
+    let(:model) { build_model { bitwise :roles, { admin: 0 } } }
+
+    it 'raises ConfigurationError naming the colliding method' do
+      message = 'Bitwise column legacy_roles mapping key admin generates method #admin? ' \
+                "which is already defined by another bitwise column. #{shadow_hint}"
+
+      expect { model.bitwise :legacy_roles, { admin: 0 } }
+        .to raise_error(ActiveRecord::Bitwise::ConfigurationError, message)
+    end
+
+    it 'accepts the key once a prefix disambiguates it' do
+      model = build_model do
+        bitwise :roles, { admin: 0 }
+        bitwise :legacy_roles, { admin: 0 }, prefix: :legacy
+      end
+
+      expect(model.new).to respond_to(:admin?, :legacy_admin?)
+    end
+  end
+
+  context 'when the table does not exist yet' do
+    it 'still defines the column so that boot does not depend on the database' do
+      model = build_model('table_that_does_not_exist') { bitwise :roles, { admin: 0 } }
+
+      expect(model.bitwise_schema(:roles)).to eq(admin: 0)
+    end
+  end
+
+  context 'when inspecting the table fails' do
+    it 'still defines the column' do
+      model = build_model
+      allow(model).to receive(:table_exists?).and_raise(ActiveRecord::ConnectionNotEstablished, 'no connection')
+      model.bitwise :roles, { admin: 0 }
+
+      expect(model.bitwise_schema(:roles)).to eq(admin: 0)
+    end
+  end
+end

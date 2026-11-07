@@ -1,53 +1,104 @@
 name: CI
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+# Nothing is writable by default; every job re-declares the (read-only) permissions it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUBYOPT: -W:deprecated -W:performance
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: RSpec (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.2", "3.3", "3.4", "4.0"]
+        ruby: ["3.3.13", "3.4.12", "4.0.9"]
+    env:
+      RUBYOPT: -w -W:deprecated -W:performance
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
-    - run: bundle exec rspec
+    - name: Check the Ruby version
+      env:
+        EXPECTED_RUBY: ${{ matrix.ruby }}
+      run: script/check_ruby.sh "$EXPECTED_RUBY"
+    # SimpleCov enforces minimum_coverage 100 (line + branch) and fails the run below it.
+    - name: RSpec with the 100% line + branch coverage gate
+      run: bundle exec rspec
 
   # Verify every supported ActiveRecord minor, not only the newest resolvable one.
   test-activerecord:
-    runs-on: ubuntu-latest
+    name: RSpec (ActiveRecord ${{ matrix.activerecord }})
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    # ActiveRecord 7.1 and 7.2 predate Ruby 4.0: their ActiveSupport still requires "cgi", which Ruby 4.0
+    # removed from the standard library (Ruby warns about it on every run). They are tested on the newest
+    # Ruby 3.x; ActiveRecord 8.x runs on the primary Ruby.
     strategy:
       fail-fast: false
       matrix:
-        activerecord: ["~> 7.1.0", "~> 7.2.0", "~> 8.0.0"]
+        include:
+        - activerecord: "~> 7.1.0"
+          ruby: "3.4.12"
+        - activerecord: "~> 7.2.0"
+          ruby: "3.4.12"
+        - activerecord: "~> 8.0.0"
+          ruby: "4.0.9"
+        - activerecord: "~> 8.1.0"
+          ruby: "4.0.9"
     env:
+      RUBYOPT: -w -W:deprecated -W:performance
       AR_VERSION: ${{ matrix.activerecord }}
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "3.3"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
+    - name: Check the Ruby version
+      env:
+        EXPECTED_RUBY: ${{ matrix.ruby }}
+      run: script/check_ruby.sh "$EXPECTED_RUBY"
     - run: bundle exec rspec
 
   # Run the suite against a real PostgreSQL server so row locking (FOR UPDATE)
   # in the atomic methods is actually exercised (it is a no-op on SQLite).
   test-postgres:
-    runs-on: ubuntu-latest
+    name: RSpec (PostgreSQL)
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
         env:
           POSTGRES_PASSWORD: postgres
+          # Explicit authentication methods: initdb warns when it has to default them to "trust".
+          POSTGRES_INITDB_ARGS: --auth-local=trust --auth-host=scram-sha-256
         ports:
           - 5432:5432
         options: >-
@@ -56,20 +107,37 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      RUBYOPT: -w -W:deprecated -W:performance
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "3.4"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rspec
 
   test-mysql:
-    runs-on: ubuntu-latest
+    name: RSpec (MySQL ${{ matrix.name }})
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: lts
+          image: mysql:lts@sha256:86b390ef642f89a0157d6215dee33ddc928b8b0ecab173117f56f6c40cb24eab
+        - name: latest
+          image: mysql:latest@sha256:7b16ec7caa94ca7e92f4c5ec287de69d2e8738db056ceb629022951a6f6d910b
     services:
       mysql:
-        image: mysql:8
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: bitwise_test
@@ -81,54 +149,171 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      RUBYOPT: -w -W:deprecated -W:performance
       DATABASE_URL: mysql2://root:root@127.0.0.1:3306/bitwise_test
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "3.4"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: bundle exec rspec
 
   lint:
-    runs-on: ubuntu-latest
+    name: RuboCop
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "4.0"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
         bundler-cache: true
-    - run: bundle exec rubocop
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake rubocop
+    - name: Forbid inline suppressions
+      run: script/forbidden_suppressions.sh
 
   typecheck:
-    runs-on: ubuntu-latest
+    name: Sorbet
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "4.0"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
         bundler-cache: true
-    - run: bundle exec srb tc
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake typecheck
 
   docs:
-    runs-on: ubuntu-latest
+    name: YARD (100% documented)
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "4.0"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
         bundler-cache: true
-    - run: |
-        bundle exec yard stats --list-undoc > yard_stats.txt
-        cat yard_stats.txt
-        grep -q "100.00% documented" yard_stats.txt
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake yard
+
+  smells:
+    name: Reek and Flay
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
+        bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake reek flay
+
+  # Behavior is unchanged: the spec files that were on `main` before the refactoring pass must
+  # still pass against the current lib/ (see script/legacy_suite.rb for the few justified exceptions).
+  legacy-suite:
+    name: Original spec suite
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    env:
+      RUBYOPT: -w -W:deprecated -W:performance
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
+        bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake legacy_suite
+
+  # Every gem must be at its newest release, except those on the documented hold list
+  # (script/outdated_holds.yml), which quotes the upstream constraint that blocks each one.
+  outdated:
+    name: Outdated gems
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
+        bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
+    - run: bundle exec rake outdated
 
   build:
-    runs-on: ubuntu-latest
+    name: Build gem
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ruby-version: "4.0"
+        persist-credentials: false
+
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+      with:
+        ruby-version: .ruby-version
         bundler-cache: true
+    - name: Check the Ruby version
+      run: script/check_ruby.sh
     - run: gem build activerecord-bitwise.gemspec
+
+  warning-gate:
+    name: Warning gate
+    if: ${{ !cancelled() }}
+    needs: [test, test-activerecord, test-postgres, test-mysql, lint, typecheck, docs, smells, legacy-suite, outdated, build]
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read # reads the logs of the other jobs of this run
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Fail on any warning or deprecation in the logs of this run
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GATE_JOB_NAME: Warning gate
+      run: script/warning_gate.sh

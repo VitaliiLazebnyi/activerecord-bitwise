@@ -1,107 +1,108 @@
-require:
-  - rubocop-md
-
+# Maximum-strictness configuration. Every cop is run in "fail the build" mode.
+# New code has no exclusions: fix the code. A cop that cannot apply to a file is configured narrowly
+# below, with the reason. Inline RuboCop directives are forbidden (see
+# Style/DisableCopsWithinSourceCodeDirective), and there is no todo file.
 plugins:
+  - rubocop-md
   - rubocop-performance
-  - rubocop-thread_safety
+  - rubocop-rake
   - rubocop-rspec
+  - rubocop-sorbet
+  - rubocop-thread_safety
 
 AllCops:
   NewCops: enable
-  TargetRubyVersion: 3.2
+  SuggestExtensions: false
+  TargetRubyVersion: 3.3
   Exclude:
     - 'vendor/**/*'
     - 'coverage/**/*'
     - 'sorbet/**/*'
     - 'tmp/**/*'
+    - 'doc/**/*'
+    - '.yardoc/**/*'
 
-Style/FrozenStringLiteralComment:
+# --- Optional (disabled-by-default) cops that make sense for this codebase ---
+Layout/ClassStructure:
   Enabled: true
-  EnforcedStyle: always
+Layout/EmptyLineAfterMultilineCondition:
+  Enabled: true
+Layout/LineLength:
+  Max: 120
+Lint/NumberConversion:
+  Enabled: true
+Naming/InclusiveLanguage:
+  Enabled: true
+# Flag names are user-visible symbols that may mirror legacy column names (e.g. :_deprecated_role_1).
+Naming/VariableNumber:
+  CheckSymbols: false
+Performance/ChainArrayAllocation:
+  Enabled: true
+Lint/RedundantCopDisableDirective:
+  Enabled: true
+Sorbet/ForbidTUnsafe:
+  Enabled: true
+Style/ConstantVisibility:
+  Enabled: true
+Style/DisableCopsWithinSourceCodeDirective:
+  Enabled: true
+# Style/DocumentationMethod is intentionally NOT enabled: it requires the comment to sit
+# directly above `def`, but Sorbet's `sig { ... }` must sit between them. Documentation
+# completeness is enforced instead by the YARD gate (`yard stats` must report 100%).
+Style/InvertibleUnlessCondition:
+  Enabled: true
+Style/MethodCalledOnDoEndBlock:
+  Enabled: true
+Style/RequireOrder:
+  Enabled: true
+Style/Send:
+  Enabled: true
+Style/SingleLineBlockParams:
+  Enabled: true
+Style/StringHashKeys:
+  Enabled: true
+
+# --- Documentation: a leading '# typed:' sigil is required by Sorbet and is not a comment to document
+Style/Documentation:
+  Enabled: true
 
 Gemspec/DevelopmentDependencies:
   EnforcedStyle: gemspec
 
-Layout/LineLength:
-  Max: 200
-
-Metrics/BlockLength:
-  Enabled: false
-
-Metrics/AbcSize:
-  Enabled: false
-
-Metrics/MethodLength:
-  Enabled: false
-
-Metrics/CyclomaticComplexity:
-  Enabled: false
-
-Metrics/ModuleLength:
-  Enabled: false
-
-Metrics/PerceivedComplexity:
-  Enabled: false
-
-Naming/VariableNumber:
-  Enabled: false
-
-RSpec/ExampleLength:
-  Enabled: false
-
-RSpec/MultipleExpectations:
-  Enabled: false
-
-RSpec/VerifiedDoubles:
-  Enabled: false
-
-RSpec/AnyInstance:
-  Enabled: false
-
-RSpec/BeforeAfterAll:
-  Enabled: false
-
-RSpec/MessageSpies:
-  Enabled: false
-
-Style/Documentation:
-  Enabled: false
-
-Lint/DuplicateBranch:
-  Enabled: false
-
-Style/MultilineBlockChain:
-  Enabled: false
-
-Style/IfUnlessModifier:
-  Enabled: false
-
-Style/OneClassPerFile:
-  Exclude:
-    - '**/*.md'
-    - 'spec/**/*'
-
-ThreadSafety/NewThread:
-  Exclude:
-    - 'spec/activerecord_bitwise_real_life_spec.rb'
+# --- Sorbet: strictest sigils that are reachable ---
+# lib/ is `typed: strict`. `typed: strong` is unreachable because the gem
+# patches ActiveRecord internals and accepts duck-typed values (T.untyped).
+Sorbet/StrictSigil:
+  Enabled: true
+  Include:
+    - 'lib/**/*.rb'
+Sorbet/EnforceSigilOrder:
+  Enabled: true
+Sorbet/EnforceSignatures:
+  Enabled: true
+  Include:
+    - 'lib/**/*.rb'
 
 Naming/FileName:
   Exclude:
     - 'lib/activerecord-bitwise.rb'
     - '**/*.md'
-
-RSpec/SpecFilePathFormat:
+Style/OneClassPerFile:
   Exclude:
-    - 'spec/activerecord_bitwise_spec.rb'
-    - 'spec/activerecord_bitwise_real_life_spec.rb'
-    - 'spec/activerecord_bitwise_user_perspective_spec.rb'
-    - 'spec/activerecord_bitwise_regression_spec.rb'
+    - '**/*.md'
 
-RSpec/DescribeMethod:
+# rubocop-md: README snippets are illustrative, not standalone programs.
+Style/FrozenStringLiteralComment:
   Exclude:
-    - 'spec/activerecord_bitwise_real_life_spec.rb'
-    - 'spec/activerecord_bitwise_user_perspective_spec.rb'
-    - 'spec/activerecord_bitwise_regression_spec.rb'
+    - '**/*.md'
 
+# The concurrency examples need real threads that start together; the helper that spawns them is the
+# one place in the repository allowed to create a Thread.
+ThreadSafety/NewThread:
+  Exclude:
+    - 'spec/support/concurrent_runner.rb'
 
-
+# Sorbet signatures name every parameter, including the block, so anonymous block forwarding (`&`)
+# cannot be used in typed code.
+Naming/BlockForwarding:
+  EnforcedStyle: explicit
