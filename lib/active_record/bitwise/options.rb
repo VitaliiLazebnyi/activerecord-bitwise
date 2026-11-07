@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
 
@@ -30,15 +32,26 @@ module ActiveRecord
       # @return [ActiveRecord::Bitwise::Options]
       sig { params(keywords: T::Hash[Symbol, Value]).returns(Options) }
       def self.parse(keywords)
-        unknown = keywords.keys - KEYS
-        unless unknown.empty?
-          raise ArgumentError, "unknown keyword#{'s' if unknown.size > 1}: #{unknown.map(&:inspect).join(', ')}"
-        end
-
-        new(default: flags(keywords[:default]), prefix: affix(:prefix, keywords[:prefix]),
-            suffix: affix(:suffix, keywords[:suffix]))
+        reject_unknown(keywords.keys - KEYS)
+        new(
+          default: flags(keywords[:default]),
+          prefix: affix(:prefix, keywords[:prefix]),
+          suffix: affix(:suffix, keywords[:suffix])
+        )
       end
 
+      # Fails for keywords the macro does not know.
+      # @param unknown [Array<Symbol>] The keywords the macro does not know.
+      # @raise [ArgumentError] Like Ruby, unless +unknown+ is empty.
+      # @return [void]
+      sig { params(unknown: T::Array[Symbol]).void }
+      def self.reject_unknown(unknown)
+        return if unknown.empty?
+
+        raise(ArgumentError, "unknown keyword#{'s' if unknown.size > 1}: #{unknown.map(&:inspect).join(', ')}")
+      end
+
+      # Checks the value of the +default:+ option.
       # @param value [Object, nil] The value of +default:+.
       # @raise [TypeError] When it is neither nil nor an Array.
       # @return [Array<Symbol, String>, nil]
@@ -46,10 +59,11 @@ module ActiveRecord
       def self.flags(value)
         case value
         in (nil | Array) => flags then flags
-        else raise TypeError, "Parameter 'default': Expected an Array of flags or nil, got #{value.class}"
+        else raise(TypeError, "Parameter 'default': Expected an Array of flags or nil, got #{value.class}")
         end
       end
 
+      # Checks the value of the +prefix:+ or +suffix:+ option.
       # @param option [Symbol] The option name.
       # @param value [Object, nil] The value of the option.
       # @raise [TypeError] When it is not a name, a boolean or nil.
@@ -58,7 +72,7 @@ module ActiveRecord
       def self.affix(option, value)
         case value
         in (nil | true | false | Symbol | String) => affix then affix
-        else raise TypeError, "Parameter '#{option}': Expected a name, true or nil, got #{value.class}"
+        else raise(TypeError, "Parameter '#{option}': Expected a name, true or nil, got #{value.class}")
         end
       end
 
@@ -77,6 +91,7 @@ module ActiveRecord
       sig { returns(Affix) }
       attr_reader :suffix
 
+      # Creates the options of one `bitwise` declaration.
       # @param default [Array<Symbol, String>, nil] The default values for new records.
       # @param prefix [Symbol, String, Boolean, nil] The prefix for the generated method names.
       # @param suffix [Symbol, String, Boolean, nil] The suffix for the generated method names.

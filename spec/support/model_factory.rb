@@ -1,5 +1,7 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Builds throwaway ActiveRecord models so that no example mutates a class that
 # another example uses.
@@ -12,7 +14,7 @@ module ModelFactory
   # @return [Class] the new model class
   def build_model(table = 'users', name: 'TestModel', parent: ActiveRecord::Base, &definition)
     model = Class.new(parent)
-    model.table_name = table
+    model.class_eval { self.table_name = table }
     model.define_singleton_method(:name) { name }
     model.class_eval(&definition) if definition
     model
@@ -24,9 +26,9 @@ module ModelFactory
   def build_plain_validated_model
     model = Class.new
     model.include(ActiveModel::Model)
-    model.attr_accessor :roles
+    model.attr_accessor(:roles)
     model.define_singleton_method(:name) { 'PlainModel' }
-    model.validates :roles, bitwise: true
+    model.class_eval { validates(:roles, bitwise: true) }
     model
   end
 

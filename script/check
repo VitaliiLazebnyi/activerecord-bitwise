@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Runs, locally, every check the CI workflows run on a pull request, with the same tools, versions and settings:
+#   - the Ruby gates (`bundle exec rake`: RSpec with 100% line and branch coverage, the original suite, RuboCop,
+#     the suppression scan, Sorbet, YARD, Reek, Flay, Flog, Debride, bundler-audit, the strict gem build),
+#     the outdated-gem check and mutation testing (`rake outdated mutant`);
+#   - the linters of every other file type, installed from tools/requirements.txt (hash-pinned) into tmp/lint:
+#     actionlint, zizmor, ShellCheck, shfmt, yamllint, rumdl, typos and editorconfig-checker;
+#   - gitleaks over the whole history (it must be on PATH: https://github.com/gitleaks/gitleaks).
+# CI also runs the suite on every supported Ruby, ActiveRecord minor and database server (gemfiles/, see
+# CONTRIBUTING.md), CodeQL, the dependency review and OpenSSF Scorecard.
+#
+# Usage: script/check [--fast]   (--fast skips mutation testing and the outdated-gem check; the pre-commit hook)
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+fast=false
+if [[ ${1:-} == --fast ]]; then
+  fast=true
+fi
+
+# Ruby's verbose warnings, as in CI (the Rakefile keeps them off only for the third-party tools that warn).
+export RUBYOPT='-w -W:deprecated -W:performance'
+
+step() {
+  printf '\n==> %s\n' "$*"
+  "$@"
+}
+
+venv=tmp/lint
+if [[ ! -f ${venv}/requirements.txt ]] || ! cmp -s tools/requirements.txt "${venv}/requirements.txt"; then
+  rm -rf "${venv}"
+  python3 -m venv "${venv}"
+  "${venv}/bin/pip" install --quiet --disable-pip-version-check --require-hashes --requirement tools/requirements.txt
+  cp tools/requirements.txt "${venv}/requirements.txt"
+fi
+PATH="${PWD}/${venv}/bin:${PATH}"
+
+step bundle exec rake
+if [[ ${fast} == false ]]; then
+  step bundle exec rake outdated mutant
+fi
+
+step actionlint -color
+if token=$(gh auth token 2>/dev/null); then
+  step env GH_TOKEN="${token}" zizmor --persona auditor --format plain .
+else
+  step zizmor --persona auditor --format plain --offline .
+fi
+scripts=$(shfmt --find .)
+mapfile -t shell_scripts <<<"${scripts}"
+step shellcheck --enable=all --severity=style "${shell_scripts[@]}"
+step shfmt --diff .
+step yamllint --strict .
+step rumdl check --deny-config-warnings .
+step typos
+step ec
+step gitleaks git --redact --exit-code 1 .
+
+printf '\nAll checks passed.\n'

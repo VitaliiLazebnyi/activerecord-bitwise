@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe BitwiseValidator, '#validate_each' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(BitwiseValidator, '#validate_each') do
   let(:model) do
     build_model do
       bitwise :roles, { admin: 0, author: 1 }
@@ -19,7 +21,7 @@ RSpec.describe BitwiseValidator, '#validate_each' do
   context 'with only known flags' do
     [[:admin], %i[admin author], %w[admin author], [], [''], [nil, :admin], nil].each do |roles|
       it "accepts #{roles.inspect}" do
-        expect(errors_for.call(roles)).to eq([])
+        expect(errors_for.call(roles)).to(eq([]))
       end
     end
   end
@@ -32,24 +34,24 @@ RSpec.describe BitwiseValidator, '#validate_each' do
       five: [%w[a b c d e], 'contains invalid values: a, b, c (and 2 more)']
     }.each do |label, (roles, message)|
       it "reports the message for #{label} unknown value(s)" do
-        expect(errors_for.call(roles)).to eq([message])
+        expect(errors_for.call(roles)).to(eq([message]))
       end
     end
 
     it 'reports a Symbol that is not in the mapping' do
-      expect(errors_for.call([:hacker])).to eq(['contains invalid values: hacker'])
+      expect(errors_for.call([:hacker])).to(eq(['contains invalid values: hacker']))
     end
 
     it 'reports an Integer inside an array as an unknown name' do
-      expect(errors_for.call([:admin, 7])).to eq(['contains invalid values: 7'])
+      expect(errors_for.call([:admin, 7])).to(eq(['contains invalid values: 7']))
     end
 
     it 'adds exactly one error' do
-      expect(errors_for.call(%w[a b c d e f]).size).to eq(1)
+      expect(errors_for.call(%w[a b c d e f]).size).to(eq(1))
     end
 
     it 'does not report nil and blank entries' do
-      expect(errors_for.call(['', nil, 'x'])).to eq(['contains invalid values: x'])
+      expect(errors_for.call(['', nil, 'x'])).to(eq(['contains invalid values: x']))
     end
   end
 
@@ -57,15 +59,15 @@ RSpec.describe BitwiseValidator, '#validate_each' do
     it 'cuts a value of 65 characters to 64 plus an ellipsis' do
       value = ('a'..'z').cycle.take(65).join
 
-      expect(errors_for.call([value])).to eq(["contains invalid values: #{value[0, 64]}…"])
+      expect(errors_for.call([value])).to(eq(["contains invalid values: #{value[0, 64]}…"]))
     end
 
     it 'keeps a value of exactly 64 characters whole' do
-      expect(errors_for.call(['z' * 64])).to eq(["contains invalid values: #{'z' * 64}"])
+      expect(errors_for.call(['z' * 64])).to(eq(["contains invalid values: #{'z' * 64}"]))
     end
 
     it 'keeps a short value whole' do
-      expect(errors_for.call(['z' * 63])).to eq(["contains invalid values: #{'z' * 63}"])
+      expect(errors_for.call(['z' * 63])).to(eq(["contains invalid values: #{'z' * 63}"]))
     end
   end
 
@@ -78,7 +80,7 @@ RSpec.describe BitwiseValidator, '#validate_each' do
     end
 
     it 'uses the given message instead of the default' do
-      expect(errors_for.call(['x'])).to eq(['is not a valid role set'])
+      expect(errors_for.call(['x'])).to(eq(['is not a valid role set']))
     end
   end
 
@@ -88,37 +90,37 @@ RSpec.describe BitwiseValidator, '#validate_each' do
     it 'ignores a nil value' do
       described_class.new(attributes: [:roles]).validate_each(record, :roles, nil)
 
-      expect(record.errors[:roles]).to eq([])
+      expect(record.errors[:roles]).to(eq([]))
     end
 
     it 'reports a single unknown name that is not wrapped in an array' do
       described_class.new(attributes: [:roles]).validate_each(record, :roles, :hacker)
 
-      expect(record.errors[:roles]).to eq(['contains invalid values: hacker'])
+      expect(record.errors[:roles]).to(eq(['contains invalid values: hacker']))
     end
 
     it 'reports a value that is neither a String nor a Symbol' do
       described_class.new(attributes: [:roles]).validate_each(record, :roles, [7])
 
-      expect(record.errors[:roles]).to eq(['contains invalid values: 7'])
+      expect(record.errors[:roles]).to(eq(['contains invalid values: 7']))
     end
 
     it 'ignores nil and empty-string entries that the type cast did not remove' do
       described_class.new(attributes: [:roles]).validate_each(record, :roles, [nil, '', :hacker])
 
-      expect(record.errors[:roles]).to eq(['contains invalid values: hacker'])
+      expect(record.errors[:roles]).to(eq(['contains invalid values: hacker']))
     end
 
     it 'looks the attribute up by its Symbol name' do
       described_class.new(attributes: [:roles]).validate_each(record, 'roles', ['hacker'])
 
-      expect(record.errors['roles']).to eq(['contains invalid values: hacker'])
+      expect(record.errors['roles']).to(eq(['contains invalid values: hacker']))
     end
 
     it 'ignores an attribute without a bitwise definition' do
       described_class.new(attributes: [:name]).validate_each(record, :name, ['anything'])
 
-      expect(record.errors[:name]).to eq([])
+      expect(record.errors[:name]).to(eq([]))
     end
   end
 
@@ -127,17 +129,17 @@ RSpec.describe BitwiseValidator, '#validate_each' do
       plain = build_plain_validated_model.new
       plain.roles = [:anything]
 
-      expect(plain).to be_valid
+      expect(plain).to(be_valid)
     end
   end
 
   describe 'limits' do
     it 'reports at most 3 values' do
-      expect(described_class::MAX_REPORTED_VALUES).to eq(3)
+      expect(described_class::MAX_REPORTED_VALUES).to(eq(3))
     end
 
     it 'cuts values after 64 characters' do
-      expect(described_class::MAX_REPORTED_LENGTH).to eq(64)
+      expect(described_class::MAX_REPORTED_LENGTH).to(eq(64))
     end
   end
 end

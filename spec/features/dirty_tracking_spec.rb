@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe 'Dirty tracking' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe('Dirty tracking') do
   include_context 'with a user model'
 
   # State transition table: flags stored -> value assigned -> is the column considered changed?
@@ -23,7 +25,7 @@ RSpec.describe 'Dirty tracking' do
         record = model.create!(roles: stored)
         record.roles = assigned
 
-        expect(record.roles_changed?).to be(changed)
+        expect(record.roles_changed?).to(be(changed))
       end
     end
   end
@@ -34,7 +36,7 @@ RSpec.describe 'Dirty tracking' do
       record.roles = [:author]
       record.roles = [:admin]
 
-      expect(record.roles_changed?).to be(false)
+      expect(record.roles_changed?).to(be(false))
     end
   end
 
@@ -46,42 +48,42 @@ RSpec.describe 'Dirty tracking' do
     end
 
     it 'exposes the previous flags' do
-      expect(record.roles_was).to eq([:admin])
+      expect(record.roles_was).to(eq([:admin]))
     end
 
     it 'exposes the change as before and after' do
-      expect(record.roles_change).to eq([[:admin], %i[admin author]])
+      expect(record.roles_change).to(eq([[:admin], %i[admin author]]))
     end
 
     it 'lists the column among the changes' do
-      expect(record.changes['roles']).to eq([[:admin], %i[admin author]])
+      expect(record.changes['roles']).to(eq([[:admin], %i[admin author]]))
     end
 
     it 'lists the column among the changed attributes' do
-      expect(record.changed).to eq(['roles'])
+      expect(record.changed).to(eq(['roles']))
     end
 
     it 'restores the previous flags' do
       record.restore_roles!
 
-      expect(record.roles).to eq([:admin])
+      expect(record.roles).to(eq([:admin]))
     end
 
     it 'reports an unsaved change to be saved' do
-      expect(record.will_save_change_to_roles?).to be(true)
+      expect(record.will_save_change_to_roles?).to(be(true))
     end
   end
 
   describe 'a new record' do
     it 'starts the column from the empty flags' do
-      expect(model.new.roles).to eq([])
+      expect(model.new.roles).to(eq([]))
     end
 
     it 'reports the column as changed after assigning flags' do
       record = model.new
       record.roles = [:admin]
 
-      expect(record.roles_changed?).to be(true)
+      expect(record.roles_changed?).to(be(true))
     end
   end
 
@@ -93,15 +95,15 @@ RSpec.describe 'Dirty tracking' do
     end
 
     it 'clears the pending change' do
-      expect(record.roles_changed?).to be(false)
+      expect(record.roles_changed?).to(be(false))
     end
 
     it 'remembers the saved change' do
-      expect(record.saved_change_to_roles).to eq([[:admin], [:author]])
+      expect(record.saved_change_to_roles).to(eq([[:admin], [:author]]))
     end
 
     it 'remembers the previous flags' do
-      expect(record.roles_previously_was).to eq([:admin])
+      expect(record.roles_previously_was).to(eq([:admin]))
     end
   end
 
@@ -111,7 +113,7 @@ RSpec.describe 'Dirty tracking' do
       record.roles = 0b1_0000_0001
       record.save!
 
-      expect(raw_value(record)).to eq(0b1_0000_0001)
+      expect(raw_value(record)).to(eq(0b1_0000_0001))
     end
   end
 
@@ -120,14 +122,14 @@ RSpec.describe 'Dirty tracking' do
       record = model.create!(roles: %i[admin author])
       record.roles = %i[author admin]
 
-      expect(record.roles_changed?).to be(true)
+      expect(record.roles_changed?).to(be(true))
     end
 
     it 'still stores the same bitmask' do
       record = model.create!(roles: %i[admin author])
       record.update!(roles: %i[author admin])
 
-      expect(raw_value(record)).to eq(0b101)
+      expect(raw_value(record)).to(eq(0b101))
     end
   end
 
@@ -137,7 +139,7 @@ RSpec.describe 'Dirty tracking' do
       record.roles = [:author]
       record.reload
 
-      expect(record.roles_changed?).to be(false)
+      expect(record.roles_changed?).to(be(false))
     end
   end
 end

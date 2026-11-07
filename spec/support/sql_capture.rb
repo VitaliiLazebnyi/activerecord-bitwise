@@ -1,8 +1,15 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Records the SQL statements ActiveRecord executes while a block runs.
 module SqlCapture
+  extend T::Helpers
+
+  # The helpers call Kernel#lambda on the example they are included into.
+  requires_ancestor { Kernel }
+
   IGNORED_EVENT_NAMES = %w[SCHEMA TRANSACTION].freeze
   public_constant :IGNORED_EVENT_NAMES
 
@@ -11,9 +18,10 @@ module SqlCapture
   #   transaction control are left out)
   def capture_sql(&block)
     statements = []
-    subscriber = lambda do |*_args, payload|
-      statements << payload[:sql] unless IGNORED_EVENT_NAMES.include?(payload[:name])
-    end
+    subscriber =
+      lambda do |*_args, payload|
+        statements << payload[:sql] if IGNORED_EVENT_NAMES.exclude?(payload[:name])
+      end
     ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &block)
     statements
   end
@@ -25,11 +33,12 @@ module SqlCapture
   # @return [Array<Array(String, Boolean)>] pairs of statement and "transaction open?"
   def capture_sql_with_transaction_state(connection, &block)
     statements = []
-    subscriber = lambda do |*_args, payload|
-      next if IGNORED_EVENT_NAMES.include?(payload[:name])
+    subscriber =
+      lambda do |*_args, payload|
+        next if IGNORED_EVENT_NAMES.include?(payload[:name])
 
-      statements << [payload[:sql], connection.transaction_open?]
-    end
+        statements << [payload[:sql], connection.transaction_open?]
+      end
     ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', &block)
     statements
   end

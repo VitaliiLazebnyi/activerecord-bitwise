@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record/bitwise/errors'
 require 'active_record/bitwise/flag'
 require 'active_record/bitwise/layout'
@@ -17,16 +19,17 @@ module ActiveRecord
       extend T::Sig
 
       # What the `bitwise` macro records per declared column (readable through +bitwise_definitions+).
-      Definition = T.type_alias do
-        {
-          mapping: Types::Positions,
-          default: Types::Flags,
-          prefix: Options::Affix,
-          suffix: Options::Affix,
-          validated: T::Boolean,
-          generated_methods: T::Array[String]
-        }
-      end
+      Definition =
+        T.type_alias do
+          {
+            mapping: Types::Positions,
+            default: Types::Flags,
+            prefix: Options::Affix,
+            suffix: Options::Affix,
+            validated: T::Boolean,
+            generated_methods: T::Array[String]
+          }
+        end
       public_constant :Definition
 
       # The flags of the column.
@@ -45,11 +48,15 @@ module ActiveRecord
       # @return [ActiveRecord::Bitwise::Declaration]
       sig { params(column: Symbol, definition: Definition).returns(Declaration) }
       def self.from(column, definition)
-        options = Options.new(default: definition.fetch(:default), prefix: definition.fetch(:prefix),
-                              suffix: definition.fetch(:suffix))
+        options = Options.new(
+          default: definition.fetch(:default),
+          prefix: definition.fetch(:prefix),
+          suffix: definition.fetch(:suffix)
+        )
         new(Layout.new(column, definition.fetch(:mapping)), options)
       end
 
+      # Creates the declaration of one bitwise column.
       # @param layout [ActiveRecord::Bitwise::Layout] The flags of the column.
       # @param options [ActiveRecord::Bitwise::Options] The options of the macro.
       # @raise [ConfigurationError] When a default is not in the mapping.
@@ -102,8 +109,12 @@ module ActiveRecord
       sig { params(generated: T::Array[String]).returns(Definition) }
       def definition(generated)
         {
-          mapping: layout.mapping, default: defaults, prefix: @options.prefix, suffix: @options.suffix,
-          validated: false, generated_methods: generated
+          mapping: layout.mapping,
+          default: defaults,
+          prefix: @options.prefix,
+          suffix: @options.suffix,
+          validated: false,
+          generated_methods: generated
         }
       end
 
@@ -118,8 +129,11 @@ module ActiveRecord
         invalid = defaults.reject { |flag| layout.mapped?(flag) }
         return defaults if invalid.empty?
 
-        raise ConfigurationError, "Bitwise column #{column_name} default contains values not present " \
-                                  "in the mapping: #{invalid.map(&:to_s).inspect}"
+        raise(
+          ConfigurationError,
+          "Bitwise column #{column_name} default contains values not present " \
+            "in the mapping: #{invalid.map(&:to_s).inspect}"
+        )
       end
 
       # The affix a +prefix:+/+suffix:+ option stands for.

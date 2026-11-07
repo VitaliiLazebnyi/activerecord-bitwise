@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/errors'
 require 'active_record/bitwise/type'
@@ -38,6 +40,7 @@ module ActiveRecord
         sig { returns(Type) }
         attr_reader :type
 
+        # Creates the target of one bitwise key of a conditions or assignments hash.
         # @param key [Symbol, String] The hash key.
         # @param column [Symbol] The column the key names.
         # @param value [Object] The flag names.
@@ -60,7 +63,7 @@ module ActiveRecord
           unknown = casted.reject { |flag| type.mapping_strings.include?(flag.to_s) }
           return casted if unknown.empty?
 
-          raise UnknownValueError, "Unknown bitwise value(s) #{unknown.map(&:to_s)} for column #{column}#{refusal}"
+          raise(UnknownValueError, "Unknown bitwise value(s) #{unknown.map(&:to_s)} for column #{column}#{refusal}")
         end
       end
 
@@ -68,6 +71,7 @@ module ActiveRecord
       class Scan
         extend T::Sig
 
+        # Creates the scan of +hash+ for keys that name bitwise columns.
         # @param klass [Class] The model class owning the bitwise definitions.
         # @param hash [Hash] The conditions or assignments.
         # @param skip [Method] Tells which values are left alone (they already are masks, or SQL).
@@ -83,7 +87,7 @@ module ActiveRecord
         sig { returns(T::Array[Target]) }
         def targets
           @klass.bitwise_definitions.each_key.flat_map { |column| [[column, column], [column, column.to_s]] }
-                .filter_map { |column, key| target(column, key) }
+            .filter_map { |column, key| target(column, key) }
         end
 
         private
@@ -115,9 +119,10 @@ module ActiveRecord
       # @return [Hash] The (possibly copied) conditions hash.
       sig { params(klass: Types::ModelClass, hash: Types::Params).returns(Types::Params) }
       def self.serialize(klass, hash)
-        changes = Scan.new(klass, hash, method(:mask_like?)).targets.to_h do |target|
-          [target.key, target.type.serialize(target.flags(''))]
-        end
+        changes =
+          Scan.new(klass, hash, method(:mask_like?)).targets.to_h do |target|
+            [target.key, target.type.serialize(target.flags(''))]
+          end
         changes.empty? ? hash : hash.merge(changes)
       end
 
@@ -143,9 +148,11 @@ module ActiveRecord
       # @return [Hash] A copy of +updates+ with the bitwise values rewritten.
       sig { params(klass: Types::ModelClass, updates: Types::Params).returns(Types::Params) }
       def self.assignments(klass, updates)
-        updates.merge(Scan.new(klass, updates, method(:sql_or_mask?)).targets.to_h do |target|
-          [target.key, assignment(klass, target)]
-        end)
+        updates.merge(
+          Scan.new(klass, updates, method(:sql_or_mask?)).targets.to_h do |target|
+            [target.key, assignment(klass, target)]
+          end
+        )
       end
 
       # The SQL expression that stores the flags of +target+ and keeps the unmapped bits.

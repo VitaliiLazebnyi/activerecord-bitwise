@@ -1,5 +1,7 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Runs blocks in parallel threads that are all released at the same moment, so that the
 # examples do not depend on timing: every task is parked on a start gate until all threads

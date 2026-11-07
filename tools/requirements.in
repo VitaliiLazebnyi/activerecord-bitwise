@@ -1,0 +1,11 @@
+# The linters and scanners of every non-Ruby file, installed by CI (lint.yml) and script/check with
+# `pip install --require-hashes -r tools/requirements.txt`.
+# Regenerate the lock with: pip-compile --generate-hashes --strip-extras tools/requirements.in
+actionlint-py
+editorconfig-checker
+rumdl
+shellcheck-py
+shfmt-py
+typos
+yamllint
+zizmor

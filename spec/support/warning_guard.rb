@@ -1,5 +1,7 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Turns every Ruby warning raised from this project's own code (lib/ and spec/)
 # into a test failure. Warnings that originate in third-party gems are ignored.
@@ -10,21 +12,22 @@ module WarningGuard
   COLLECTED = Queue.new
   public_constant :PROJECT_ROOT, :OWN_DIRECTORIES, :LOCATION, :COLLECTED
 
-  class << self
-    # Returns and forgets the warnings collected so far.
-    # @return [Array<String>]
-    def drain
-      Array.new(COLLECTED.size) { COLLECTED.pop }
-    end
+  # Raised when this project's code emitted a Ruby warning.
+  class Failure < StandardError; end
 
-    # Whether +message+ names a file inside this project's lib/ or spec/ directory.
-    # @param message [String] a Ruby warning message
-    # @return [Boolean]
-    def own?(message)
-      match = LOCATION.match(message) or return false
-      path = File.expand_path(match[:path])
-      OWN_DIRECTORIES.any? { |directory| path.start_with?("#{directory}/") }
-    end
+  # Returns and forgets the warnings collected so far.
+  # @return [Array<String>]
+  def self.drain
+    Array.new(COLLECTED.size) { COLLECTED.pop }
+  end
+
+  # Whether +message+ names a file inside this project's lib/ or spec/ directory.
+  # @param message [String] a Ruby warning message
+  # @return [Boolean]
+  def self.own?(message)
+    match = LOCATION.match(message) or return false
+    path = File.expand_path(match[:path])
+    OWN_DIRECTORIES.any? { |directory| path.start_with?("#{directory}/") }
   end
 
   # Records warnings coming from this project, then defers to Ruby's default handling.

@@ -1,319 +1,506 @@
-name: CI
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-# Nothing is writable by default; every job re-declares the (read-only) permissions it needs.
-permissions: {}
-
+---
+# Pull requests are cancelled when a newer commit arrives; runs on main always finish.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: "${{ github.event_name == 'pull_request' }}"
+  group: "${{ github.workflow }}-${{ github.ref }}"
 
+# Ruby's verbose warnings are on for every command (the Rakefile keeps them off only for the third-party tools
+# whose own code warns, see THIRD_PARTY_RUBYOPT), and the warning gate fails the run on any warning.
 env:
-  RUBYOPT: -W:deprecated -W:performance
+  RUBYOPT: "-w -W:deprecated -W:performance"
 
 jobs:
-  test:
-    name: RSpec (Ruby ${{ matrix.ruby }})
-    runs-on: ubuntu-26.04
+  docs:
+    name: "YARD (100% documented)"
     permissions:
-      contents: read
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "YARD: no warning, 100% documented, a description on every object"
+        run: "bundle exec rake yard"
+    timeout-minutes: 10
+
+  legacy-suite:
+    name: "Original spec suite"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      # The original suite is read from the history (script/legacy_suite.rb).
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      # Behavior is unchanged: the spec files that were on `main` before the refactoring pass must still pass
+      # against the current lib/ (see script/legacy_suite.rb for the few justified exceptions).
+      - name: "Original spec suite against the current lib/"
+        run: "bundle exec rake legacy_suite"
+    timeout-minutes: 15
+
+  lint:
+    name: "RuboCop"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "RuboCop (every cop of RuboCop and its plugins)"
+        run: "bundle exec rake rubocop"
+      - name: "Forbid inline suppressions"
+        run: "bundle exec rake suppressions"
+    timeout-minutes: 10
+
+  # Every gem must be at its newest release, except those on the documented hold list
+  # (script/outdated_holds.yml), which quotes the upstream constraint that blocks each one.
+  outdated:
+    name: "Outdated gems"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "No outdated gem outside the hold list"
+        run: "bundle exec rake outdated"
+    timeout-minutes: 10
+
+  package:
+    name: "Build gem"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "Build the gem strictly, then install and require it from a clean GEM_HOME"
+        run: "bundle exec rake package"
+    timeout-minutes: 10
+
+  smells:
+    name: "Reek, Flay, Flog and Debride"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "Code smells, duplication, method complexity and dead code"
+        run: "bundle exec rake reek flay flog debride"
+    timeout-minutes: 10
+
+  test:
+    name: "RSpec (Ruby ${{ matrix.ruby }})"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      # Every supported Ruby installs the committed Gemfile.lock.
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: "${{ matrix.ruby }}"
+      - env:
+          EXPECTED_RUBY: "${{ matrix.ruby }}"
+        name: "Check the Ruby version"
+        run: "script/check_ruby.sh \"${EXPECTED_RUBY}\""
+      # SimpleCov enforces minimum_coverage 100 (line and branch) and fails the run below it.
+      - name: "RSpec with the 100% line and branch coverage gate"
+        run: "bundle exec rspec"
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.3.13", "3.4.12", "4.0.9"]
-    env:
-      RUBYOPT: -w -W:deprecated -W:performance
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
+        ruby:
+          - "3.3.13"
+          - "3.4.12"
+          - "4.0.9"
+    timeout-minutes: 15
 
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: ${{ matrix.ruby }}
-        bundler-cache: true
-    - name: Check the Ruby version
-      env:
-        EXPECTED_RUBY: ${{ matrix.ruby }}
-      run: script/check_ruby.sh "$EXPECTED_RUBY"
-    # SimpleCov enforces minimum_coverage 100 (line + branch) and fails the run below it.
-    - name: RSpec with the 100% line + branch coverage gate
-      run: bundle exec rspec
-
-  # Verify every supported ActiveRecord minor, not only the newest resolvable one.
+  # Every supported ActiveRecord minor, not only the one Gemfile.lock pins. Each bundle of gemfiles/ is resolved
+  # by the run, like a user's bundle. ActiveRecord 7.1 and 7.2 predate Ruby 4.0: their ActiveSupport still
+  # requires "cgi", which Ruby 4.0 removed from the standard library (Ruby warns about it on every run). They
+  # are tested on the newest Ruby 3.x; ActiveRecord 8.x runs on the primary Ruby.
   test-activerecord:
-    name: RSpec (ActiveRecord ${{ matrix.activerecord }})
-    runs-on: ubuntu-26.04
+    env:
+      BUNDLE_GEMFILE: "${{ github.workspace }}/gemfiles/${{ matrix.gemfile }}.gemfile"
+    name: "RSpec (ActiveRecord ${{ matrix.activerecord }})"
     permissions:
-      contents: read
-    # ActiveRecord 7.1 and 7.2 predate Ruby 4.0: their ActiveSupport still requires "cgi", which Ruby 4.0
-    # removed from the standard library (Ruby warns about it on every run). They are tested on the newest
-    # Ruby 3.x; ActiveRecord 8.x runs on the primary Ruby.
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: "${{ matrix.ruby }}"
+      - env:
+          EXPECTED_RUBY: "${{ matrix.ruby }}"
+        name: "Check the Ruby version"
+        run: "script/check_ruby.sh \"${EXPECTED_RUBY}\""
+      - name: "RSpec with the 100% line and branch coverage gate"
+        run: "bundle exec rspec"
     strategy:
       fail-fast: false
       matrix:
         include:
-        - activerecord: "~> 7.1.0"
-          ruby: "3.4.12"
-        - activerecord: "~> 7.2.0"
-          ruby: "3.4.12"
-        - activerecord: "~> 8.0.0"
-          ruby: "4.0.9"
-        - activerecord: "~> 8.1.0"
-          ruby: "4.0.9"
-    env:
-      RUBYOPT: -w -W:deprecated -W:performance
-      AR_VERSION: ${{ matrix.activerecord }}
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: ${{ matrix.ruby }}
-        bundler-cache: true
-    - name: Check the Ruby version
-      env:
-        EXPECTED_RUBY: ${{ matrix.ruby }}
-      run: script/check_ruby.sh "$EXPECTED_RUBY"
-    - run: bundle exec rspec
-
-  # Run the suite against a real PostgreSQL server so row locking (FOR UPDATE)
-  # in the atomic methods is actually exercised (it is a no-op on SQLite).
-  test-postgres:
-    name: RSpec (PostgreSQL)
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    services:
-      postgres:
-        image: postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
-        env:
-          POSTGRES_PASSWORD: postgres
-          # Explicit authentication methods: initdb warns when it has to default them to "trust".
-          POSTGRES_INITDB_ARGS: --auth-local=trust --auth-host=scram-sha-256
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      RUBYOPT: -w -W:deprecated -W:performance
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rspec
+          - activerecord: "7.1"
+            gemfile: "activerecord_7_1"
+            ruby: "3.4.12"
+          - activerecord: "7.2"
+            gemfile: "activerecord_7_2"
+            ruby: "3.4.12"
+          - activerecord: "8.0"
+            gemfile: "activerecord_8_0"
+            ruby: "4.0.9"
+          - activerecord: "8.1"
+            gemfile: "activerecord_8_1"
+            ruby: "4.0.9"
+    timeout-minutes: 15
 
   test-mysql:
-    name: RSpec (MySQL ${{ matrix.name }})
-    runs-on: ubuntu-26.04
+    env:
+      BUNDLE_GEMFILE: "${{ github.workspace }}/gemfiles/mysql.gemfile"
+      DATABASE_URL: "mysql2://root:root@127.0.0.1:3306/bitwise_test"
+    name: "RSpec (MySQL ${{ matrix.name }})"
     permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - name: lts
-          image: mysql:lts@sha256:df90258da46f6e7ff8574ff84f17618aba0765cac749928299c69fd4e7cb8ad8
-        - name: latest
-          image: mysql:latest@sha256:3819b2b23835c4a73c8b022fafc33c8095c0f81c929a8b7a84613d2fba6c52f5
+      contents: "read"
+    runs-on: "ubuntu-26.04"
     services:
       mysql:
-        image: ${{ matrix.image }}
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bitwise_test
-        ports:
-          - 3306:3306
+          MYSQL_DATABASE: "bitwise_test"
+          MYSQL_ROOT_PASSWORD: "root"
+        image: "${{ matrix.image }}"
         options: >-
           --health-cmd "mysqladmin ping -proot"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+        ports:
+          - "3306:3306"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "RSpec with the 100% line and branch coverage gate"
+        run: "bundle exec rspec"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: "mysql:lts@sha256:df90258da46f6e7ff8574ff84f17618aba0765cac749928299c69fd4e7cb8ad8"
+            name: "lts"
+          - image: "mysql:latest@sha256:3819b2b23835c4a73c8b022fafc33c8095c0f81c929a8b7a84613d2fba6c52f5"
+            name: "latest"
+    timeout-minutes: 15
+
+  # A real PostgreSQL server, so that row locking (FOR UPDATE) in the atomic methods is actually exercised (it
+  # is a no-op on SQLite).
+  test-postgres:
     env:
-      RUBYOPT: -w -W:deprecated -W:performance
-      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/bitwise_test
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rspec
-
-  lint:
-    name: RuboCop
-    runs-on: ubuntu-26.04
+      BUNDLE_GEMFILE: "${{ github.workspace }}/gemfiles/postgresql.gemfile"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+    name: "RSpec (PostgreSQL)"
     permissions:
-      contents: read
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    services:
+      postgres:
+        env:
+          # Explicit authentication methods: initdb warns when it has to default them to "trust".
+          POSTGRES_INITDB_ARGS: "--auth-local=trust --auth-host=scram-sha-256"
+          POSTGRES_PASSWORD: "postgres"
+        image: "postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42"
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - "5432:5432"
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rake rubocop
-    - name: Forbid inline suppressions
-      run: script/forbidden_suppressions.sh
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "RSpec with the 100% line and branch coverage gate"
+        run: "bundle exec rspec"
+    timeout-minutes: 15
 
   typecheck:
-    name: Sorbet
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rake typecheck
-
-  docs:
-    name: YARD (100% documented)
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rake yard
-
-  smells:
-    name: Reek and Flay
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rake reek flay
-
-  # Behavior is unchanged: the spec files that were on `main` before the refactoring pass must
-  # still pass against the current lib/ (see script/legacy_suite.rb for the few justified exceptions).
-  legacy-suite:
-    name: Original spec suite
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
     env:
-      RUBYOPT: -w -W:deprecated -W:performance
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-        fetch-depth: 0
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rake legacy_suite
-
-  # Every gem must be at its newest release, except those on the documented hold list
-  # (script/outdated_holds.yml), which quotes the upstream constraint that blocks each one.
-  outdated:
-    name: Outdated gems
-    runs-on: ubuntu-26.04
+      # Tapioca is in the optional :typecheck group of the Gemfile.
+      BUNDLE_WITH: "typecheck"
+    name: "Sorbet"
     permissions:
-      contents: read
+      contents: "read"
+    runs-on: "ubuntu-26.04"
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: bundle exec rake outdated
-
-  build:
-    name: Build gem
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
-
-    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-    - name: Check the Ruby version
-      run: script/check_ruby.sh
-    - run: gem build activerecord-bitwise.gemspec
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            index.rubygems.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            rubygems.org:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+        with:
+          bundler-cache: true
+          ruby-version: ".ruby-version"
+      - name: "Check the Ruby version"
+        run: "script/check_ruby.sh"
+      - name: "Tapioca RBIs, then srb tc"
+        run: "bundle exec rake typecheck"
+    timeout-minutes: 15
 
   warning-gate:
-    name: Warning gate
-    if: ${{ !cancelled() }}
-    needs: [test, test-activerecord, test-postgres, test-mysql, lint, typecheck, docs, smells, legacy-suite, outdated, build]
-    runs-on: ubuntu-26.04
+    if: "${{ !cancelled() }}"
+    name: "Warning gate (CI)"
+    needs:
+      - "docs"
+      - "legacy-suite"
+      - "lint"
+      - "outdated"
+      - "package"
+      - "smells"
+      - "test"
+      - "test-activerecord"
+      - "test-mysql"
+      - "test-postgres"
+      - "typecheck"
     permissions:
-      actions: read # reads the logs of the other jobs of this run
-      contents: read
+      actions: "read"  # reads the logs of the other jobs of this run
+      contents: "read"
+    runs-on: "ubuntu-26.04"
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        persist-credentials: false
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            results-receiver.actions.githubusercontent.com:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          GATE_JOB_NAME: "Warning gate (CI)"
+          GH_TOKEN: "${{ github.token }}"
+        name: "Fail on any warning or deprecation in the logs of this run"
+        run: "script/warning_gate.sh"
+    timeout-minutes: 10
 
-    - name: Fail on any warning or deprecation in the logs of this run
-      env:
-        GH_TOKEN: ${{ github.token }}
-        GATE_JOB_NAME: Warning gate
-      run: script/warning_gate.sh
+name: "CI"
+
+"on":
+  pull_request:
+    branches:
+      - "main"
+  push:
+    branches:
+      - "main"
+  workflow_dispatch: {}
+
+# Nothing is writable by default; every job declares the (read-only) permissions it needs.
+permissions: {}
+...

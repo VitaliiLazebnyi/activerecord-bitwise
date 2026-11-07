@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::Model, '.without_roles') do
   include_context 'with scope fixtures'
 
   # Decision table: arguments -> fixtures returned (records having NONE of the given flags).
@@ -22,19 +24,19 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
     [[0], %i[none admin author both three]]
   ].each do |arguments, expected|
     it "with #{arguments.inspect} returns #{expected.inspect}" do
-      expect(names_in.call(model.without_roles(*arguments))).to eq(expected)
+      expect(names_in.call(model.without_roles(*arguments))).to(eq(expected))
     end
   end
 
   it 'returns an ActiveRecord::Relation' do
-    expect(model.without_roles(:admin)).to be_a(ActiveRecord::Relation)
+    expect(model.without_roles(:admin)).to(be_a(ActiveRecord::Relation))
   end
 
   context 'with unmapped bits stored in the database' do
     it 'ignores them when excluding' do
       plant_raw_value(fixtures[:none], 0b1_0000_0000)
 
-      expect(names_in.call(model.without_roles(:admin))).to eq(%i[none author])
+      expect(names_in.call(model.without_roles(:admin))).to(eq(%i[none author]))
     end
   end
 
@@ -42,7 +44,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
     it 'includes the row, because a NULL column reads as no flags' do
       plant_raw_value(fixtures[:none], nil)
 
-      expect(names_in.call(model.without_roles(:admin))).to eq(%i[none author])
+      expect(names_in.call(model.without_roles(:admin))).to(eq(%i[none author]))
     end
   end
 
@@ -50,7 +52,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
     it 'qualifies the column so it is not ambiguous' do
       relation = model.joins('INNER JOIN users AS other_users ON other_users.id = users.id').without_roles(:admin)
 
-      expect(names_in.call(relation)).to eq(%i[none author])
+      expect(names_in.call(relation)).to(eq(%i[none author]))
     end
   end
 
@@ -58,11 +60,11 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.without_roles' do
     let(:column) { qualified_column(model) }
 
     it 'tests that no mask bit is set' do
-      expect(normalized_sql(model.without_roles(:admin, :author).to_sql)).to include("COALESCE(#{column}, 0) & 5 = 0")
+      expect(normalized_sql(model.without_roles(:admin, :author).to_sql)).to(include("COALESCE(#{column}, 0) & 5 = 0"))
     end
 
     it 'adds no condition when every flag is unknown' do
-      expect(model.without_roles(:bogus).to_sql).not_to include('WHERE')
+      expect(model.without_roles(:bogus).to_sql).not_to(include('WHERE'))
     end
   end
 end

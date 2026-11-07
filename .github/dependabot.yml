@@ -1,21 +1,38 @@
-version: 2
+---
+# Weekly update proposals for every dependency manifest of the repository. The cooldown keeps brand-new releases
+# out for a week, so that hijacked or quickly yanked versions are never proposed automatically.
 updates:
-  - package-ecosystem: bundler
-    directory: "/"
-    schedule:
-      interval: weekly
-    cooldown:
+  # Gemfile.lock (the gemspec's runtime and development dependencies, and the optional :typecheck group).
+  - cooldown:
       default-days: 7
+    directory: "/"
     groups:
       development-dependencies:
-        dependency-type: development
-  - package-ecosystem: github-actions
-    directory: "/"
+        dependency-type: "development"
+    package-ecosystem: "bundler"
     schedule:
-      interval: weekly
-    cooldown:
+      interval: "weekly"
+  # The pinned actions of .github/workflows.
+  - cooldown:
       default-days: 7
+    directory: "/"
     groups:
       github-actions:
         patterns:
           - "*"
+    package-ecosystem: "github-actions"
+    schedule:
+      interval: "weekly"
+  # The hash-pinned linters of tools/requirements.txt (compiled from tools/requirements.in).
+  - cooldown:
+      default-days: 7
+    directory: "/tools"
+    groups:
+      linters:
+        patterns:
+          - "*"
+    package-ecosystem: "pip"
+    schedule:
+      interval: "weekly"
+version: 2
+...

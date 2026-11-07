@@ -1,9 +1,16 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Helpers that read and write raw column values behind the gem's back, so examples
 # can assert on the exact integer bitmask stored in the database.
 module DatabaseHelpers
+  extend T::Helpers
+
+  # The helpers call Kernel methods (Integer()) on the example they are included into.
+  requires_ancestor { Kernel }
+
   PROTECTED_TABLES = %w[schema_migrations ar_internal_metadata].freeze
   public_constant :PROTECTED_TABLES
 
@@ -33,8 +40,10 @@ module DatabaseHelpers
   def plant_raw_value(record, value, column = :roles)
     connection = record.class.connection
     sql_value = value.nil? ? 'NULL' : Integer(value).to_s
-    connection.execute("UPDATE #{connection.quote_table_name(record.class.table_name)} " \
-                       "SET #{connection.quote_column_name(column)} = #{sql_value} WHERE id = #{Integer(record.id)}")
+    connection.execute(
+      "UPDATE #{connection.quote_table_name(record.class.table_name)} " \
+        "SET #{connection.quote_column_name(column)} = #{sql_value} WHERE id = #{Integer(record.id)}"
+    )
     record.reload
   end
 
@@ -43,13 +52,8 @@ module DatabaseHelpers
   # @param column [String]
   # @return [Integer, nil]
   def self.column_limit(table, column)
-    ActiveRecord::Base.connection.columns(table).find { |candidate| candidate.name == column }&.limit
-  end
-
-  # Whether the examples run against MySQL (or a compatible server such as MariaDB).
-  # @return [Boolean]
-  def mysql_adapter?
-    ActiveRecord::Base.connection.adapter_name.match?(/mysql|trilogy|maria/i)
+    ActiveRecord::Base.connection.columns(table).find { |candidate| candidate.name == column }
+      &.limit
   end
 
   # Whether the examples run against PostgreSQL.
@@ -86,7 +90,9 @@ module DatabaseHelpers
   def select_raw(record, column)
     connection = record.class.connection
     table = connection.quote_table_name(record.class.table_name)
-    connection.select_value("SELECT #{connection.quote_column_name(column)} FROM #{table} " \
-                            "WHERE id = #{Integer(record.id)}")
+    connection.select_value(
+      "SELECT #{connection.quote_column_name(column)} FROM #{table} " \
+        "WHERE id = #{Integer(record.id)}"
+    )
   end
 end

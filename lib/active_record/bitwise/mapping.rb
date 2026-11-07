@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record/bitwise/errors'
 require 'active_record/bitwise/raw_mask'
 require 'active_record/bitwise/types'
@@ -37,10 +39,12 @@ module ActiveRecord
         position = value.instance_of?(Integer) ? value : RawMask.decimal(value)
         return position if position&.between?(0, MAX_BIT_POSITION)
 
-        raise ConfigurationError,
-              "Bitwise column #{column_name} mapping key #{key} has invalid bit position #{value.inspect}. " \
-              "Positions must be Integers between 0 and #{MAX_BIT_POSITION}; " \
-              'they are bit POSITIONS (1 << position), not masks.'
+        raise(
+          ConfigurationError,
+          "Bitwise column #{column_name} mapping key #{key} has invalid bit position #{value.inspect}. " \
+            "Positions must be Integers between 0 and #{MAX_BIT_POSITION}; " \
+            'they are bit POSITIONS (1 << position), not masks.'
+        )
       end
 
       # The declared (name, position) pairs; an Array declares positions by index.
@@ -52,7 +56,7 @@ module ActiveRecord
         case mapping
         in Array => names then names.each_with_index
         in Hash => positions then positions
-        else raise ArgumentError, 'Mapping must be a Hash or an Array'
+        else raise(ArgumentError, 'Mapping must be a Hash or an Array')
         end
       end
       private_class_method :entries
@@ -63,7 +67,8 @@ module ActiveRecord
       # @return [Integer]
       sig { params(mapping: Types::Positions).returns(Integer) }
       def self.highest_position(mapping)
-        mapping.each_value.sum { |position| 1 << position }.bit_length - 1
+        mask = mapping.each_value.sum { |position| 1 << position }
+        mask.bit_length - 1
       end
 
       # Fails when two keys name the same flag once symbolized (:admin and "admin").
@@ -74,9 +79,10 @@ module ActiveRecord
       sig { params(column_name: Types::Name, pairs: T::Enumerable[[Types::Name, Object]]).void }
       def self.unique_names!(column_name, pairs)
         # uniq! returns nil when it finds no duplicate to remove.
-        return unless pairs.map { |key, _position| key.to_sym }.uniq!
+        keys = pairs.map { |key, _position| key.to_sym }
+        return unless keys.uniq!
 
-        raise ConfigurationError, "Bitwise column #{column_name} mapping contains duplicate keys after symbolization"
+        raise(ConfigurationError, "Bitwise column #{column_name} mapping contains duplicate keys after symbolization")
       end
       private_class_method :unique_names!
 
@@ -89,9 +95,11 @@ module ActiveRecord
       def self.unique_positions!(column_name, normalized)
         return normalized if normalized.values.uniq.size == normalized.size
 
-        raise ConfigurationError,
-              "Bitwise column #{column_name} mapping assigns the same bit position to multiple keys: " \
-              "#{normalized.inspect}. Values are bit POSITIONS (1 << position), not masks."
+        raise(
+          ConfigurationError,
+          "Bitwise column #{column_name} mapping assigns the same bit position to multiple keys: " \
+            "#{normalized.inspect}. Values are bit POSITIONS (1 << position), not masks."
+        )
       end
       private_class_method :unique_positions!
     end

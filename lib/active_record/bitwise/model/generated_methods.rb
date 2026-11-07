@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/atomic_update'
 require 'active_record/bitwise/declaration'
@@ -27,9 +29,11 @@ module ActiveRecord
 
         # The private record method behind the column getter ({InstanceMethods::RawCache}).
         READ = :_bitwise_read
-        # The private record methods behind `flag?`, `flag=` and `flag!` ({InstanceMethods::FlagAccess}).
+        # The private record method behind `flag?` ({InstanceMethods::FlagAccess}).
         FLAG_QUERY = :_bitwise_flag_enabled?
+        # The private record method behind `flag=` ({InstanceMethods::FlagAccess}).
         FLAG_ASSIGN = :_bitwise_flag_assign
+        # The private record method behind `flag!` ({InstanceMethods::FlagAccess}).
         FLAG_SAVE = :_bitwise_flag_save
         # The private record method behind the instance-level atomic methods ({InstanceMethods::AtomicOperations}).
         ATOMIC_UPDATE = :_bitwise_atomic_update!

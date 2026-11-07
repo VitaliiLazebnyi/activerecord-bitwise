@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::Model, '.with_exact_roles') do
   include_context 'with scope fixtures'
 
   # Decision table: arguments -> fixtures returned (records having exactly the given flags).
@@ -24,19 +26,19 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
     [[0], []]
   ].each do |arguments, expected|
     it "with #{arguments.inspect} returns #{expected.inspect}" do
-      expect(names_in.call(model.with_exact_roles(*arguments))).to eq(expected)
+      expect(names_in.call(model.with_exact_roles(*arguments))).to(eq(expected))
     end
   end
 
   it 'returns an ActiveRecord::Relation' do
-    expect(model.with_exact_roles(:admin)).to be_a(ActiveRecord::Relation)
+    expect(model.with_exact_roles(:admin)).to(be_a(ActiveRecord::Relation))
   end
 
   context 'with unmapped bits stored in the database' do
     it 'does not match a record whose full bitmask differs' do
       plant_raw_value(fixtures[:admin], 0b1_0000_0001)
 
-      expect(names_in.call(model.with_exact_roles(:admin))).to eq([])
+      expect(names_in.call(model.with_exact_roles(:admin))).to(eq([]))
     end
   end
 
@@ -44,13 +46,13 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
     it 'matches the empty set, because a NULL column reads as no flags' do
       plant_raw_value(fixtures[:none], nil)
 
-      expect(names_in.call(model.with_exact_roles)).to eq(%i[none])
+      expect(names_in.call(model.with_exact_roles)).to(eq(%i[none]))
     end
 
     it 'does not match a non-empty set' do
       plant_raw_value(fixtures[:none], nil)
 
-      expect(names_in.call(model.with_exact_roles(:admin))).to eq(%i[admin])
+      expect(names_in.call(model.with_exact_roles(:admin))).to(eq(%i[admin]))
     end
   end
 
@@ -58,7 +60,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
     it 'qualifies the column so it is not ambiguous' do
       relation = model.joins('INNER JOIN users AS other_users ON other_users.id = users.id').with_exact_roles(:admin)
 
-      expect(names_in.call(relation)).to eq(%i[admin])
+      expect(names_in.call(relation)).to(eq(%i[admin]))
     end
   end
 
@@ -66,15 +68,15 @@ RSpec.describe ActiveRecord::Bitwise::Model, '.with_exact_roles' do
     let(:column) { qualified_column(model) }
 
     it 'compares the column with the mask' do
-      expect(normalized_sql(model.with_exact_roles(:admin, :author).to_sql)).to include("#{column} = 5")
+      expect(normalized_sql(model.with_exact_roles(:admin, :author).to_sql)).to(include("#{column} = 5"))
     end
 
     it 'compares the column with zero when no flag is given' do
-      expect(model.with_exact_roles.to_sql).to include("(#{column} = 0 OR #{column} IS NULL)")
+      expect(model.with_exact_roles.to_sql).to(include("(#{column} = 0 OR #{column} IS NULL)"))
     end
 
     it 'matches nothing when any flag is unknown' do
-      expect(model.with_exact_roles(:admin, :bogus).to_sql).to include('1=0')
+      expect(model.with_exact_roles(:admin, :bogus).to_sql).to(include('1=0'))
     end
   end
 end

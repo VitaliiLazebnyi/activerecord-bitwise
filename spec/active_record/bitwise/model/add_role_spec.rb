@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::Model, '#add_role!') do
   include_context 'with a user model'
 
   let!(:record) { model.create!(roles: [:author]) }
@@ -10,56 +12,56 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
     it 'adds the flag in the database' do
       record.add_role!(:admin)
 
-      expect(raw_value(record)).to eq(0b101)
+      expect(raw_value(record)).to(eq(0b101))
     end
 
     it 'updates the in-memory flags' do
       record.add_role!(:admin)
 
-      expect(record.roles).to eq(%i[admin author])
+      expect(record.roles).to(eq(%i[admin author]))
     end
 
     it 'adds several flags at once' do
       record.add_role!(:admin, :subscriber)
 
-      expect(record.roles).to eq(%i[admin author subscriber])
+      expect(record.roles).to(eq(%i[admin author subscriber]))
     end
 
     it 'accepts Strings' do
       record.add_role!('admin')
 
-      expect(record.roles).to eq(%i[admin author])
+      expect(record.roles).to(eq(%i[admin author]))
     end
 
     it 'ignores unknown values' do
       record.add_role!(:bogus, :admin)
 
-      expect(raw_value(record)).to eq(0b101)
+      expect(raw_value(record)).to(eq(0b101))
     end
 
     it 'does not leave the record with unsaved changes' do
       record.add_role!(:admin)
 
-      expect(record.changed?).to be(false)
+      expect(record.changed?).to(be(false))
     end
 
     it 'is also available under the plural name' do
       record.add_roles!(:admin)
 
-      expect(record.roles).to eq(%i[admin author])
+      expect(record.roles).to(eq(%i[admin author]))
     end
 
     it 'leaves other bitwise columns alone' do
       record.add_role!(:admin)
 
-      expect(raw_value(record, :permissions)).to eq(1)
+      expect(raw_value(record, :permissions)).to(eq(1))
     end
 
     it 'leaves unsaved changes to other attributes unsaved' do
       record.name = 'Ada'
       record.add_role!(:admin)
 
-      expect(record.name_changed?).to be(true)
+      expect(record.name_changed?).to(be(true))
     end
   end
 
@@ -70,14 +72,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       plant_raw_value(record, 0b1000)
       stale.add_role!(:author)
 
-      expect(stale.roles).to eq(%i[author subscriber])
+      expect(stale.roles).to(eq(%i[author subscriber]))
     end
 
     it 'replaces unsaved flag changes with the database state' do
       record.roles = [:editor]
       record.add_role!(:admin)
 
-      expect(record.roles).to eq(%i[admin author])
+      expect(record.roles).to(eq(%i[admin author]))
     end
   end
 
@@ -86,7 +88,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       plant_raw_value(record, 0b1_0000_0100)
       record.add_role!(:admin)
 
-      expect(raw_value(record)).to eq(0b1_0000_0101)
+      expect(raw_value(record)).to(eq(0b1_0000_0101))
     end
 
     it 'keeps them through a later ordinary save' do
@@ -94,15 +96,16 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       record.add_role!(:author)
       record.update!(roles: record.roles + [:subscriber])
 
-      expect(raw_value(record)).to eq(0b1_0000_1101)
+      expect(raw_value(record)).to(eq(0b1_0000_1101))
     end
   end
 
   context 'with a new record' do
     it 'raises ActiveRecordError telling to save first' do
-      expect { model.new.add_role!(:admin) }.to raise_error(
-        ActiveRecord::ActiveRecordError, 'cannot atomically add roles on a new record; save the record first'
-      )
+      expect { model.new.add_role!(:admin) }
+        .to(raise_error(
+          ActiveRecord::ActiveRecordError, 'cannot atomically add roles on a new record; save the record first'
+        ))
     end
   end
 
@@ -111,7 +114,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       model.where(id: record.id).delete_all
       record.add_role!(:admin)
 
-      expect(record.read_attribute(:roles)).to eq([])
+      expect(record.read_attribute(:roles)).to(eq([]))
     end
   end
 
@@ -119,20 +122,20 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
     it 'runs every statement inside one transaction' do
       statements = capture_sql_with_transaction_state(model.connection) { record.add_role!(:admin) }
 
-      expect(statements.map(&:last)).to all(be(true))
+      expect(statements.map(&:last)).to(all(be(true)))
     end
 
     it 'locks the row while reading it back' do
       locks = track_row_locks(model)
       record.add_role!(:admin)
 
-      expect(locks).to eq([[true]])
+      expect(locks).to(eq([[true]]))
     end
 
     it 'issues an UPDATE followed by a SELECT' do
       statements = capture_sql { record.add_role!(:admin) }
 
-      expect(statements.map { |sql| sql.split.first }).to eq(%w[UPDATE SELECT])
+      expect(statements.map { |sql| sql.split.first }).to(eq(%w[UPDATE SELECT]))
     end
   end
 
@@ -143,20 +146,21 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       stored = singular.create!
       stored.add_status!(:archived)
 
-      expect(stored.reload.status).to eq([:archived])
+      expect(stored.reload.status).to(eq([:archived]))
     end
 
     it 'defines no plural alias' do
-      expect(singular.new).not_to respond_to(:add_statuses!)
+      expect(singular.new).not_to(respond_to(:add_statuses!))
     end
   end
 
   context 'with an uncountable column name' do
     it 'adds the flag' do
-      fish = build_model('singular_models') { bitwise :fish, { salmon: 0, trout: 1 } }.create!
+      fish = build_model('singular_models') { bitwise(:fish, { salmon: 0, trout: 1 }) }
+        .create!
       fish.add_fish!(:trout)
 
-      expect(fish.reload.fish).to eq([:trout])
+      expect(fish.reload.fish).to(eq([:trout]))
     end
   end
 
@@ -166,7 +170,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#add_role!' do
       record.add_role!(:admin)
       record.update!(roles: record.roles + [:subscriber])
 
-      expect(raw_value(record)).to eq(0b10_0000_1101)
+      expect(raw_value(record)).to(eq(0b10_0000_1101))
     end
   end
 end

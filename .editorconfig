@@ -1,12 +1,27 @@
+# Checked by editorconfig-checker (CI lint.yml, script/check) for every tracked file.
 root = true
 
 [*]
 charset = utf-8
 end_of_line = lf
-insert_final_newline = true
-trim_trailing_whitespace = true
-indent_style = space
 indent_size = 2
+indent_style = space
+insert_final_newline = true
+max_line_length = 120
+trim_trailing_whitespace = true
 
+# Shell scripts, formatted by shfmt (which reads these settings).
+[{*.sh,.githooks/*,script/check}]
+binary_next_line = true
+shell_variant = bash
+switch_case_indent = true
+
+# Markdown: rumdl checks the line length (MD013) and the list indentation (MD005, MD007, MD077). A table row
+# cannot be wrapped, and the continuation of an ordered list item is indented by the width of its marker ("1. ").
 [*.md]
-trim_trailing_whitespace = false
+indent_size = unset
+max_line_length = unset
+
+# RBI annotations of third-party gems, copied verbatim from the central repository by `tapioca annotations`.
+[sorbet/rbi/annotations/*.rbi]
+max_line_length = unset

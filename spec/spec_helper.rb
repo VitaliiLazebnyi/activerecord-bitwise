@@ -1,8 +1,13 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Must come first: it has to see warnings emitted while lib/ and spec/ are loaded.
 require_relative 'support/warning_guard'
+
+# Raised after the suite when it contains pending or skipped examples.
+class UnfinishedExamplesError < StandardError; end
 
 # Mutation runs execute the suite thousands of times against deliberately broken code; coverage is not
 # measured there (the gate would be meaningless, and its report noise).
@@ -19,26 +24,13 @@ unless defined?(Mutant)
     config.include_bypasses = true
   end
 
-  SimpleCov.start do
-    enable_coverage :branch
-    # 100% line+branch is enforced on the canonical SQLite run. Alternate adapters
-    # (DATABASE_URL set) get a 99% floor instead of a full drop: they cannot reach
-    # adapter-specific branches (e.g. PostgreSQL widens limit: 1 columns to
-    # smallint, making the tinyint limit branch unreachable), but a 99% gate still
-    # fails the run if real coverage regresses.
-    if ENV['DATABASE_URL']
-      minimum_coverage line: 99, branch: 99
-    else
-      minimum_coverage line: 100, branch: 100
-    end
-    SimpleCov.skip(%r{/spec/})
-    SimpleCov.skip(%r{/vendor/})
-
-    self.formatters = SimpleCov::Formatter::MultiFormatter.new([
-                                                                 SimpleCov::Formatter::HTMLFormatter,
-                                                                 SimpleCov::Formatter::AIFormatter
-                                                               ])
-  end
+  # 100% line and branch coverage on every run, whichever database it uses.
+  SimpleCov.enable_coverage(:branch)
+  SimpleCov.minimum_coverage(line: 100, branch: 100)
+  SimpleCov.skip(%r{/spec/})
+  SimpleCov.skip(%r{/vendor/})
+  SimpleCov.formatters = [SimpleCov::Formatter::HTMLFormatter, SimpleCov::Formatter::AIFormatter]
+  SimpleCov.start
 end
 
 require 'active_record'
@@ -74,7 +66,7 @@ else
   # opened above. Give every worker its own copy of the freshly built database so
   # concurrent suites never contend for one SQLite file.
   RSpec.configure do |config|
-    worker_file = nil
+    worker_file = T.let(nil, T.nilable(String))
 
     config.before(:suite) do
       next if Process.pid == parent_pid
@@ -104,11 +96,11 @@ RSpec.configure do |config|
   # Disable RSpec exposing methods globally on `Module` and `main`
   config.disable_monkey_patching!
 
-  config.expect_with :rspec do |c|
+  config.expect_with(:rspec) do |c|
     c.syntax = :expect
   end
 
-  config.mock_with :rspec do |mocks|
+  config.mock_with(:rspec) do |mocks|
     mocks.verify_partial_doubles = true
   end
 
@@ -122,13 +114,13 @@ RSpec.configure do |config|
     metadata[:mutant_expression] = 'ActiveRecord::Bitwise*'
   end
 
-  config.include DatabaseHelpers
-  config.include ModelFactory
-  config.include RawMarker
-  config.include ErrorCapture
-  config.include SqlCapture
-  config.include RowLockSpy
-  config.include ConcurrentRunner
+  config.include(DatabaseHelpers)
+  config.include(ModelFactory)
+  config.include(RawMarker)
+  config.include(ErrorCapture)
+  config.include(SqlCapture)
+  config.include(RowLockSpy)
+  config.include(ConcurrentRunner)
 
   # Every example starts from empty tables. Rows are deleted (not rolled back) because
   # the concurrency examples need data that is committed and visible to other threads.
@@ -137,21 +129,27 @@ RSpec.configure do |config|
   # Ruby warnings from lib/ or spec/ are failures, never noise.
   config.before(:suite) do
     load_time_warnings = WarningGuard.drain
-    raise "Ruby warnings while loading:\n#{load_time_warnings.join}" unless load_time_warnings.empty?
+    unless load_time_warnings.empty?
+      raise(WarningGuard::Failure, "Ruby warnings while loading:\n#{load_time_warnings.join}")
+    end
   end
 
   config.after do
     warnings = WarningGuard.drain
-    raise "Ruby warnings emitted by this example:\n#{warnings.join}" unless warnings.empty?
+    raise(WarningGuard::Failure, "Ruby warnings emitted by this example:\n#{warnings.join}") unless warnings.empty?
   end
 
   # Pending and skipped examples hide missing behavior: the suite must not contain any.
   config.after(:suite) do
-    unfinished = RSpec.world.all_examples.select do |example|
-      example.execution_result.status == :pending || example.skipped? || example.pending?
-    end
+    unfinished =
+      RSpec.world.all_examples.select do |example|
+        example.execution_result.status == :pending || example.skipped? || example.pending?
+      end
     unless unfinished.empty?
-      raise "Pending or skipped examples are not allowed:\n#{unfinished.map(&:full_description).join("\n")}"
+      raise(
+        UnfinishedExamplesError,
+        "Pending or skipped examples are not allowed:\n#{unfinished.map(&:full_description).join("\n")}"
+      )
     end
   end
 end

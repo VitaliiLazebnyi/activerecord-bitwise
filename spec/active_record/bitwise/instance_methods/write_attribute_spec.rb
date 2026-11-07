@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::InstanceMethods, '#write_attribute') do
   include_context 'with a user model'
 
   let(:type) { model.attribute_types['roles'] }
@@ -13,28 +15,28 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record = model.new
       record.write_attribute(:roles, [:admin])
 
-      expect(record.roles).to eq([:admin])
+      expect(record.roles).to(eq([:admin]))
     end
 
     it 'accepts the attribute name as a String' do
       record = model.new
       record.write_attribute('roles', [:admin])
 
-      expect(record.roles).to eq([:admin])
+      expect(record.roles).to(eq([:admin]))
     end
 
     it 'freezes an unfrozen array' do
       record = model.new
       record.write_attribute(:roles, [:admin])
 
-      expect(record.roles).to be_frozen
+      expect(record.roles).to(be_frozen)
     end
 
     it 'keeps the unmapped bits of the stored value' do
       ghosted.write_attribute(:roles, [:author])
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b1_0100)
+      expect(raw_value(ghosted)).to(eq(0b1_0100))
     end
 
     it 'adopts a raw bitmask marker given as a numeric String' do
@@ -42,12 +44,12 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record.write_attribute(:roles, with_raw_marker([:admin], '17'))
       record.save!
 
-      expect(raw_value(record)).to eq(0b1_0001)
+      expect(raw_value(record)).to(eq(0b1_0001))
     end
 
     it 'rejects more than 100 flags' do
       expect { model.new.write_attribute(:roles, Array.new(101) { :admin }) }
-        .to raise_error(ArgumentError, 'Array size cannot exceed 100')
+        .to(raise_error(ArgumentError, 'Array size cannot exceed 100'))
     end
   end
 
@@ -56,14 +58,14 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       ghosted[:roles] = [:author]
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b1_0100)
+      expect(raw_value(ghosted)).to(eq(0b1_0100))
     end
 
     it 'accepts a String attribute name' do
       ghosted['roles'] = [:author]
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b1_0100)
+      expect(raw_value(ghosted)).to(eq(0b1_0100))
     end
   end
 
@@ -72,7 +74,7 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       ghosted.roles = [:author]
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b1_0100)
+      expect(raw_value(ghosted)).to(eq(0b1_0100))
     end
   end
 
@@ -81,14 +83,14 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       ghosted.write_attribute(:roles, 0b10_0010)
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b10_0010)
+      expect(raw_value(ghosted)).to(eq(0b10_0010))
     end
 
     it 'stores nil as NULL' do
       ghosted.write_attribute(:roles, nil)
       ghosted.save!
 
-      expect(raw_value(ghosted)).to be_nil
+      expect(raw_value(ghosted)).to(be_nil)
     end
   end
 
@@ -97,17 +99,17 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record = model.new
       record.write_attribute(:name, 'Ada')
 
-      expect(record.name).to eq('Ada')
+      expect(record.name).to(eq('Ada'))
     end
   end
 
   context 'with a column whose type was replaced after declaring it bitwise' do
     it 'stores the value untouched' do
-      model.attribute :roles, :integer
+      model.attribute(:roles, :integer)
       record = model.new
       record.write_attribute(:roles, 5)
 
-      expect(record.read_attribute_before_type_cast(:roles)).to eq(5)
+      expect(record.read_attribute_before_type_cast(:roles)).to(eq(5))
     end
   end
 
@@ -116,21 +118,21 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record = model.instantiate({ id: 1, roles: '21' }.transform_keys(&:to_s))
       record.write_attribute(:roles, [:author])
 
-      expect(type.serialize(record.roles)).to eq(0b1_0100)
+      expect(type.serialize(record.roles)).to(eq(0b1_0100))
     end
 
     it 'starts from zero when the previous value has no bitmask' do
       record = model.new
       record.write_attribute(:permissions, [:manage])
 
-      expect(model.attribute_types['permissions'].serialize(record.permissions)).to eq(0b10)
+      expect(model.attribute_types['permissions'].serialize(record.permissions)).to(eq(0b10))
     end
 
     it 'starts from zero when the previous value is NULL' do
       record = plant_raw_value(model.create!, nil)
       record.write_attribute(:roles, [:admin])
 
-      expect(type.serialize(record.roles)).to eq(1)
+      expect(type.serialize(record.roles)).to(eq(1))
     end
 
     it 'reads unmapped bits from a stamped array assigned earlier' do
@@ -138,7 +140,7 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       ghosted.clear_bitwise_raw_values_cache!
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b1_0001)
+      expect(raw_value(ghosted)).to(eq(0b1_0001))
     end
   end
 
@@ -149,7 +151,7 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record.write_attribute(:roles, %i[admin author])
       record.save!
 
-      expect(raw_value(record)).to eq(0b1_0000_0101)
+      expect(raw_value(record)).to(eq(0b1_0000_0101))
     end
   end
 
@@ -159,14 +161,14 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       ghosted.write_attribute(:roles, %i[admin author])
       ghosted.save!
 
-      expect(raw_value(ghosted)).to eq(0b101)
+      expect(raw_value(ghosted)).to(eq(0b101))
     end
 
     it 'stores NULL when saved as it is' do
       ghosted.write_attribute(:roles, nil)
       ghosted.save!
 
-      expect(raw_value(ghosted)).to be_nil
+      expect(raw_value(ghosted)).to(be_nil)
     end
   end
 
@@ -175,23 +177,24 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record = model.new
       record.write_attribute(:roles, [:admin])
 
-      expect(record.read_attribute(:roles)).to be_frozen
+      expect(record.read_attribute(:roles)).to(be_frozen)
     end
   end
 
   context 'when the bitwise type of the column was replaced by a subclass of it' do
     it 'still keeps the unmapped bits' do
-      model.attribute :roles, Class.new(ActiveRecord::Bitwise::Type).new(:roles, model.bitwise_schema(:roles), nil)
+      model.attribute(:roles, Class.new(ActiveRecord::Bitwise::Type).new(:roles, model.bitwise_schema(:roles), nil))
       record = model.find(ghosted.id)
       record.update!(roles: [:editor])
 
-      expect(raw_value(record)).to eq(0b1_0010)
+      expect(raw_value(record)).to(eq(0b1_0010))
     end
   end
 
   context 'with an attribute the model does not have' do
     it 'raises the ActiveModel error' do
-      expect { model.new.write_attribute(:unknown, 1) }.to raise_error(ActiveModel::MissingAttributeError)
+      expect { model.new.write_attribute(:unknown, 1) }
+        .to(raise_error(ActiveModel::MissingAttributeError))
     end
   end
 
@@ -202,7 +205,7 @@ RSpec.describe ActiveRecord::Bitwise::InstanceMethods, '#write_attribute' do
       record = wide.find(wide.create!(big: [:top]).id)
       record.big = 2**62
 
-      expect(record.changed?).to be(false)
+      expect(record.changed?).to(be(false))
     end
   end
 end

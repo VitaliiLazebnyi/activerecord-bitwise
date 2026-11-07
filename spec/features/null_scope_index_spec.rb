@@ -1,29 +1,31 @@
 # typed: false
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 # The scopes that read a NULL column as "no flags" compare with `= 0 OR IS NULL` rather than wrapping the
 # column in COALESCE, so an index on the column stays usable. This is only observable on PostgreSQL.
-if DatabaseHelpers.postgres_adapter?
-  RSpec.describe 'NULL-aware scopes on PostgreSQL' do
-    include_context 'with a user model'
+return unless DatabaseHelpers.postgres_adapter?
 
-    let(:plan) { ActiveRecord::Base.connection.select_values("EXPLAIN #{model.with_exact_roles.to_sql}").join("\n") }
+RSpec.describe('NULL-aware scopes on PostgreSQL') do
+  include_context 'with a user model'
 
-    around do |example|
-      ActiveRecord::Base.connection.execute('SET enable_seqscan = off')
-      example.run
-    ensure
-      ActiveRecord::Base.connection.execute('RESET enable_seqscan')
-    end
+  let(:plan) { ActiveRecord::Base.connection.select_values("EXPLAIN #{model.with_exact_roles.to_sql}").join("\n") }
 
-    after { RSpec.configuration.reporter.message("EXPLAIN for with_exact_roles:\n#{plan}") }
+  around do |example|
+    ActiveRecord::Base.connection.execute('SET enable_seqscan = off')
+    example.run
+  ensure
+    ActiveRecord::Base.connection.execute('RESET enable_seqscan')
+  end
 
-    it 'uses the index on the column for the "no flags" comparison' do
-      expect(plan).to match(/Index|Bitmap/)
-    end
+  after { RSpec.configuration.reporter.message("EXPLAIN for with_exact_roles:\n#{plan}") }
 
-    it 'does not fall back to a sequential scan' do
-      expect(plan).not_to include('Seq Scan')
-    end
+  it 'uses the index on the column for the "no flags" comparison' do
+    expect(plan).to(match(/Index|Bitmap/))
+  end
+
+  it 'does not fall back to a sequential scan' do
+    expect(plan).not_to(include('Seq Scan'))
   end
 end

@@ -9,12 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Development dependencies: rubocop-md 2.x to 3.0 and, for the PostgreSQL test run, pg 1.6 to 1.7. The
+- Development dependencies: `rubocop-md` 2.x to 3.0 and, for the PostgreSQL test run, pg 1.6 to 1.7. The
   diff-lcs and prism holds now quote rspec-expectations 3.13.6 and rspec-mocks 3.13.9.
-- CI: ruby/setup-ruby v1.338.0, github/codeql-action v4.39.3, zizmorcore/zizmor-action v0.8.1, and
+- CI: ruby/setup-ruby v1.338.0, `github/codeql-action` v4.39.3, zizmorcore/zizmor-action v0.8.1, and
   current digests of the PostgreSQL 18, MySQL LTS and MySQL latest service images.
+- Development: `Gemfile.lock` is committed; the ActiveRecord and database matrix bundles live in `gemfiles/`, and
+  Tapioca moved to the optional `:typecheck` group of the Gemfile (`typecheck.gemfile` is gone).
+- Quality gates: every RuboCop cop is enabled (with `rubocop-rails`, `rubocop-packaging` and `rubocop-yard`), Flog and
+  Debride join Reek and Flay, YARD fails on warnings and on objects without a description, the gem build is
+  strict and smoke-tested, mutation testing covers every subject on pull requests, and the alternate databases
+  must reach 100% coverage too.
+- Linters for every other file type (actionlint, zizmor, ShellCheck, shfmt, yamllint, rumdl, typos,
+  editorconfig-checker), `script/check` to run every CI check locally, and egress-blocking
+  `step-security/harden-runner`, timeouts and least-privilege permissions on every CI job.
 
-## [0.12.0] - 2026-10-28
+## 0.12.0 - 2026-10-28
 
 ### Changed (breaking)
 
@@ -48,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Development dependencies upgraded to their latest releases (SimpleCov 1.x, rubocop-md 2.x, ...)
+- Development dependencies upgraded to their latest releases (SimpleCov 1.x, `rubocop-md` 2.x, ...)
   and declared as ordinary development dependencies in the gemspec; the repository develops on
   Ruby 4.0.9 (`.ruby-version`) and CI tests Ruby 3.3, 3.4 and 4.0.
 - The internal code is split into small typed classes. Two duck-typing checks are now made on the
@@ -60,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_bitwise_flag_enabled?`, `_bitwise_flag_assign`, `_bitwise_flag_save`, `_bitwise_atomic_update!`)
   are now private.
 
-## [0.11.0] - 2026-07-20
+## 0.11.0 - 2026-07-20
 
 Version note: a tag typo previously published `0.10.0` to RubyGems from the
 `0.1.0` tree, permanently shadowing the `0.1.x`/`0.2.x` range in the resolver.
@@ -131,11 +140,11 @@ to publish unless the tag matches `version.rb`.
   setter semantics, and removed incorrect claims (including the nonexistent
   `ActiveRecord::SerializationFailure`).
 
-## [0.1.0] - 2026-05-21
+## 0.1.0 - 2026-05-21
 
 ### Added
 
-- Initial release of the activerecord-bitwise gem.
+- Initial release of the `activerecord-bitwise` gem.
 - Bitmask arithmetic and operations for storing multiple boolean/enum values in a single integer column.
 - Prefix and suffix options for generated helper methods.
 - Database scopes: `with_`, `with_any_`, `with_exact_`, `without_`.

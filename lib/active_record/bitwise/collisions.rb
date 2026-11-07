@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/declaration'
 require 'active_record/bitwise/errors'
@@ -14,11 +16,21 @@ module ActiveRecord
     class Collisions
       extend T::Sig
 
+      # Why a flag is refused when its predicate would replace the column or an attribute.
+      SHADOWS = "would shadow the database column or attribute '%<name>s'. Use prefix:/suffix: to disambiguate."
+      # Why a flag is refused when a generated method would replace a method of ActiveRecord::Base.
+      CORE = 'generates method #%<generated>s which collides with core ActiveRecord::Base instance methods.'
+      # Why a flag is refused when another bitwise column already generates the same method.
+      GENERATED = 'generates method #%<generated>s which is already defined by another bitwise column. ' \
+        'Use prefix:/suffix: to disambiguate.'
+      private_constant :SHADOWS, :CORE, :GENERATED
+
       # The names a declaration must not reuse: methods of ActiveRecord itself, methods generated for other
       # bitwise columns, and the model's attributes.
       class Taken
         extend T::Sig
 
+        # Collects the names a new declaration of +column+ must not reuse.
         # @param definitions [Hash{Symbol => Hash}] The bitwise definitions declared so far.
         # @param attributes [Array<String>] The column names of the model's table.
         # @param column [Symbol] The column being declared.
@@ -32,13 +44,18 @@ module ActiveRecord
           new(core_methods, others, attributes, definitions)
         end
 
+        # Creates the set of names already in use.
         # @param core [Array<Symbol>] The instance methods of ActiveRecord::Base.
         # @param generated [Array<String>] The methods generated for the other bitwise columns.
         # @param attributes [Array<String>] The column names of the table.
         # @param definitions [Hash{Symbol => Hash}] The bitwise definitions declared so far.
         sig do
-          params(core: T::Array[Symbol], generated: T::Array[String], attributes: T::Array[String],
-                 definitions: T::Hash[Symbol, Declaration::Definition]).void
+          params(
+            core: T::Array[Symbol],
+            generated: T::Array[String],
+            attributes: T::Array[String],
+            definitions: T::Hash[Symbol, Declaration::Definition]
+          ).void
         end
         def initialize(core, generated, attributes, definitions)
           @core = core
@@ -80,18 +97,23 @@ module ActiveRecord
         private_class_method :core_methods
       end
 
+      # Creates the collision check of +declaration+ against the model's existing names.
       # @param definitions [Hash{Symbol => Hash}] The bitwise definitions declared so far.
       # @param attributes [Array<String>] The column names of the model's table.
       # @param declaration [ActiveRecord::Bitwise::Declaration] The declaration being checked.
       # @return [ActiveRecord::Bitwise::Collisions]
       sig do
-        params(definitions: T::Hash[Symbol, Declaration::Definition], attributes: T::Array[String],
-               declaration: Declaration).returns(Collisions)
+        params(
+          definitions: T::Hash[Symbol, Declaration::Definition],
+          attributes: T::Array[String],
+          declaration: Declaration
+        ).returns(Collisions)
       end
       def self.for(definitions, attributes, declaration)
         new(declaration, Taken.for(definitions, attributes, declaration.column))
       end
 
+      # Creates the collision check of +declaration+.
       # @param declaration [ActiveRecord::Bitwise::Declaration] The declaration being checked.
       # @param taken [ActiveRecord::Bitwise::Collisions::Taken] The names already in use.
       sig { params(declaration: Declaration, taken: Taken).void }
@@ -117,13 +139,21 @@ module ActiveRecord
       sig { params(key: Symbol).returns(T::Array[String]) }
       def methods_for(key)
         name = @declaration.method_name(key)
-        if name == @declaration.column_name.to_s || @taken.shadowing?(name)
-          refuse(ConfigurationError, key, "would shadow the database column or attribute '#{name}'. " \
-                                          'Use prefix:/suffix: to disambiguate.')
+        refuse(ConfigurationError, key, format(SHADOWS, name:)) if shadows?(name)
+        %w[? = !].map do |sign|
+          "#{name}#{sign}".tap { |generated| verify(key, generated) }
         end
-        %w[? = !].map { |sign| "#{name}#{sign}" }.each { |generated| verify(key, generated) }
       end
 
+      # Whether the predicate +name+ of a flag would replace the column itself or another attribute.
+      # @param name [String] The method name of a flag, without its suffix.
+      # @return [Boolean]
+      sig { params(name: String).returns(T::Boolean) }
+      def shadows?(name)
+        name == @declaration.column_name.to_s || @taken.shadowing?(name)
+      end
+
+      # Checks that one generated method is not already defined.
       # @param key [Symbol] A flag name.
       # @param generated [String] A generated method name.
       # @raise [ArgumentError] When it collides with a core ActiveRecord::Base method.
@@ -131,16 +161,11 @@ module ActiveRecord
       # @return [void]
       sig { params(key: Symbol, generated: String).void }
       def verify(key, generated)
-        if @taken.core?(generated)
-          refuse(ArgumentError, key, "generates method ##{generated} " \
-                                     'which collides with core ActiveRecord::Base instance methods.')
-        end
-        return unless @taken.generated?(generated)
-
-        refuse(ConfigurationError, key, "generates method ##{generated} which is already defined by " \
-                                        'another bitwise column. Use prefix:/suffix: to disambiguate.')
+        refuse(ArgumentError, key, format(CORE, generated:)) if @taken.core?(generated)
+        refuse(ConfigurationError, key, format(GENERATED, generated:)) if @taken.generated?(generated)
       end
 
+      # Rejects the flag +key+ of the declaration.
       # @param error [Class] The exception class to raise.
       # @param key [Symbol] A flag name.
       # @param detail [String] What is wrong with the flag.
@@ -148,7 +173,7 @@ module ActiveRecord
       # @return [void]
       sig { params(error: T.class_of(StandardError), key: Symbol, detail: String).returns(T.noreturn) }
       def refuse(error, key, detail)
-        raise error, "Bitwise column #{@declaration.column_name} mapping key #{key} #{detail}"
+        raise(error, "Bitwise column #{@declaration.column_name} mapping key #{key} #{detail}")
       end
     end
   end

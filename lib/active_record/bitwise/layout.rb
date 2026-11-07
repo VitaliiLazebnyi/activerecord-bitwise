@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record/bitwise/raw_mask'
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
@@ -32,6 +34,7 @@ module ActiveRecord
       sig { returns(T::Array[String]) }
       attr_reader :names
 
+      # Creates the layout of a column from its flag-to-position mapping.
       # @param column_name [Symbol, String] The database column name.
       # @param mapping [Hash{Symbol => Integer}] Flag names to bit positions.
       sig { params(column_name: Types::Name, mapping: Types::Positions).void }
@@ -58,7 +61,8 @@ module ActiveRecord
       # @return [Array<Symbol, String>]
       sig { params(raw: Integer).returns(Types::Flags) }
       def decode(raw)
-        RawMask.stamp(mapping.select { |_name, position| raw.anybits?(1 << position) }.keys, raw).freeze
+        names = mapping.filter_map { |name, position| name if raw.anybits?(1 << position) }
+        RawMask.stamp(names, raw).freeze
       end
 
       # The bitmask of +value+: the unmapped bits its marker carries plus the bits of its mapped flags.
@@ -91,7 +95,7 @@ module ActiveRecord
       # @return [Integer, nil] Nil for anything else.
       sig { params(value: Object).returns(T.nilable(Integer)) }
       def bitmask(value)
-        RawMask.decimal(value) unless names.include?(value)
+        RawMask.decimal(value) if names.exclude?(value)
       end
 
       private
@@ -105,7 +109,7 @@ module ActiveRecord
         list = Array(value).dup
         list.reject! { |item| item in nil | '' }
         # Array RAM Exhaustion Defense: Ceil at MAX_ARRAY_SIZE elements
-        raise ArgumentError, "Array size cannot exceed #{MAX_ARRAY_SIZE}" if list.size > MAX_ARRAY_SIZE
+        raise(ArgumentError, "Array size cannot exceed #{MAX_ARRAY_SIZE}") if list.size > MAX_ARRAY_SIZE
 
         list
       end

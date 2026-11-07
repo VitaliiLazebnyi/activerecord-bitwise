@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/layout'
 require 'active_record/bitwise/types'
@@ -26,6 +28,7 @@ module ActiveRecord
         COLUMN = '{column}'
         public_constant :COLUMN
 
+        # Creates a WHERE clause for the bitwise column.
         # @param sql [String] The SQL, with {COLUMN} where the column is referenced.
         # @param binds [Array<Object>] The values bound to its placeholders.
         # @param column_name [Symbol, String] The database column name.
@@ -41,7 +44,12 @@ module ActiveRecord
         # @param adapter [ActiveRecord::ConnectionAdapters::AbstractAdapter] The database connection.
         # @param table_name [String] The table of the model.
         # @return [Array<Object>]
-        sig { params(adapter: ActiveRecord::ConnectionAdapters::AbstractAdapter, table_name: String).returns(T::Array[Object]) }
+        sig do
+          params(
+            adapter: ActiveRecord::ConnectionAdapters::AbstractAdapter,
+            table_name: String
+          ).returns(T::Array[Object])
+        end
         def arguments(adapter, table_name)
           column = "#{adapter.quote_table_name(table_name)}.#{adapter.quote_column_name(@column_name)}"
           [@sql.gsub(COLUMN) { column }, *@binds]
@@ -58,6 +66,7 @@ module ActiveRecord
         list
       end
 
+      # Creates the query of one bitwise scope call.
       # @param layout [ActiveRecord::Bitwise::Layout] The flags of the column.
       # @param values [Array<Object>] The scope arguments.
       sig { params(layout: Layout, values: T::Array[Object]).void }

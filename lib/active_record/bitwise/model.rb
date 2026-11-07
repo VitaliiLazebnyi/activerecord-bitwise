@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/collisions'
 require 'active_record/bitwise/declaration'
@@ -94,9 +96,10 @@ module ActiveRecord
         definitions = bitwise_definitions
         return if definitions.blank?
 
-        subclass.bitwise_definitions = definitions.transform_values do |config|
-          config.merge(mapping: config.fetch(:mapping).dup)
-        end
+        subclass.bitwise_definitions =
+          definitions.transform_values do |config|
+            config.merge(mapping: config.fetch(:mapping).dup)
+          end
       end
 
       # Automatically extends the base class with the bitwise definitions attribute.
@@ -107,7 +110,7 @@ module ActiveRecord
       def self.extended(base)
         return if Definitions.bitwise?(base)
 
-        base.class_attribute :bitwise_definitions, default: {}
+        base.class_attribute(:bitwise_definitions, default: {})
       end
 
       private
@@ -121,7 +124,7 @@ module ActiveRecord
       def _bitwise_declare(declaration)
         generated = Collisions.for(bitwise_definitions, _bitwise_attribute_names, declaration).generated_methods
         self.bitwise_definitions = bitwise_definitions.merge(declaration.column => declaration.definition(generated))
-        attribute declaration.column_name, declaration.type, default: declaration.defaults
+        attribute(declaration.column_name, declaration.type, default: declaration.defaults)
       end
 
       # Defines the getter, flag methods, atomic methods and scopes of a declared column, and registers the
@@ -152,10 +155,10 @@ module ActiveRecord
       def _bitwise_install_instance_methods
         return if include?(InstanceMethods)
 
-        include InstanceMethods
+        include(InstanceMethods)
 
-        after_initialize :_validate_bitwise_column_type_and_bounds
-        after_save :_reset_bitwise_raw_value_caches
+        after_initialize(:_validate_bitwise_column_type_and_bounds)
+        after_save(:_reset_bitwise_raw_value_caches)
       end
     end
   end

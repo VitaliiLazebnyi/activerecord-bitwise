@@ -1,12 +1,14 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise'
 require 'sorbet-runtime'
 
 begin
-  require 'tapioca/dsl'
+  require('tapioca/dsl')
 rescue LoadError
   # Namespace for Tapioca integration.
   module Tapioca
@@ -95,12 +97,34 @@ module Tapioca
         public_constant :ConstantType
 
         # A parameter of a generated method: its kind (:param, :rest or :keyword), name and Sorbet type.
-        class Param < T::Struct
+        class Param
           extend T::Sig
 
-          const :kind, Symbol
-          const :name, String
-          const :type, String
+          # The kind of parameter: :param, :rest or :keyword.
+          # @return [Symbol]
+          sig { returns(Symbol) }
+          attr_reader :kind
+
+          # The parameter name.
+          # @return [String]
+          sig { returns(String) }
+          attr_reader :name
+
+          # The Sorbet type of the parameter, as RBI source.
+          # @return [String]
+          sig { returns(String) }
+          attr_reader :type
+
+          # Creates a parameter of a generated method.
+          # @param kind [Symbol] :param, :rest or :keyword.
+          # @param name [String] The parameter name.
+          # @param type [String] The Sorbet type, as RBI source.
+          sig { params(kind: Symbol, name: String, type: String).void }
+          def initialize(kind:, name:, type:)
+            @kind = kind
+            @name = name
+            @type = type
+          end
 
           # The RBI parameter that stands for this one.
           # @param builders [Hash{Symbol => Method}] The compiler's parameter builders, by kind.
@@ -112,13 +136,41 @@ module Tapioca
         end
 
         # A method the `bitwise` macro generates, as the RBI declares it.
-        class Signature < T::Struct
+        class Signature
           extend T::Sig
 
-          const :name, String
-          const :return_type, String
-          const :parameters, T::Array[Param], default: []
-          const :class_method, T::Boolean, default: false
+          # The method name.
+          # @return [String]
+          sig { returns(String) }
+          attr_reader :name
+
+          # The Sorbet return type, as RBI source.
+          # @return [String]
+          sig { returns(String) }
+          attr_reader :return_type
+
+          # The parameters, in order.
+          # @return [Array<Param>]
+          sig { returns(T::Array[Param]) }
+          attr_reader :parameters
+
+          # Where the method is defined: :instance (on the model's records) or :class (on the model class).
+          # @return [Symbol]
+          sig { returns(Symbol) }
+          attr_reader :receiver
+
+          # Creates the signature of a generated method.
+          # @param name [String] The method name.
+          # @param return_type [String] The Sorbet return type, as RBI source.
+          # @param parameters [Array<Param>] The parameters, in order.
+          # @param receiver [Symbol] :instance (on the model's records) or :class (on the model class).
+          sig { params(name: String, return_type: String, parameters: T::Array[Param], receiver: Symbol).void }
+          def initialize(name:, return_type:, parameters: [], receiver: :instance)
+            @name = name
+            @return_type = return_type
+            @parameters = parameters
+            @receiver = receiver
+          end
 
           # Declares the method.
           # @param creator [Method] The +create_method+ of the model's RBI scope.
@@ -126,8 +178,12 @@ module Tapioca
           # @return [void]
           sig { params(creator: Method, builders: T::Hash[Symbol, Method]).void }
           def declare(creator, builders)
-            creator.call(name, parameters: parameters.map { |param| param.build(builders) },
-                               return_type: return_type, class_method: class_method)
+            creator.call(
+              name,
+              parameters: parameters.map { |param| param.build(builders) },
+              return_type: return_type,
+              class_method: receiver == :class
+            )
           end
         end
 
@@ -151,8 +207,12 @@ module Tapioca
           # @return [Signature]
           sig { returns(Signature) }
           def self.schema
-            Signature.new(name: 'bitwise_schema', return_type: 'T.nilable(T::Hash[Symbol, Integer])',
-                          parameters: [Param.new(kind: :param, name: 'col', type: NAME)], class_method: true)
+            Signature.new(
+              name: 'bitwise_schema',
+              return_type: 'T.nilable(T::Hash[Symbol, Integer])',
+              parameters: [Param.new(kind: :param, name: 'col', type: NAME)],
+              receiver: :class
+            )
           end
 
           # The signatures of all methods generated for one column.
@@ -169,11 +229,20 @@ module Tapioca
           # @return [Array<Signature>]
           sig { params(column: String).returns(T::Array[Signature]) }
           def self.accessors(column)
-            [Signature.new(name: column, return_type: FLAGS),
-             Signature.new(name: "#{column}=", return_type: FLAGS,
-                           parameters: [Param.new(kind: :param, name: 'val', type: FLAGS)])]
+            [Signature.new(name: column, return_type: FLAGS), setter(column, FLAGS, FLAGS)]
           end
           private_class_method :accessors
+
+          # The signature of a setter: it takes one value, named +val+.
+          # @param name [String] The attribute name, without the trailing "=".
+          # @param type [String] The Sorbet type of the value.
+          # @param return_type [String] The Sorbet return type.
+          # @return [Signature]
+          sig { params(name: String, type: String, return_type: String).returns(Signature) }
+          def self.setter(name, type, return_type)
+            Signature.new(name: "#{name}=", return_type:, parameters: [Param.new(kind: :param, name: 'val', type:)])
+          end
+          private_class_method :setter
 
           # The `flag?`, `flag=` and `flag!` methods of every flag.
           # @param declaration [ActiveRecord::Bitwise::Declaration]
@@ -181,10 +250,11 @@ module Tapioca
           sig { params(declaration: ActiveRecord::Bitwise::Declaration).returns(T::Array[Signature]) }
           def self.flags(declaration)
             declaration.flags.keys.flat_map do |name|
-              [Signature.new(name: "#{name}?", return_type: 'T::Boolean'),
-               Signature.new(name: "#{name}=", return_type: 'T::Boolean',
-                             parameters: [Param.new(kind: :param, name: 'val', type: 'T::Boolean')]),
-               Signature.new(name: "#{name}!", return_type: 'TrueClass')]
+              [
+                Signature.new(name: "#{name}?", return_type: 'T::Boolean'),
+                setter(name, 'T::Boolean', 'T::Boolean'),
+                Signature.new(name: "#{name}!", return_type: 'TrueClass')
+              ]
             end
           end
           private_class_method :flags
@@ -209,8 +279,12 @@ module Tapioca
           def self.class_atomic(column)
             records = Param.new(kind: :keyword, name: 'records', type: 'T.untyped')
             %w[add remove].map do |operation|
-              Signature.new(name: "#{operation}_#{column}!", return_type: 'void', parameters: [VALUES, records],
-                            class_method: true)
+              Signature.new(
+                name: "#{operation}_#{column}!",
+                return_type: 'void',
+                parameters: [VALUES, records],
+                receiver: :class
+              )
             end
           end
           private_class_method :class_atomic
@@ -221,8 +295,12 @@ module Tapioca
           sig { params(column: String).returns(T::Array[Signature]) }
           def self.scopes(column)
             %w[with_ with_any_ with_exact_ without_].map do |prefix|
-              Signature.new(name: "#{prefix}#{column}", return_type: 'ActiveRecord::Relation', parameters: [VALUES],
-                            class_method: true)
+              Signature.new(
+                name: "#{prefix}#{column}",
+                return_type: 'ActiveRecord::Relation',
+                parameters: [VALUES],
+                receiver: :class
+              )
             end
           end
           private_class_method :scopes
@@ -263,8 +341,11 @@ module Tapioca
         # @return [void]
         sig { params(creator: Method, signatures: T::Array[Signature]).void }
         def emit(creator, signatures)
-          builders = { param: method(:create_param), rest: method(:create_rest_param),
-                       keyword: method(:create_kw_param) }
+          builders = {
+            param: method(:create_param),
+            rest: method(:create_rest_param),
+            keyword: method(:create_kw_param)
+          }
           signatures.each { |signature| signature.declare(creator, builders) }
         end
       end

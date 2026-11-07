@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::Model, '#admin!' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::Model, '#admin!') do
   include_context 'with a user model'
 
   context 'with an unsaved record' do
@@ -9,14 +11,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#admin!' do
       record = model.new
       record.admin!
 
-      expect(record).to be_persisted
+      expect(record).to(be_persisted)
     end
 
     it 'stores the flag bit' do
       record = model.new
       record.admin!
 
-      expect(raw_value(record)).to eq(1)
+      expect(raw_value(record)).to(eq(1))
     end
   end
 
@@ -26,31 +28,31 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#admin!' do
     it 'keeps the other flags' do
       record.admin!
 
-      expect(raw_value(record)).to eq(0b101)
+      expect(raw_value(record)).to(eq(0b101))
     end
 
     it 'is idempotent' do
       record.admin!
       record.admin!
 
-      expect(raw_value(record)).to eq(0b101)
+      expect(raw_value(record)).to(eq(0b101))
     end
 
     it 'keeps unmapped bits stored in the database' do
       stored = plant_raw_value(record, 0b1_0000_0100)
       stored.admin!
 
-      expect(raw_value(stored)).to eq(0b1_0000_0101)
+      expect(raw_value(stored)).to(eq(0b1_0000_0101))
     end
 
     it 'leaves the record without unsaved changes' do
       record.admin!
 
-      expect(record.changed?).to be(false)
+      expect(record.changed?).to(be(false))
     end
 
     it 'returns true' do
-      expect(record.admin!).to be(true)
+      expect(record.admin!).to(be(true))
     end
   end
 
@@ -64,13 +66,13 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#admin!' do
 
     it 'raises ActiveRecord::RecordInvalid' do
       expect { validated.new.admin! }
-        .to raise_error(ActiveRecord::RecordInvalid, "Validation failed: Name can't be blank")
+        .to(raise_error(ActiveRecord::RecordInvalid, "Validation failed: Name can't be blank"))
     end
 
     it 'does not persist anything' do
       capture_error { validated.new.admin! }
 
-      expect(validated.count).to eq(0)
+      expect(validated.count).to(eq(0))
     end
   end
 
@@ -79,7 +81,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#admin!' do
       record = model.create!
       record.legacy_admin!
 
-      expect(raw_value(record, :legacy_roles)).to eq(1)
+      expect(raw_value(record, :legacy_roles)).to(eq(1))
     end
   end
 end

@@ -1,12 +1,14 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::RelationExtension, '#update_all') do
   include_context 'with a user model'
 
   # admin + author + the unmapped bit 4 (value 16)
   let!(:ghosted) { plant_raw_value(model.create!, 0b1_0000_0101) }
-  let!(:plain) { model.create!(roles: [:editor]) }
+  let!(:plain)   { model.create!(roles: [:editor])               }
 
   # Decision table: value assigned -> raw column afterwards for the ghosted row.
   [
@@ -24,7 +26,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it "stores #{expected_raw.inspect} for roles: #{value.inspect}" do
       model.where(id: ghosted.id).update_all(roles: value)
 
-      expect(raw_value(ghosted)).to eq(expected_raw)
+      expect(raw_value(ghosted)).to(eq(expected_raw))
     end
   end
 
@@ -32,19 +34,19 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'passes an Arel SQL literal through' do
       model.where(id: ghosted.id).update_all(roles: Arel.sql('0 + 3'))
 
-      expect(raw_value(ghosted)).to eq(3)
+      expect(raw_value(ghosted)).to(eq(3))
     end
 
     it 'passes an Arel node through' do
       model.where(id: ghosted.id).update_all(roles: model.arel_table[:roles] + 2)
 
-      expect(raw_value(ghosted)).to eq(0b1_0000_0111)
+      expect(raw_value(ghosted)).to(eq(0b1_0000_0111))
     end
 
     it 'passes a SQL string through' do
       model.where(id: ghosted.id).update_all('roles = 3')
 
-      expect(raw_value(ghosted)).to eq(3)
+      expect(raw_value(ghosted)).to(eq(3))
     end
   end
 
@@ -52,7 +54,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     before { model.update_all(roles: [:author]) }
 
     it 'keeps the unmapped bits of each row individually' do
-      expect([raw_value(ghosted), raw_value(plain)]).to eq([0b1_0000_0100, 0b0100])
+      expect([raw_value(ghosted), raw_value(plain)]).to(eq([0b1_0000_0100, 0b0100]))
     end
   end
 
@@ -61,7 +63,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
       nulled = plant_raw_value(plain, nil)
       model.where(id: nulled.id).update_all(roles: [:admin])
 
-      expect(raw_value(nulled)).to eq(1)
+      expect(raw_value(nulled)).to(eq(1))
     end
   end
 
@@ -69,7 +71,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'does not copy those unmapped bits to the updated rows' do
       model.where(id: plain.id).update_all(roles: ghosted.roles)
 
-      expect(raw_value(plain)).to eq(0b0101)
+      expect(raw_value(plain)).to(eq(0b0101))
     end
   end
 
@@ -77,13 +79,13 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'serializes the flags' do
       model.where(id: plain.id).update_all({ roles: ['author'] }.transform_keys(&:to_s))
 
-      expect(raw_value(plain)).to eq(0b0100)
+      expect(raw_value(plain)).to(eq(0b0100))
     end
 
     it 'keeps the unmapped bits like a Symbol key does' do
       model.where(id: ghosted.id).update_all({ roles: ['author'] }.transform_keys(&:to_s))
 
-      expect(raw_value(ghosted)).to eq(0b1_0000_0100)
+      expect(raw_value(ghosted)).to(eq(0b1_0000_0100))
     end
   end
 
@@ -91,22 +93,23 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'keeps the unmapped bits like a Hash does' do
       model.where(id: ghosted.id).update_all(ActiveSupport::HashWithIndifferentAccess.new(roles: ['author']))
 
-      expect(raw_value(ghosted)).to eq(0b1_0000_0100)
+      expect(raw_value(ghosted)).to(eq(0b1_0000_0100))
     end
   end
 
   context 'with an unknown flag' do
     it 'raises UnknownValueError with the full explanation' do
-      expect { model.update_all(roles: %i[admin bogus]) }.to raise_error(
-        ActiveRecord::Bitwise::UnknownValueError,
-        'Unknown bitwise value(s) ["bogus"] for column roles; refusing to zero unrecognized flags via update_all'
-      )
+      expect { model.update_all(roles: %i[admin bogus]) }
+        .to(raise_error(
+          ActiveRecord::Bitwise::UnknownValueError,
+          'Unknown bitwise value(s) ["bogus"] for column roles; refusing to zero unrecognized flags via update_all'
+        ))
     end
 
     it 'changes no row' do
       capture_error { model.update_all(roles: [:bogus]) }
 
-      expect([raw_value(ghosted), raw_value(plain)]).to eq([0b1_0000_0101, 0b0010])
+      expect([raw_value(ghosted), raw_value(plain)]).to(eq([0b1_0000_0101, 0b0010]))
     end
   end
 
@@ -114,19 +117,19 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'updates both' do
       model.where(id: plain.id).update_all(roles: [:admin], permissions: 2)
 
-      expect([raw_value(plain), raw_value(plain, :permissions)]).to eq([1, 2])
+      expect([raw_value(plain), raw_value(plain, :permissions)]).to(eq([1, 2]))
     end
 
     it 'updates only the ordinary column when given only that' do
       model.where(id: plain.id).update_all(permissions: 3)
 
-      expect([raw_value(plain), raw_value(plain, :permissions)]).to eq([0b10, 3])
+      expect([raw_value(plain), raw_value(plain, :permissions)]).to(eq([0b10, 3]))
     end
   end
 
   context 'with the return value' do
     it 'returns the number of affected rows' do
-      expect(model.update_all(roles: [:admin])).to eq(2)
+      expect(model.update_all(roles: [:admin])).to(eq(2))
     end
   end
 
@@ -134,16 +137,16 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'behaves like plain ActiveRecord' do
       build_model.where(id: plain.id).update_all(name: 'Ada')
 
-      expect(plain.reload.name).to eq('Ada')
+      expect(plain.reload.name).to(eq('Ada'))
     end
   end
 
   context 'with a column whose type was replaced after declaring it bitwise' do
     it 'leaves the value to the new type' do
-      model.attribute :roles, :integer
+      model.attribute(:roles, :integer)
       model.where(id: plain.id).update_all(roles: '6')
 
-      expect(raw_value(plain)).to eq(6)
+      expect(raw_value(plain)).to(eq(6))
     end
   end
 
@@ -152,7 +155,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
       column = model.connection.quote_column_name('roles')
       statements = capture_sql { model.where(id: plain.id).update_all(roles: [:admin]) }
 
-      expect(statements).to include(a_string_including("(COALESCE(#{column}, 0) & -16) | 1"))
+      expect(statements).to(include(a_string_including("(COALESCE(#{column}, 0) & -16) | 1")))
     end
   end
 
@@ -160,7 +163,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
     it 'still rewrites the flags' do
       model.where(id: plain.id).update_all(roles: 1, permissions: [:manage])
 
-      expect([raw_value(plain), raw_value(plain, :permissions)]).to eq([1, 2])
+      expect([raw_value(plain), raw_value(plain, :permissions)]).to(eq([1, 2]))
     end
   end
 
@@ -169,7 +172,7 @@ RSpec.describe ActiveRecord::Bitwise::RelationExtension, '#update_all' do
       updates = { roles: [:admin] }
       model.where(id: plain.id).update_all(updates)
 
-      expect(updates).to eq(roles: [:admin])
+      expect(updates).to(eq(roles: [:admin]))
     end
   end
 end

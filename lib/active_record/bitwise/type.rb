@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/errors'
 require 'active_record/bitwise/layout'
@@ -140,7 +142,7 @@ module ActiveRecord
       sig { params(value: Object).returns(Types::Flags) }
       def cast_unstamped(value)
         if value in Hash | true | false
-          raise ArgumentError, "cannot cast #{value} to a bitwise flag array for column #{column_name}"
+          raise(ArgumentError, "cannot cast #{value} to a bitwise flag array for column #{column_name}")
         end
 
         # A bare numeric string (e.g. from a raw SQLite read) is a bitmask, not a flag name.
@@ -167,7 +169,7 @@ module ActiveRecord
       sig { params(value: T::Array[Object]).returns(Types::Flags) }
       def decode_array(value)
         raw = RawMask.stamped?(value) ? RawMask.read(value) : serialize(value)
-        array = cast(value) or raise Error, 'Casting failed'
+        array = cast(value) or raise(Error, 'Casting failed')
         RawMask.stamp(array.dup, raw).freeze
       end
 
@@ -180,8 +182,10 @@ module ActiveRecord
       def checked(bitmask)
         return bitmask if bitmask.bit_length < 64
 
-        raise ActiveModel::RangeError,
-              "#{bitmask} is out of range for column #{column_name}: it must fit a signed 64-bit integer"
+        raise(
+          ActiveModel::RangeError,
+          "#{bitmask} is out of range for column #{column_name}: it must fit a signed 64-bit integer"
+        )
       end
     end
   end
