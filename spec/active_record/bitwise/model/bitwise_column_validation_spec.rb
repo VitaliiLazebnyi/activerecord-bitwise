@@ -50,25 +50,37 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#bitwise') do
   end
 
   # A 5-byte column is not a size any database offers natively (MySQL and PostgreSQL widen it to
-  # BIGINT); where it is kept (SQLite) the gem assumes the 4-byte capacity of a plain INTEGER.
+  # BIGINT); where it is kept (SQLite) the gem assumes the 4-byte capacity of a plain INTEGER. The examples run
+  # on every database, so they expect what the connected one does with the column.
   odd_bytes = DatabaseHelpers.column_limit('capacity_records', 'odd')
   context "with an unusual byte size (reported as #{odd_bytes} bytes)" do
-    let(:odd_flags) { DatabaseHelpers.column_limit('capacity_records', 'odd') == 5 ? 31 : 63 }
+    let(:kept)      { DatabaseHelpers.column_limit('capacity_records', 'odd') == 5 }
+    let(:odd_flags) { kept ? 31 : 63                                               }
+    # The first position past the capacity: past the 31 flags of a kept 5-byte column, or, for a BIGINT, which
+    # holds every position the mapping accepts (0..62), not a bit position at all.
+    let(:first_misfit) do
+      if kept
+        [
+          ArgumentError,
+          'Bitwise column odd has limit of 5 bytes (max 31 flags), but mapping requires bit shift position 31.'
+        ]
+      else
+        [ActiveRecord::Bitwise::ConfigurationError, /invalid bit position 63\./]
+      end
+    end
+
+    it 'is kept at 5 bytes or widened to a BIGINT by the database' do
+      expect(DatabaseHelpers.column_limit('capacity_records', 'odd')).to(eq(5).or(eq(8)))
+    end
 
     it 'accepts the highest bit position that fits' do
       expect { define.call(:odd, odd_flags - 1).new }
         .not_to(raise_error)
     end
 
-    it 'rejects the first bit position that does not fit', if: odd_bytes == 5 do
-      message = 'Bitwise column odd has limit of 5 bytes (max 31 flags), but mapping requires bit shift position 31.'
-
-      expect { define.call(:odd, 31).new }
-        .to(raise_error(ArgumentError, message))
-    end
-
-    it 'is widened to a BIGINT by the database', unless: odd_bytes == 5 do
-      expect(DatabaseHelpers.column_limit('capacity_records', 'odd')).to(eq(8))
+    it 'rejects the first bit position that does not fit' do
+      expect { define.call(:odd, odd_flags).new }
+        .to(raise_error(*first_misfit))
     end
   end
 
