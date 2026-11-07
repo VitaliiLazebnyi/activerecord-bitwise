@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -6,41 +6,48 @@
 RSpec.describe(ActiveRecord::Bitwise::Model, '#bitwise') do
   # Decision table: prefix x suffix -> name of the generated predicate for the key :admin
   # on the column :roles (singular "role").
-  [
-    { prefix: nil, suffix: nil, predicate: 'admin?' },
-    { prefix: false, suffix: false, predicate: 'admin?' },
-    { prefix: true, suffix: nil, predicate: 'role_admin?' },
-    { prefix: nil, suffix: true, predicate: 'admin_role?' },
-    { prefix: true, suffix: true, predicate: 'role_admin_role?' },
-    { prefix: :can, suffix: nil, predicate: 'can_admin?' },
-    { prefix: nil, suffix: :flag, predicate: 'admin_flag?' },
-    { prefix: 'is', suffix: 'now', predicate: 'is_admin_now?' }
-  ].each do |row|
-    context "with prefix: #{row[:prefix].inspect} and suffix: #{row[:suffix].inspect}" do
-      let(:record) do
+  let(:rows) do
+    [
+      { prefix: nil, suffix: nil, predicate: 'admin?' },
+      { prefix: false, suffix: false, predicate: 'admin?' },
+      { prefix: true, suffix: nil, predicate: 'role_admin?' },
+      { prefix: nil, suffix: true, predicate: 'admin_role?' },
+      { prefix: true, suffix: true, predicate: 'role_admin_role?' },
+      { prefix: :can, suffix: nil, predicate: 'can_admin?' },
+      { prefix: nil, suffix: :flag, predicate: 'admin_flag?' },
+      { prefix: 'is', suffix: 'now', predicate: 'is_admin_now?' }
+    ]
+  end
+  # Checks every row of the table: yields a new record of a model declared with the row's affixes and the
+  # base name of the generated methods, inside a failure group named after the affixes.
+  let(:each_row) do
+    lambda do |&check|
+      rows.each do |row|
         affixes = row.slice(:prefix, :suffix)
-        build_model { bitwise(:roles, { admin: 0 }, **affixes) }
+        record = build_model { bitwise(:roles, { admin: 0 }, **affixes) }
           .new
+        aggregate_failures(affixes.inspect) { check.call(record, row.fetch(:predicate).delete_suffix('?')) }
       end
-      let(:base) { row[:predicate].delete_suffix('?') }
+    end
+  end
 
-      it "generates #{row[:predicate]}" do
-        expect(record).to(respond_to(row[:predicate]))
-      end
+  it 'generates the predicate the affixes name', :aggregate_failures do
+    each_row.call { |record, base| expect(record).to(respond_to("#{base}?")) }
+  end
 
-      it 'generates the matching setter' do
-        expect(record).to(respond_to("#{base}="))
-      end
+  it 'generates the matching setter', :aggregate_failures do
+    each_row.call { |record, base| expect(record).to(respond_to("#{base}=")) }
+  end
 
-      it 'generates the matching bang method' do
-        expect(record).to(respond_to("#{base}!"))
-      end
+  it 'generates the matching bang method', :aggregate_failures do
+    each_row.call { |record, base| expect(record).to(respond_to("#{base}!")) }
+  end
 
-      it 'reads and writes the column through the generated names' do
-        record.public_send("#{base}=", true)
+  it 'reads and writes the column through the generated names', :aggregate_failures do
+    each_row.call do |record, base|
+      record.public_send("#{base}=", true)
 
-        expect(record.roles).to(eq([:admin]))
-      end
+      expect(record.roles).to(eq([:admin]))
     end
   end
 

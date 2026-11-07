@@ -55,6 +55,7 @@ check 'skipped or focused test' "${focus}" '(spec|script)/'
 check 'Sorbet escape hatch' 'T\.(unsafe|cast|bind)\b' '(lib|spec|script)/.*\.rb$'
 check 'untyped value outside lib/' 'T\.untyped\b' '(spec|script)/.*\.rb$'
 check 'weak Sorbet sigil' 'typed: *(false|ignore|true)\b' '(lib|script)/'
+check 'Sorbet sigil weaker than true' 'typed: *(false|ignore)\b' 'spec/'
 check 'Sorbet sigil off' 'typed: *ignore\b'
 
 # Suppression and todo files of the tools: findings are fixed, never parked in a file.

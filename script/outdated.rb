@@ -4,33 +4,37 @@
 
 # Copyright (c) 2026 VitaliiLazebnyi
 
-# Fails when `bundle outdated` reports a gem of Gemfile.lock (every group, the optional ones included) that is
-# not on the documented hold list (script/outdated_holds.yml), or when a listed hold is no longer outdated.
+# Fails when a dependency of the repository is not at its newest release and is not on the documented hold list
+# (script/outdated_holds.yml), or when a listed hold is no longer needed. It covers the gems of Gemfile.lock (every
+# group, the optional ones included), the GitHub Actions of the workflows (release tag and commit), the Docker images
+# of the workflows (newest major version and the digest of their tag), every pinned Ruby (the newest patch release of
+# its line, and the newest line in .ruby-version), the Python linters of tools/requirements.txt and the release
+# binaries the workflows download.
+#
+# Usage: bundle exec rake outdated (needs the network)
 
-require 'open3'
 require 'sorbet-runtime'
-require 'yaml'
+require_relative 'outdated/actions'
+require_relative 'outdated/bundle'
+require_relative 'outdated/holds'
+require_relative 'outdated/images'
+require_relative 'outdated/report'
+require_relative 'outdated/rubies'
+require_relative 'outdated/tools'
 
-root = File.expand_path('..', __dir__)
-holds = T.let(
-  YAML.safe_load_file(File.join(root, 'script', 'outdated_holds.yml')),
-  T::Hash[String, T::Hash[String, Object]]
-)
+# The outdated check (see the comment at the top of this file).
+module Outdated
+  extend T::Sig
 
-# CI installs the bundle in deployment mode, in which `bundle outdated` refuses to run.
-unfrozen = %w[env BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false]
-output, status = Open3.capture2e(*unfrozen, 'bundle', 'outdated', '--parseable', chdir: root)
-# `bundle outdated` exits with 1 when it finds outdated gems; any other failure means it could not check them.
-abort("bundle outdated failed (#{status}):\n#{output}") unless status.success? || status.exitstatus == 1
-pattern = /^(\S+) \(newest ([^,\s]+), installed ([^,)\s]+)/
-outdated = output.scan(pattern).to_h { |name, newest, installed| [name.to_s, [newest.to_s, installed.to_s]] }
-
-unexpected = outdated.reject { |name, (newest, _)| holds.dig(name, 'newest') == newest }
-stale = holds.keys - outdated.keys
-
-outdated.each do |name, (newest, installed)|
-  puts "outdated: #{name} #{installed} -> #{newest}#{' (on hold)' if holds.key?(name)}"
+  # Runs every check and returns the exit status: 0 when every dependency is current or held.
+  # @return [Integer]
+  sig { returns(Integer) }
+  def self.run
+    holds = Holds.load(File.join(ROOT, 'script', 'outdated_holds.yml'))
+    report = Report.new(holds)
+    [Bundle, Actions, Images, Rubies, Tools].each { |check| check.new(report).check }
+    report.status
+  end
 end
-unexpected.each { |name, (newest, installed)| warn "NOT ON THE HOLD LIST: #{name} #{installed} -> #{newest}" }
-stale.each { |name| warn "STALE HOLD (no longer outdated): #{name}" }
-exit(unexpected.empty? && stale.empty? ? 0 : 1)
+
+exit(Outdated.run) if $PROGRAM_NAME == __FILE__

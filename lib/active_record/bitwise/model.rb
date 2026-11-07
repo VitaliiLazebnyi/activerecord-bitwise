@@ -122,8 +122,10 @@ module ActiveRecord
       # @return [void]
       sig { params(declaration: Declaration).void }
       def _bitwise_declare(declaration)
-        generated = Collisions.for(bitwise_definitions, _bitwise_attribute_names, declaration).generated_methods
-        self.bitwise_definitions = bitwise_definitions.merge(declaration.column => declaration.definition(generated))
+        column = declaration.column
+        taken = Collisions::Taken.for(bitwise_definitions, _bitwise_attribute_names, column)
+        generated = Collisions.new(declaration, taken).generated_methods
+        self.bitwise_definitions = bitwise_definitions.merge(column => declaration.definition(generated))
         attribute(declaration.column_name, declaration.type, default: declaration.defaults)
       end
 

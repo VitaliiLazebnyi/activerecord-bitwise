@@ -17,7 +17,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -28,6 +28,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -53,7 +54,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -64,6 +65,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       # The original suite is read from the history (script/legacy_suite.rb).
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
@@ -93,7 +95,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -104,6 +106,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -124,26 +127,32 @@ jobs:
         run: "bundle exec rake suppressions"
     timeout-minutes: 10
 
-  # Every gem must be at its newest release, except those on the documented hold list
-  # (script/outdated_holds.yml), which quotes the upstream constraint that blocks each one.
+  # Every dependency must be at its newest release (the gems, the actions, the Docker images, every pinned Ruby, the
+  # Python linters and the release binaries), except those on the documented hold list (script/outdated_holds.yml),
+  # which states the reason of each one.
   outdated:
-    name: "Outdated gems"
+    name: "Outdated dependencies"
     permissions:
       contents: "read"
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
             api.github.com:443
+            auth.docker.io:443
+            cache.ruby-lang.org:443
             github.com:443
             index.rubygems.org:443
             objects.githubusercontent.com:443
+            pypi.org:443
+            registry-1.docker.io:443
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -158,7 +167,7 @@ jobs:
           ruby-version: ".ruby-version"
       - name: "Check the Ruby version"
         run: "script/check_ruby.sh"
-      - name: "No outdated gem outside the hold list"
+      - name: "No outdated dependency outside the hold list"
         run: "bundle exec rake outdated"
     timeout-minutes: 10
 
@@ -169,7 +178,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -180,6 +189,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -205,7 +215,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -216,6 +226,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -241,7 +252,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -252,6 +263,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -294,7 +306,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -305,6 +317,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -363,8 +376,9 @@ jobs:
         ports:
           - "3306:3306"
     steps:
+      # Sudo and containers stay available: the job runs a database service container.
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -426,8 +440,9 @@ jobs:
         ports:
           - "5432:5432"
     steps:
+      # Sudo and containers stay available: the job runs a database service container.
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -466,7 +481,7 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
@@ -477,6 +492,7 @@ jobs:
             release-assets.githubusercontent.com:443
             results-receiver.actions.githubusercontent.com:443
             rubygems.org:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
@@ -516,13 +532,14 @@ jobs:
     runs-on: "ubuntu-26.04"
     steps:
       - name: "Harden the runner (egress allow-list)"
-        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        uses: "step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a"  # v2.22.4
         with:
           allowed-endpoints: >-
             *.blob.core.windows.net:443
             api.github.com:443
             github.com:443
             results-receiver.actions.githubusercontent.com:443
+          disable-sudo-and-containers: "true"
           egress-policy: "block"
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:

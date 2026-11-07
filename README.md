@@ -460,8 +460,8 @@ BUNDLE_GEMFILE=gemfiles/activerecord_7_2.gemfile bundle exec rspec
 ### Static Analysis and Type Checking
 
 Run every check that CI runs on a pull request (the specs, the original suite, RuboCop, the no-suppression
-check, Tapioca and Sorbet, YARD, Reek, Flay, Flog, Debride, bundler-audit, the strict gem build, mutation testing
-and the linters of every other file type):
+check, Tapioca and Sorbet, YARD, Reek, Flay, Flog, Debride, bundler-audit, the strict gem build, the outdated
+check, mutation testing, the link check and the linters of every other file type):
 
 ```bash
 script/check

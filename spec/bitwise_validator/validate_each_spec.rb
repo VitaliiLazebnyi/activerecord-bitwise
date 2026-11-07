@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -19,22 +19,28 @@ RSpec.describe(BitwiseValidator, '#validate_each') do
   end
 
   context 'with only known flags' do
-    [[:admin], %i[admin author], %w[admin author], [], [''], [nil, :admin], nil].each do |roles|
-      it "accepts #{roles.inspect}" do
-        expect(errors_for.call(roles)).to(eq([]))
+    it 'accepts every combination of known flags', :aggregate_failures do
+      [[:admin], %i[admin author], %w[admin author], [], [''], [nil, :admin], nil].each do |roles|
+        aggregate_failures("accepts #{roles.inspect}") { expect(errors_for.call(roles)).to(eq([])) }
       end
     end
   end
 
   context 'with unknown flags' do
-    {
-      one: [[:admin, 'x'], 'contains invalid values: x'],
-      three: [%w[a b c], 'contains invalid values: a, b, c'],
-      four: [%w[a b c d], 'contains invalid values: a, b, c (and 1 more)'],
-      five: [%w[a b c d e], 'contains invalid values: a, b, c (and 2 more)']
-    }.each do |label, (roles, message)|
-      it "reports the message for #{label} unknown value(s)" do
-        expect(errors_for.call(roles)).to(eq([message]))
+    let(:unknown_values) do
+      {
+        one: [[:admin, 'x'], 'contains invalid values: x'],
+        three: [%w[a b c], 'contains invalid values: a, b, c'],
+        four: [%w[a b c d], 'contains invalid values: a, b, c (and 1 more)'],
+        five: [%w[a b c d e], 'contains invalid values: a, b, c (and 2 more)']
+      }
+    end
+
+    it 'reports the message for every number of unknown values', :aggregate_failures do
+      unknown_values.each do |label, (roles, message)|
+        aggregate_failures("reports the message for #{label} unknown value(s)") do
+          expect(errors_for.call(roles)).to(eq([message]))
+        end
       end
     end
 
@@ -126,20 +132,17 @@ RSpec.describe(BitwiseValidator, '#validate_each') do
 
   context 'with a model that has no bitwise definitions at all' do
     it 'accepts any value instead of crashing' do
-      plain = build_plain_validated_model.new
-      plain.roles = [:anything]
-
-      expect(plain).to(be_valid)
+      expect(build_plain_validated_model.new([:anything])).to(be_valid)
     end
   end
 
   describe 'limits' do
     it 'reports at most 3 values' do
-      expect(described_class::MAX_REPORTED_VALUES).to(eq(3))
+      expect(BitwiseValidator::MAX_REPORTED_VALUES).to(eq(3))
     end
 
     it 'cuts values after 64 characters' do
-      expect(described_class::MAX_REPORTED_LENGTH).to(eq(64))
+      expect(BitwiseValidator::MAX_REPORTED_LENGTH).to(eq(64))
     end
   end
 end

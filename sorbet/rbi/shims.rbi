@@ -27,3 +27,54 @@ end
 # runs; the generated RBI of sqlite3 (which also extends Process) records that mixin, so Sorbet must know it.
 class Bundler::ConnectionPool; end
 module Bundler::ConnectionPool::ForkTracker; end
+
+# RSpec mixes its mock and matcher DSLs, and the suite's own helpers, into every example group at runtime
+# (`config.mock_with`, `config.expect_with` and `config.include` in spec/spec_helper.rb); Sorbet's RSpec support
+# (`--enable-experimental-rspec`, sorbet/config) needs the same ancestry declared. RSpec::Matchers comes after
+# the mocks so that its `expect`, which also takes a block, wins over the value-only `expect` of
+# RSpec::Mocks::ExampleMethods::ExpectHost, as it does at runtime.
+class RSpec::Core::ExampleGroup
+  include ::RSpec::Mocks::ExampleMethods
+  include ::RSpec::Matchers
+  include ::DatabaseHelpers
+  include ::ModelFactory
+  include ::RawMarker
+  include ::ErrorCapture
+  include ::SqlCapture
+  include ::RowLockSpy
+  include ::ConcurrentRunner
+end
+
+# RSpec answers every `be_<predicate>` matcher through method_missing (RSpec::Matchers#method_missing); these
+# are the predicate matchers the suite uses.
+module RSpec::Matchers
+  sig { returns(RSpec::Matchers::BuiltIn::BePredicate) }
+  def be_empty; end
+
+  sig { returns(RSpec::Matchers::BuiltIn::BePredicate) }
+  def be_frozen; end
+
+  sig { returns(RSpec::Matchers::BuiltIn::BePredicate) }
+  def be_new_record; end
+
+  sig { returns(RSpec::Matchers::BuiltIn::BePredicate) }
+  def be_persisted; end
+
+  sig { returns(RSpec::Matchers::BuiltIn::BePredicate) }
+  def be_success; end
+
+  sig { returns(RSpec::Matchers::BuiltIn::BePredicate) }
+  def be_valid; end
+end
+
+# Sorbet's RBI of the core library declares no constructor for Fiber, which takes the block the fiber runs.
+class Fiber
+  sig do
+    params(
+      blocking: T::Boolean,
+      storage: T.nilable(T::Hash[Symbol, T.anything]),
+      blk: T.proc.params(args: T.anything).returns(T.anything)
+    ).void
+  end
+  def initialize(blocking: false, storage: nil, &blk); end
+end

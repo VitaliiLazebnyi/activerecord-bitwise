@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -6,27 +6,33 @@
 RSpec.describe(ActiveRecord::Bitwise::Model, '.with_exact_roles') do
   include_context 'with scope fixtures'
 
+  let(:decisions) do
+    [
+      [[:admin], %i[admin]],
+      [[:author], %i[author]],
+      [%i[admin author], %i[both]],
+      [%i[author admin], %i[both]],
+      [[%i[admin author]], %i[both]],
+      [%w[admin author], %i[both]],
+      [%i[admin admin], %i[admin]],
+      [%i[admin author subscriber], %i[three]],
+      [[], %i[none]],
+      [[[]], %i[none]],
+      [[nil], %i[none]],
+      [[''], %i[none]],
+      [[nil, ''], %i[none]],
+      [%i[admin bogus], []],
+      [[:bogus], []],
+      [[0], []]
+    ]
+  end
+
   # Decision table: arguments -> fixtures returned (records having exactly the given flags).
-  [
-    [[:admin], %i[admin]],
-    [[:author], %i[author]],
-    [%i[admin author], %i[both]],
-    [%i[author admin], %i[both]],
-    [[%i[admin author]], %i[both]],
-    [%w[admin author], %i[both]],
-    [%i[admin admin], %i[admin]],
-    [%i[admin author subscriber], %i[three]],
-    [[], %i[none]],
-    [[[]], %i[none]],
-    [[nil], %i[none]],
-    [[''], %i[none]],
-    [[nil, ''], %i[none]],
-    [%i[admin bogus], []],
-    [[:bogus], []],
-    [[0], []]
-  ].each do |arguments, expected|
-    it "with #{arguments.inspect} returns #{expected.inspect}" do
-      expect(names_in.call(model.with_exact_roles(*arguments))).to(eq(expected))
+  it 'returns the right records for every form of arguments', :aggregate_failures do
+    decisions.each do |arguments, expected|
+      aggregate_failures("with #{arguments.inspect} returns #{expected.inspect}") do
+        expect(names_in.call(model.with_exact_roles(*arguments))).to(eq(expected))
+      end
     end
   end
 

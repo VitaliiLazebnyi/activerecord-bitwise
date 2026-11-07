@@ -112,7 +112,7 @@ Rails/SkipsModelValidations:
 Sorbet/EnforceSignatures:
   Include:
     - "lib/**/*.rb"
-    - "script/*.rb"
+    - "script/**/*.rb"
 
 # Sorbet/ForbidSig, ForbidTHelpers, ForbidTLet, ForbidTSig and ForbidTTypeAlias are off: they forbid the
 # sorbet-runtime DSL (`sig`, T::Helpers, T.let, T::Sig, T.type_alias) in codebases that write RBS comment
@@ -167,13 +167,20 @@ Sorbet/ImplicitConversionMethod:
 Sorbet/RedundantExtendTSig:
   Enabled: false
 
-# Sorbet: lib/ and script/ are `typed: strict`; the files of lib/ that also type-check under `typed: strong`
-# (no T.untyped value reaches them) are held there. The rest of lib/ calls ActiveRecord APIs that the RBIs
-# type as T.untyped, which `strong` forbids, and T.cast/T.unsafe are not allowed.
+# Sorbet: lib/, script/, the spec helper and the spec support files are `typed: strict`; the files of lib/ that
+# also type-check under `typed: strong` (no T.untyped value reaches them) are held there. The rest of lib/ calls
+# ActiveRecord APIs that the RBIs type as T.untyped, which `strong` forbids, and T.cast/T.unsafe are not
+# allowed. The example groups and the shared contexts are `typed: true` (Sorbet/TrueSigil): Sorbet's RSpec
+# support (`--enable-experimental-rspec`, sorbet/config) defines their `let` and `subject` helpers without
+# signatures, which `strict` requires.
 Sorbet/StrictSigil:
+  Exclude:
+    - "spec/support/shared_contexts.rb"
   Include:
     - "lib/**/*.rb"
-    - "script/*.rb"
+    - "script/**/*.rb"
+    - "spec/spec_helper.rb"
+    - "spec/support/*.rb"
 
 Sorbet/StrongSigil:
   Include:
@@ -186,13 +193,6 @@ Sorbet/StrongSigil:
     - "lib/active_record/bitwise/types.rb"
     - "lib/active_record/bitwise/version.rb"
 
-# Example groups and shared contexts are typed: false: RSpec evaluates their blocks with an example group or
-# an example as `self`, which Sorbet cannot see without a T.bind in every block (T.bind is an escape hatch
-# this repository does not use). Everything else, the spec helpers included, is at least `typed: true`.
-Sorbet/TrueSigil:
-  Exclude:
-    - "spec/**/*_spec.rb"
-    - "spec/support/shared_contexts.rb"
 
 # Markdown code blocks are snippets of an application, not files of this repository.
 Style/Copyright:
@@ -248,4 +248,8 @@ plugins:
   - "rubocop-sorbet"
   - "rubocop-thread_safety"
   - "rubocop-yard"
+
+# The AI department (rubocop-ai): boilerplate, filler and hallucination patterns in code and comments.
+require:
+  - "rubocop-ai"
 ...

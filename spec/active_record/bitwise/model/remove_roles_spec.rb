@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -129,7 +129,7 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '.remove_roles!') do
     it 'subtracts the masked bits from the column wrapped in COALESCE' do
       column = model.connection.quote_column_name('roles')
       expected = "#{column} = COALESCE(#{column}, 0) - (COALESCE(#{column}, 0) & 4)"
-      statements = normalized_sql(capture_sql { model.remove_roles!(:author, records: both.id) })
+      statements = normalized_statements(capture_sql { model.remove_roles!(:author, records: both.id) })
 
       expect(statements).to(include(a_string_including(expected)))
     end

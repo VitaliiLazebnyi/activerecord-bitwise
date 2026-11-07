@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -28,7 +28,7 @@ RSpec.describe('Concurrent updates') do
   describe 'instance atomic methods' do
     it 'merges simultaneous additions of different flags' do
       tasks = %i[admin editor author].map { |flag| -> { model.find(user_id).add_role!(flag) } }
-      run_concurrently(*tasks)
+      run_concurrently(tasks)
 
       expect(raw_value(model.find(user_id))).to(eq(0b0111))
     end
@@ -37,20 +37,20 @@ RSpec.describe('Concurrent updates') do
       stored = model.create!(roles: %i[admin subscriber])
       add = -> { model.find(stored.id).add_role!(:author) }
       remove = -> { model.find(stored.id).remove_role!(:subscriber) }
-      run_concurrently(add, remove)
+      run_concurrently([add, remove])
 
       expect(raw_value(stored)).to(eq(0b0101))
     end
 
     it 'is idempotent when the same flag is added simultaneously' do
-      run_concurrently(*Array.new(4) { -> { model.find(user_id).add_role!(:admin) } })
+      run_concurrently(Array.new(4) { -> { model.find(user_id).add_role!(:admin) } })
 
       expect(raw_value(model.find(user_id))).to(eq(1))
     end
 
     it 'keeps unmapped bits during simultaneous additions' do
       plant_raw_value(model.find(user_id), 0b1_0000_0000)
-      run_concurrently(-> { model.find(user_id).add_role!(:admin) }, -> { model.find(user_id).add_role!(:author) })
+      run_concurrently([-> { model.find(user_id).add_role!(:admin) }, -> { model.find(user_id).add_role!(:author) }])
 
       expect(raw_value(model.find(user_id))).to(eq(0b1_0000_0101))
     end
@@ -59,7 +59,7 @@ RSpec.describe('Concurrent updates') do
   describe 'class-level atomic methods' do
     it 'merges simultaneous additions of different flags' do
       tasks = %i[admin editor author subscriber].map { |flag| -> { model.add_roles!(flag, records: user_id) } }
-      run_concurrently(*tasks)
+      run_concurrently(tasks)
 
       expect(raw_value(model.find(user_id))).to(eq(0b1111))
     end
@@ -67,7 +67,7 @@ RSpec.describe('Concurrent updates') do
     it 'merges simultaneous removals of different flags' do
       stored = model.create!(roles: %i[admin editor author subscriber])
       tasks = %i[admin author].map { |flag| -> { model.remove_roles!(flag, records: stored.id) } }
-      run_concurrently(*tasks)
+      run_concurrently(tasks)
 
       expect(raw_value(stored)).to(eq(0b1010))
     end

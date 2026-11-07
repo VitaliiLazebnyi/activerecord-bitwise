@@ -97,22 +97,6 @@ module ActiveRecord
         private_class_method :core_methods
       end
 
-      # Creates the collision check of +declaration+ against the model's existing names.
-      # @param definitions [Hash{Symbol => Hash}] The bitwise definitions declared so far.
-      # @param attributes [Array<String>] The column names of the model's table.
-      # @param declaration [ActiveRecord::Bitwise::Declaration] The declaration being checked.
-      # @return [ActiveRecord::Bitwise::Collisions]
-      sig do
-        params(
-          definitions: T::Hash[Symbol, Declaration::Definition],
-          attributes: T::Array[String],
-          declaration: Declaration
-        ).returns(Collisions)
-      end
-      def self.for(definitions, attributes, declaration)
-        new(declaration, Taken.for(definitions, attributes, declaration.column))
-      end
-
       # Creates the collision check of +declaration+.
       # @param declaration [ActiveRecord::Bitwise::Declaration] The declaration being checked.
       # @param taken [ActiveRecord::Bitwise::Collisions::Taken] The names already in use.

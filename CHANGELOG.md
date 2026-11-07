@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linters for every other file type (actionlint, zizmor, ShellCheck, shfmt, yamllint, rumdl, typos,
   editorconfig-checker), `script/check` to run every CI check locally, and egress-blocking
   `step-security/harden-runner`, timeouts and least-privilege permissions on every CI job.
+- Stricter gates: the spec files are type-checked by Sorbet (`typed: true`, the spec helpers `typed: strict`),
+  RSpec deprecations fail the suite, YARD requires private methods to be documented too, Reek, Flay (at its
+  default mass) and Flog also check the scripts, the spec helpers and the build files, the `rubocop-ai` cops run,
+  TOML files are linted with taplo and every Markdown link with lychee, and the outdated check also covers the
+  GitHub Actions, the Docker images, the pinned Rubies, the Python linters and the release binaries. CI jobs run
+  with sudo and containers disabled where nothing needs them.
 
 ## 0.12.0 - 2026-10-28
 

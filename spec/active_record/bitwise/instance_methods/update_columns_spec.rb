@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -9,20 +9,25 @@ RSpec.describe(ActiveRecord::Bitwise::InstanceMethods, '#update_columns') do
   # admin + the unmapped bits 8 and 9
   let(:record) { plant_raw_value(model.create!, 0b11_0000_0001) }
 
-  # Decision table: value written -> raw column afterwards.
-  [
-    [[:author], 0b11_0000_0100],
-    [%w[author], 0b11_0000_0100],
-    [%i[admin author], 0b11_0000_0101],
-    [[], 0b11_0000_0000],
-    [3, 3],
-    [0, 0],
-    [nil, nil]
-  ].each do |value, expected_raw|
-    it "stores #{expected_raw.inspect} for roles: #{value.inspect}" do
-      record.update_columns(roles: value)
+  let(:decisions) do
+    [
+      [[:author], 0b11_0000_0100],
+      [%w[author], 0b11_0000_0100],
+      [%i[admin author], 0b11_0000_0101],
+      [[], 0b11_0000_0000],
+      [3, 3],
+      [0, 0],
+      [nil, nil]
+    ]
+  end
 
-      expect(raw_value(record)).to(eq(expected_raw))
+  # Decision table: value written -> raw column afterwards.
+  it 'stores the bitmask of every kind of value, keeping the unmapped bits for flags', :aggregate_failures do
+    decisions.each do |value, expected_raw|
+      stored = plant_raw_value(model.create!, 0b11_0000_0001)
+      stored.update_columns(roles: value)
+
+      aggregate_failures("roles: #{value.inspect}") { expect(raw_value(stored)).to(eq(expected_raw)) }
     end
   end
 
@@ -147,16 +152,19 @@ RSpec.describe(ActiveRecord::Bitwise::InstanceMethods, '#update_columns') do
   end
 
   context 'when a later save follows an overwrite with an Integer' do
-    [
-      ['a Symbol key', :roles],
-      ['a String key', 'roles']
-    ].each do |description, key|
-      it "saves on top of the written value (#{description})" do
-        record.update_columns(key => 0b11)
-        record.update!(roles: [:admin])
+    it 'saves on top of the written value (a Symbol key)' do
+      record.update_columns(roles: 0b11)
+      record.update!(roles: [:admin])
 
-        expect(raw_value(record)).to(eq(0b01))
-      end
+      expect(raw_value(record)).to(eq(0b01))
+    end
+
+    it 'saves on top of the written value (a String key)' do
+      string_key = 'roles'
+      record.update_columns(string_key => 0b11)
+      record.update!(roles: [:admin])
+
+      expect(raw_value(record)).to(eq(0b01))
     end
   end
 

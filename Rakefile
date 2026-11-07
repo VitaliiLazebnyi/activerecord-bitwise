@@ -18,9 +18,13 @@ require 'tmpdir'
 # deprecation and performance warnings.
 THIRD_PARTY_RUBYOPT = 'RUBYOPT=-W:deprecated -W:performance'
 
-# Flay mass threshold. At the default (16) Flay only reports identical Sorbet `sig`
-# declarations of sibling methods; from 24 up it reports every duplicated piece of logic.
-FLAY_MASS = 24
+# Every Ruby source of the repository that Reek, Flay and Flog check: the library, the scripts, the spec helper and
+# support code, and the build files. The example groups themselves (spec/**/*_spec.rb) are not: each example is
+# written out in full on purpose (arrange, act, assert), so Flay would report every pair of examples that exercise
+# the same API, and Flog scores RSpec's example blocks as methods. RuboCop (RSpec department) and Sorbet check them.
+RUBY_SOURCES = %w[
+  lib script spec/support spec/spec_helper.rb Rakefile activerecord-bitwise.gemspec Gemfile gemfiles
+].freeze
 # Flog score above which a method counts as too complex and must be split up (flog's "good" band ends at 20).
 FLOG_METHOD_THRESHOLD = 20
 # Output of `yard stats` when every public API object is documented.
@@ -99,13 +103,13 @@ end
 
 desc 'Fail on any code smell (default Reek configuration, no exclusions)'
 task :reek do
-  sh 'bundle', 'exec', 'reek', 'lib'
+  sh 'bundle', 'exec', 'reek', *RUBY_SOURCES
 end
 
-desc 'Fail on any structural duplication'
+desc 'Fail on any structural duplication (default Flay mass)'
 task :flay do
   Report.require_clean(
-    ['bundle', 'exec', 'flay', '--mass', FLAY_MASS.to_s, 'lib'],
+    ['bundle', 'exec', 'flay', *RUBY_SOURCES],
     'Total score (lower is better) = 0',
     'Flay: duplicated code found'
   )
@@ -113,21 +117,21 @@ end
 
 desc "Fail on any method with a flog score above #{FLOG_METHOD_THRESHOLD}"
 task :flog do
-  report, status = Open3.capture2e('bundle', 'exec', 'flog', '--all', '--methods-only', 'lib')
+  report, status = Open3.capture2e('bundle', 'exec', 'flog', '--all', '--methods-only', *RUBY_SOURCES)
   puts report
   abort 'flog failed' unless status.success?
-  scores = report.scan(%r{^\s*(\d+\.\d+): (\S+)\s+lib/})
+  scores = report.scan(/^\s*(\d+\.\d+): (\S+)\s+\S+:\d+/)
   complex = scores.filter_map { |score, name| name if Float(score) > FLOG_METHOD_THRESHOLD }
   abort "flog: methods scoring above #{FLOG_METHOD_THRESHOLD}: #{complex.join(', ')}" unless complex.empty?
 end
 
-desc 'Fail on any method nothing calls (debride over lib/ and spec/; see DEBRIDE_ALLOWED)'
+desc 'Fail on any method nothing calls (debride over every Ruby source and spec/; see DEBRIDE_ALLOWED)'
 task :debride do
   Dir.mktmpdir('debride') do |dir|
     allowed = File.join(dir, 'allowed.txt')
     File.write(allowed, DEBRIDE_ALLOWED.keys.join("\n"))
     Report.require_clean(
-      ['bundle', 'exec', 'debride', '--rails', '--whitelist', allowed, 'lib', 'spec'],
+      ['bundle', 'exec', 'debride', '--rails', '--whitelist', allowed, *RUBY_SOURCES, 'spec'],
       'Total suspect LOC: 0',
       'debride: methods without a caller found'
     )
@@ -139,7 +143,7 @@ task :audit do
   sh 'env', THIRD_PARTY_RUBYOPT, 'bundle', 'exec', 'bundler-audit', 'check', '--update'
 end
 
-desc 'Fail on outdated gems that are not on the documented hold list (needs the network)'
+desc 'Fail on outdated dependencies that are not on the documented hold list (needs the network)'
 task :outdated do
   ruby 'script/outdated.rb'
 end

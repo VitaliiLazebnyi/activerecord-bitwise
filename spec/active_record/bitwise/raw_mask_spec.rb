@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -19,29 +19,35 @@ RSpec.describe(ActiveRecord::Bitwise::RawMask) do
   end
 
   describe '.integer' do
+    let(:strings) do
+      [
+        ['12', 12],
+        ['12abc', 12],
+        ['  7', 7],
+        ["\t\n8", 8],
+        ['-3', -3],
+        ['+4', 4],
+        ['- 5', 0],
+        ['1_000', 1000],
+        ['1__0', 1],
+        ['1_', 1],
+        ['0x1f', 0],
+        ['0b11', 0],
+        ['007', 7],
+        ['08', 8],
+        ['1e3', 1],
+        ['', 0],
+        ['abc', 0],
+        ['99999999999999999999', (10**20) - 1]
+      ]
+    end
+
     # What String#to_i reads: blanks and a sign, then digits (single underscores allowed between them).
-    [
-      ['12', 12],
-      ['12abc', 12],
-      ['  7', 7],
-      ["\t\n8", 8],
-      ['-3', -3],
-      ['+4', 4],
-      ['- 5', 0],
-      ['1_000', 1000],
-      ['1__0', 1],
-      ['1_', 1],
-      ['0x1f', 0],
-      ['0b11', 0],
-      ['007', 7],
-      ['08', 8],
-      ['1e3', 1],
-      ['', 0],
-      ['abc', 0],
-      ['99999999999999999999', 99_999_999_999_999_999_999]
-    ].each do |text, integer|
-      it "reads #{text.inspect} as #{integer}" do
-        expect(described_class.integer(text)).to(eq(integer))
+    it 'reads every String the way String#to_i does', :aggregate_failures do
+      strings.each do |text, integer|
+        aggregate_failures("reads #{text.inspect} as #{integer}") do
+          expect(described_class.integer(text)).to(eq(integer))
+        end
       end
     end
 
@@ -49,9 +55,11 @@ RSpec.describe(ActiveRecord::Bitwise::RawMask) do
       expect(described_class.integer(Class.new(String).new('15x'))).to(eq(15))
     end
 
-    [[5, 5], [-5, -5], [3.9, 3], [-3.9, -3], [Rational(7, 2), 3], [2**70, 2**70]].each do |number, integer|
-      it "reads #{number.inspect} as #{integer}" do
-        expect(described_class.integer(number)).to(eq(integer))
+    it 'truncates every number to an Integer', :aggregate_failures do
+      [[5, 5], [-5, -5], [3.9, 3], [-3.9, -3], [Rational(7, 2), 3], [2**70, 2**70]].each do |number, integer|
+        aggregate_failures("reads #{number.inspect} as #{integer}") do
+          expect(described_class.integer(number)).to(eq(integer))
+        end
       end
     end
 
@@ -67,20 +75,26 @@ RSpec.describe(ActiveRecord::Bitwise::RawMask) do
   end
 
   describe '.lenient' do
-    [
-      [nil, 0],
-      [:admin, 0],
-      [Object.new, 0],
-      [[1], 0],
-      ['5', 5],
-      ['x', 0],
-      [7, 7],
-      [2.5, 2],
-      [Float::NAN, 0],
-      [Float::INFINITY, 0]
-    ].each do |value, integer|
-      it "reads #{value.inspect} as #{integer}" do
-        expect(described_class.lenient(value)).to(eq(integer))
+    let(:values) do
+      [
+        [nil, 0],
+        [:admin, 0],
+        [Object.new, 0],
+        [[1], 0],
+        ['5', 5],
+        ['x', 0],
+        [7, 7],
+        [2.5, 2],
+        [Float::NAN, 0],
+        [Float::INFINITY, 0]
+      ]
+    end
+
+    it 'reads every value leniently, as 0 when it is not a number', :aggregate_failures do
+      values.each do |value, integer|
+        aggregate_failures("reads #{value.inspect} as #{integer}") do
+          expect(described_class.lenient(value)).to(eq(integer))
+        end
       end
     end
 
@@ -120,16 +134,22 @@ RSpec.describe(ActiveRecord::Bitwise::RawMask) do
   end
 
   describe '.decimal' do
-    [['0', 0], ['12', 12], ['007', 7], ['010', 10]].each do |text, number|
-      it("reads #{text.inspect} as #{number}") { expect(described_class.decimal(text)).to(eq(number)) }
+    it 'reads every String of decimal digits', :aggregate_failures do
+      [['0', 0], ['12', 12], ['007', 7], ['010', 10]].each do |text, number|
+        aggregate_failures("reads #{text.inspect} as #{number}") do
+          expect(described_class.decimal(text)).to(eq(number))
+        end
+      end
     end
 
     it 'reads a String subclass' do
       expect(described_class.decimal(Class.new(String).new('12'))).to(eq(12))
     end
 
-    ['', '-1', '1 ', 'a1', '1a', 12, nil, :'1'].each do |value|
-      it("is nil for #{value.inspect}") { expect(described_class.decimal(value)).to(be_nil) }
+    it 'is nil for everything that is not a String of decimal digits', :aggregate_failures do
+      ['', '-1', '1 ', 'a1', '1a', 12, nil, :'1'].each do |value|
+        aggregate_failures("is nil for #{value.inspect}") { expect(described_class.decimal(value)).to(be_nil) }
+      end
     end
   end
 

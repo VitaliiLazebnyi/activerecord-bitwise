@@ -7,7 +7,7 @@ Only the latest released version of `activerecord-bitwise` receives security fix
 ## Reporting a Vulnerability
 
 Please do not open public issues for security vulnerabilities. Report them
-privately via GitHub's security advisory form
-(<https://github.com/VitaliiLazebnyi/activerecord-bitwise/security/advisories/new>)
+privately with the "Report a vulnerability" button of the repository's Security page
+(<https://github.com/VitaliiLazebnyi/activerecord-bitwise/security>; private vulnerability reporting is on)
 or by email to the maintainer listed in the gemspec. You should receive an
 initial response within 7 days.

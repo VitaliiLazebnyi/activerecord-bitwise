@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -27,72 +27,78 @@ RSpec.describe('Ghost (unmapped) bits') do
 
   # State transition table: operation applied to the record -> bitmask stored afterwards.
   describe 'writing with a flag array keeps unmapped bits' do
-    [
-      ['assigning with the setter', ->(r) { r.update!(roles: %i[admin author]) }, 0b11_0000_0101],
-      ['assigning an empty array', ->(r) { r.update!(roles: []) }, 0b11_0000_0000],
+    let(:flag_writes) do
       [
-        'assigning with []=',
-        lambda { |r|
-          r.tap { |x| x[:roles] = [:subscriber] }
-            .save!
-        },
-        0b11_0000_1000
-      ],
-      [
-        'assigning with write_attribute',
-        lambda { |r|
-          r.tap { |x| x.write_attribute(:roles, [:author]) }
-            .save!
-        },
-        0b11_0000_0100
-      ],
-      [
-        'enabling a flag',
-        lambda { |r|
-          r.tap { |x| x.author = true }
-            .save!
-        },
-        0b11_0000_0101
-      ],
-      [
-        'disabling a flag',
-        lambda { |r|
-          r.tap { |x| x.admin = false }
-            .save!
-        },
-        0b11_0000_0000
-      ],
-      ['the flag bang method', lambda(&:author!), 0b11_0000_0101],
-      ['update_columns', ->(r) { r.update_columns(roles: [:author]) }, 0b11_0000_0100],
-      ['update_column', ->(r) { r.update_column(:roles, [:subscriber]) }, 0b11_0000_1000],
-      ['relation update_all', ->(r) { r.class.where(id: r.id).update_all(roles: [:author]) }, 0b11_0000_0100],
-      ['class-level add_roles!', ->(r) { r.class.add_roles!(:author, records: r) }, 0b11_0000_0101],
-      ['class-level remove_roles!', ->(r) { r.class.remove_roles!(:admin, records: r) }, 0b11_0000_0000],
-      ['instance add_role!', ->(r) { r.add_role!(:author) }, 0b11_0000_0101],
-      ['instance remove_role!', ->(r) { r.remove_role!(:admin) }, 0b11_0000_0000]
-    ].each do |operation, action, expected_raw|
-      it "stores #{expected_raw.to_s(2)} after #{operation}" do
-        action.call(record)
+        ['assigning with the setter', ->(r) { r.update!(roles: %i[admin author]) }, 0b11_0000_0101],
+        ['assigning an empty array', ->(r) { r.update!(roles: []) }, 0b11_0000_0000],
+        [
+          'assigning with []=',
+          lambda { |r|
+            r.tap { |x| x[:roles] = [:subscriber] }
+              .save!
+          },
+          0b11_0000_1000
+        ],
+        [
+          'assigning with write_attribute',
+          lambda { |r|
+            r.tap { |x| x.write_attribute(:roles, [:author]) }
+              .save!
+          },
+          0b11_0000_0100
+        ],
+        [
+          'enabling a flag',
+          lambda { |r|
+            r.tap { |x| x.author = true }
+              .save!
+          },
+          0b11_0000_0101
+        ],
+        [
+          'disabling a flag',
+          lambda { |r|
+            r.tap { |x| x.admin = false }
+              .save!
+          },
+          0b11_0000_0000
+        ],
+        ['the flag bang method', lambda(&:author!), 0b11_0000_0101],
+        ['update_columns', ->(r) { r.update_columns(roles: [:author]) }, 0b11_0000_0100],
+        ['update_column', ->(r) { r.update_column(:roles, [:subscriber]) }, 0b11_0000_1000],
+        ['relation update_all', ->(r) { r.class.where(id: r.id).update_all(roles: [:author]) }, 0b11_0000_0100],
+        ['class-level add_roles!', ->(r) { r.class.add_roles!(:author, records: r) }, 0b11_0000_0101],
+        ['class-level remove_roles!', ->(r) { r.class.remove_roles!(:admin, records: r) }, 0b11_0000_0000],
+        ['instance add_role!', ->(r) { r.add_role!(:author) }, 0b11_0000_0101],
+        ['instance remove_role!', ->(r) { r.remove_role!(:admin) }, 0b11_0000_0000]
+      ]
+    end
 
-        expect(raw_value(record)).to(eq(expected_raw))
+    it 'keeps the unmapped bits through every write with flags', :aggregate_failures do
+      flag_writes.each do |operation, action, expected_raw|
+        written = plant_raw_value(model.create!, stored).tap { |ghosted| action.call(ghosted) }
+        aggregate_failures(operation) { expect(raw_value(written)).to(eq(expected_raw)) }
       end
     end
   end
 
   describe 'writing something other than flags replaces the whole bitmask' do
-    [
-      ['assigning an Integer', ->(r) { r.update!(roles: 2) }, 2],
-      ['assigning 0', ->(r) { r.update!(roles: 0) }, 0],
-      ['assigning nil', ->(r) { r.update!(roles: nil) }, nil],
-      ['update_columns with an Integer', ->(r) { r.update_columns(roles: 3) }, 3],
-      ['update_columns with nil', ->(r) { r.update_columns(roles: nil) }, nil],
-      ['relation update_all with an Integer', ->(r) { r.class.update_all(roles: 7) }, 7],
-      ['relation update_all with nil', ->(r) { r.class.update_all(roles: nil) }, nil]
-    ].each do |operation, action, expected_raw|
-      it "stores #{expected_raw.inspect} after #{operation}" do
-        action.call(record)
+    let(:replacing_writes) do
+      [
+        ['assigning an Integer', ->(r) { r.update!(roles: 2) }, 2],
+        ['assigning 0', ->(r) { r.update!(roles: 0) }, 0],
+        ['assigning nil', ->(r) { r.update!(roles: nil) }, nil],
+        ['update_columns with an Integer', ->(r) { r.update_columns(roles: 3) }, 3],
+        ['update_columns with nil', ->(r) { r.update_columns(roles: nil) }, nil],
+        ['relation update_all with an Integer', ->(r) { r.class.update_all(roles: 7) }, 7],
+        ['relation update_all with nil', ->(r) { r.class.update_all(roles: nil) }, nil]
+      ]
+    end
 
-        expect(raw_value(record)).to(eq(expected_raw))
+    it 'replaces the whole bitmask on every write of something other than flags', :aggregate_failures do
+      replacing_writes.each do |operation, action, expected_raw|
+        written = plant_raw_value(model.create!, stored).tap { |ghosted| action.call(ghosted) }
+        aggregate_failures(operation) { expect(raw_value(written)).to(eq(expected_raw)) }
       end
     end
   end

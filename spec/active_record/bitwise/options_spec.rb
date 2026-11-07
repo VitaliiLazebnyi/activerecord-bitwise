@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -32,15 +32,22 @@ RSpec.describe(ActiveRecord::Bitwise::Options) do
         .to(raise_error(TypeError, /Parameter 'default'.*got Symbol/))
     end
 
-    %i[prefix suffix].each do |option|
-      it "rejects a #{option} that is not a name" do
-        expect { described_class.parse(option => [:can]) }
-          .to(raise_error(TypeError, /Parameter '#{option}'.*got Array/))
-      end
+    it 'rejects a prefix that is not a name' do
+      expect { described_class.parse(prefix: [:can]) }
+        .to(raise_error(TypeError, /Parameter 'prefix'.*got Array/))
+    end
 
-      it "accepts false as the #{option}" do
-        expect(described_class.parse(option => false).public_send(option)).to(be(false))
-      end
+    it 'rejects a suffix that is not a name' do
+      expect { described_class.parse(suffix: [:can]) }
+        .to(raise_error(TypeError, /Parameter 'suffix'.*got Array/))
+    end
+
+    it 'accepts false as the prefix' do
+      expect(described_class.parse(prefix: false).prefix).to(be(false))
+    end
+
+    it 'accepts false as the suffix' do
+      expect(described_class.parse(suffix: false).suffix).to(be(false))
     end
   end
 
@@ -52,9 +59,11 @@ RSpec.describe(ActiveRecord::Bitwise::Options) do
   end
 
   describe '.affix' do
-    [nil, true, false, :can, 'can'].each do |value|
-      it "returns #{value.inspect} unchanged" do
-        expect(described_class.affix(:prefix, value)).to(eq(value))
+    it 'returns every other value unchanged', :aggregate_failures do
+      [nil, true, false, :can, 'can'].each do |value|
+        aggregate_failures("returns #{value.inspect} unchanged") do
+          expect(described_class.affix(:prefix, value)).to(eq(value))
+        end
       end
     end
 

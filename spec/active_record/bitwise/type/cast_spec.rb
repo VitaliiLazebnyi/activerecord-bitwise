@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -19,18 +19,24 @@ RSpec.describe(ActiveRecord::Bitwise::Type, '#cast') do
   end
 
   context 'with an Integer bitmask' do
-    {
-      0 => [],
-      1 => [:admin],
-      0b1000 => [:subscriber],
-      0b0101 => %i[admin author],
-      0b1111 => %i[admin editor author subscriber],
-      0b1_0000_0000 => [],
-      0b1_0000_0101 => %i[admin author],
-      -1 => %i[admin editor author subscriber]
-    }.each do |bitmask, expected_flags|
-      it "decodes #{bitmask} into #{expected_flags.inspect}" do
-        expect(type.cast(bitmask)).to(eq(expected_flags))
+    let(:bitmasks) do
+      {
+        0 => [],
+        1 => [:admin],
+        0b1000 => [:subscriber],
+        0b0101 => %i[admin author],
+        0b1111 => %i[admin editor author subscriber],
+        0b1_0000_0000 => [],
+        0b1_0000_0101 => %i[admin author],
+        -1 => %i[admin editor author subscriber]
+      }
+    end
+
+    it 'decodes every bitmask into its mapped flags', :aggregate_failures do
+      bitmasks.each do |bitmask, expected_flags|
+        aggregate_failures("decodes #{bitmask} into #{expected_flags.inspect}") do
+          expect(type.cast(bitmask)).to(eq(expected_flags))
+        end
       end
     end
 
@@ -145,10 +151,11 @@ RSpec.describe(ActiveRecord::Bitwise::Type, '#cast') do
   end
 
   context 'with a value that cannot become a flag array' do
-    [{ a: 1 }, true, false].each do |uncastable|
-      it "raises for #{uncastable.inspect} naming the value and the column" do
-        expect { type.cast(uncastable) }
-          .to(raise_error(ArgumentError, "cannot cast #{uncastable.inspect} to a bitwise flag array for column roles"))
+    it 'raises for every value that cannot become a flag array, naming the value and the column', :aggregate_failures do
+      [{ a: 1 }, true, false].each do |uncastable|
+        message = "cannot cast #{uncastable.inspect} to a bitwise flag array for column roles"
+        cast = -> { type.cast(uncastable) }
+        aggregate_failures(uncastable.inspect) { expect(&cast).to(raise_error(ArgumentError, message)) }
       end
     end
 
