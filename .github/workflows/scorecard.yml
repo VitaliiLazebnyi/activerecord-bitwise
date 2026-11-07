@@ -52,6 +52,7 @@ jobs:
     needs:
       - "analysis"
     permissions:
+      actions: "read"  # download the SARIF artifact of the analysis job
       contents: "read"
       security-events: "write"  # upload the SARIF results to code scanning
     runs-on: "ubuntu-26.04"
@@ -66,9 +67,12 @@ jobs:
             results-receiver.actions.githubusercontent.com:443
             uploads.github.com:443
           egress-policy: "block"
-      - uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333"  # v8.0.2
-        with:
-          name: "scorecard-sarif"
+      # Downloaded with gh: actions/download-artifact (v8.0.2, the newest release) logs a Node.js deprecation
+      # warning (DEP0005, its use of Buffer()).
+      - env:
+          GH_TOKEN: "${{ github.token }}"
+        name: "Download the SARIF results of the analysis job"
+        run: "gh run download \"${GITHUB_RUN_ID}\" --repo \"${GITHUB_REPOSITORY}\" --name scorecard-sarif"
       # Scorecard reports findings about the whole repository (Branch-Protection, Code-Review, Fuzzing, ...) under
       # the placeholder URI "no file associated with this alert", which upload-sarif rejects with a warning.
       # Point them at this workflow, the file that produces them.
