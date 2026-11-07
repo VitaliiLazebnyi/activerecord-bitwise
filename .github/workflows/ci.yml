@@ -32,7 +32,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -66,7 +70,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -100,7 +108,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -136,7 +148,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -168,7 +184,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -200,7 +220,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -233,7 +257,11 @@ jobs:
         with:
           persist-credentials: false
       # Every supported Ruby installs the committed Gemfile.lock.
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: "${{ matrix.ruby }}"
@@ -281,7 +309,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: "${{ matrix.ruby }}"
@@ -347,7 +379,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -406,7 +442,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"
@@ -441,7 +481,11 @@ jobs:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
         with:
           persist-credentials: false
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: ".ruby-version"

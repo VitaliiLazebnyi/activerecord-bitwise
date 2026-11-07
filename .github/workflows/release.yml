@@ -32,13 +32,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # No dependency cache in the release pipeline: a poisoned cache must never reach a published gem.
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: false
           ruby-version: ".ruby-version"
       - name: "Check the Ruby version"
         run: "script/check_ruby.sh"
-      - name: "Install the locked gems"
+      # Like the setup-ruby step: RubyGems' installer keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        name: "Install the locked gems"
         run: "bundle install --jobs 4 --retry 3"
       - name: "Validate the tag against version.rb"
         run: "script/release_version.sh"
@@ -82,13 +89,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # No dependency cache in the release pipeline: a poisoned cache must never reach a published gem.
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: false
           ruby-version: ".ruby-version"
       - name: "Check the Ruby version"
         run: "script/check_ruby.sh"
-      - name: "Install the locked gems"
+      # Like the setup-ruby step: RubyGems' installer keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        name: "Install the locked gems"
         run: "bundle install --jobs 4 --retry 3"
       - name: "Every Ruby gate (the default Rake task), the outdated check and mutation testing"
         run: "bundle exec rake default outdated mutant"

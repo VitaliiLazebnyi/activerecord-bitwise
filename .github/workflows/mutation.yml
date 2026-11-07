@@ -35,7 +35,11 @@ jobs:
       # Mutant parses the code with the `parser` gem (it requires `parser/current`), whose newest release
       # (3.3.13.0) has no grammar for Ruby 3.4 or 4.0 and warns on any Ruby other than 3.3.13. Mutation testing
       # therefore runs on Ruby 3.3.13, the oldest supported Ruby, which every other job also tests.
-      - uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
+      # RubyGems itself, which installs the gems here, logs a performance warning under -W:performance ("The class
+      # Gem::Specification reached 8 shape variations"); the installation keeps only the deprecation warnings.
+      - env:
+          RUBYOPT: "-W:deprecated"
+        uses: "ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199"  # v1.338.0
         with:
           bundler-cache: true
           ruby-version: "3.3.13"
