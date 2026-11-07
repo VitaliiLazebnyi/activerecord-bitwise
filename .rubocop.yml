@@ -1,108 +1,251 @@
-# Maximum-strictness configuration. Every cop is run in "fail the build" mode.
-# New code has no exclusions: fix the code. A cop that cannot apply to a file is configured narrowly
-# below, with the reason. Inline RuboCop directives are forbidden (see
-# Style/DisableCopsWithinSourceCodeDirective), and there is no todo file.
-plugins:
-  - rubocop-md
-  - rubocop-performance
-  - rubocop-rake
-  - rubocop-rspec
-  - rubocop-sorbet
-  - rubocop-thread_safety
+---
+# Maximum-strictness configuration: every cop of RuboCop and of each plugin is enabled (EnabledByDefault),
+# pending cops included (NewCops), and every offense fails the build. A cop that is switched off, or kept
+# away from some files, is listed below with the reason it cannot apply. Inline RuboCop directives are
+# forbidden (Style/DisableCopsWithinSourceCodeDirective, script/forbidden_suppressions.sh), and there is no
+# todo file.
 
 AllCops:
-  NewCops: enable
-  SuggestExtensions: false
-  TargetRubyVersion: 3.3
+  EnabledByDefault: true
   Exclude:
-    - 'vendor/**/*'
-    - 'coverage/**/*'
-    - 'sorbet/**/*'
-    - 'tmp/**/*'
-    - 'doc/**/*'
-    - '.yardoc/**/*'
-
-# --- Optional (disabled-by-default) cops that make sense for this codebase ---
-Layout/ClassStructure:
-  Enabled: true
-Layout/EmptyLineAfterMultilineCondition:
-  Enabled: true
-Layout/LineLength:
-  Max: 120
-Lint/NumberConversion:
-  Enabled: true
-Naming/InclusiveLanguage:
-  Enabled: true
-# Flag names are user-visible symbols that may mirror legacy column names (e.g. :_deprecated_role_1).
-Naming/VariableNumber:
-  CheckSymbols: false
-Performance/ChainArrayAllocation:
-  Enabled: true
-Lint/RedundantCopDisableDirective:
-  Enabled: true
-Sorbet/ForbidTUnsafe:
-  Enabled: true
-Style/ConstantVisibility:
-  Enabled: true
-Style/DisableCopsWithinSourceCodeDirective:
-  Enabled: true
-# Style/DocumentationMethod is intentionally NOT enabled: it requires the comment to sit
-# directly above `def`, but Sorbet's `sig { ... }` must sit between them. Documentation
-# completeness is enforced instead by the YARD gate (`yard stats` must report 100%).
-Style/InvertibleUnlessCondition:
-  Enabled: true
-Style/MethodCalledOnDoEndBlock:
-  Enabled: true
-Style/RequireOrder:
-  Enabled: true
-Style/Send:
-  Enabled: true
-Style/SingleLineBlockParams:
-  Enabled: true
-Style/StringHashKeys:
-  Enabled: true
-
-# --- Documentation: a leading '# typed:' sigil is required by Sorbet and is not a comment to document
-Style/Documentation:
-  Enabled: true
+    - ".mutant/**/*"
+    - ".yardoc/**/*"
+    - "coverage/**/*"
+    - "doc/**/*"
+    - "sorbet/rbi/**/*"
+    - "tmp/**/*"
+    - "vendor/**/*"
+  NewCops: "enable"
+  SuggestExtensions: false
+  # The oldest ActiveRecord the gemspec supports.
+  TargetRailsVersion: 7.1
+  TargetRubyVersion: 3.3
 
 Gemspec/DevelopmentDependencies:
-  EnforcedStyle: gemspec
+  EnforcedStyle: "gemspec"
 
-# --- Sorbet: strictest sigils that are reachable ---
-# lib/ is `typed: strict`. `typed: strong` is unreachable because the gem
-# patches ActiveRecord internals and accepts duck-typed values (T.untyped).
-Sorbet/StrictSigil:
-  Enabled: true
-  Include:
-    - 'lib/**/*.rb'
-Sorbet/EnforceSigilOrder:
-  Enabled: true
-Sorbet/EnforceSignatures:
-  Enabled: true
-  Include:
-    - 'lib/**/*.rb'
+# Layout/ArgumentAlignment, ArrayAlignment, BlockAlignment, LineEndStringConcatenationIndentation,
+# MultilineMethodCallIndentation, MultilineOperationIndentation and ParameterAlignment: continuation lines are
+# indented by a fixed step instead of aligned with a token of the line above, so that every line of the
+# repository is indented by a multiple of 2 (.editorconfig, checked by editorconfig-checker).
+Layout/ArgumentAlignment:
+  EnforcedStyle: "with_fixed_indentation"
+
+Layout/ArrayAlignment:
+  EnforcedStyle: "with_fixed_indentation"
+
+Layout/BlockAlignment:
+  EnforcedStyleAlignWith: "start_of_line"
+
+Layout/LineEndStringConcatenationIndentation:
+  EnforcedStyle: "indented"
+
+# No exception for heredocs, URIs, qualified names, cop directives or any pattern (rubocop-md allows lines
+# that start with `#` by default).
+Layout/LineLength:
+  AllowCopDirectives: false
+  AllowHeredoc: false
+  AllowQualifiedName: false
+  AllowURI: false
+  AllowedPatterns: []
+  Max: 120
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: "indented"
+
+Layout/MultilineOperationIndentation:
+  EnforcedStyle: "indented"
+
+Layout/ParameterAlignment:
+  EnforcedStyle: "with_fixed_indentation"
+
+# Lint/ConstantResolution (every constant written with a leading `::`) is off: mutant mutates each `::Name`
+# into `Name`, which resolves to the same constant, so the cop would add one equivalent (unkillable)
+# mutation per constant reference in lib/ and make the 100% mutation-kill gate impossible.
+Lint/ConstantResolution:
+  Enabled: false
+
+# Sorbet signatures name every parameter, including the block, so anonymous block forwarding (`&`)
+# cannot be used in typed code.
+Naming/BlockForwarding:
+  EnforcedStyle: "explicit"
 
 Naming/FileName:
   Exclude:
-    - 'lib/activerecord-bitwise.rb'
-    - '**/*.md'
-Style/OneClassPerFile:
-  Exclude:
-    - '**/*.md'
+    # The gem's name; Bundler requires it by this name.
+    - "lib/activerecord-bitwise.rb"
+    # Markdown code blocks are snippets, not files.
+    - "**/*.md"
 
-# rubocop-md: README snippets are illustrative, not standalone programs.
+# Reek (UncommunicativeVariableName) rejects one-letter names such as the default `e`.
+Naming/RescuedExceptionsVariableName:
+  PreferredName: "error"
+
+# Flag names are user-visible symbols that may mirror legacy column names (e.g. :_deprecated_role_1).
+Naming/VariableNumber:
+  CheckSymbols: false
+
+# Rails/Delegate is off: a method generated by `delegate` has no Sorbet signature (Sorbet types it as
+# returning T.untyped), so replacing a typed forwarding method with it would drop its static and runtime
+# type checks.
+Rails/Delegate:
+  Enabled: false
+
+# The validator's specs pass literal strings to verify its `:message` option, a feature of this library; they
+# are not texts of an application that could live in a locale file.
+Rails/I18nLocaleTexts:
+  Exclude:
+    - "spec/bitwise_validator/validate_each_spec.rb"
+    - "spec/features/readme_examples_spec.rb"
+
+# Rails/RakeEnvironment is off: it makes Rake tasks depend on the `:environment` task of a Rails
+# application. This gem's Rakefile runs development tools and has no application to load.
+Rails/RakeEnvironment:
+  Enabled: false
+
+# Rails/SkipsModelValidations is off: `update_all`, `update_column(s)` and the atomic SQL updates are this
+# gem's documented API (it overrides and extends them so bitwise flags stay consistent without callbacks);
+# lib/ calls them on purpose and the specs exercise exactly those methods.
+Rails/SkipsModelValidations:
+  Enabled: false
+
+Sorbet/EnforceSignatures:
+  Include:
+    - "lib/**/*.rb"
+    - "script/*.rb"
+
+# Sorbet/ForbidSig, ForbidTHelpers, ForbidTLet, ForbidTSig and ForbidTTypeAlias are off: they forbid the
+# sorbet-runtime DSL (`sig`, T::Helpers, T.let, T::Sig, T.type_alias) in codebases that write RBS comment
+# signatures instead. This gem's signatures are `sig` blocks, checked at runtime by sorbet-runtime
+# (Sorbet/EnforceSignatures requires them), and Sorbet needs T.let and T.type_alias to type `typed: strict`
+# constants and instance variables.
+Sorbet/ForbidSig:
+  Enabled: false
+
+# The README shows application code: a Rails migration's superclass is `ActiveRecord::Migration[x.y]`.
+Sorbet/ForbidSuperclassConstLiteral:
+  Exclude:
+    - "**/*.md"
+
+# See Sorbet/ForbidSig.
+Sorbet/ForbidTHelpers:
+  Enabled: false
+
+# See Sorbet/ForbidSig.
+Sorbet/ForbidTLet:
+  Enabled: false
+
+# See Sorbet/ForbidSig.
+Sorbet/ForbidTSig:
+  Enabled: false
+
+# See Sorbet/ForbidSig.
+Sorbet/ForbidTTypeAlias:
+  Enabled: false
+
+# Sorbet/ForbidTUntyped is off: the public API converts duck-typed values (any object with `id`, any class
+# with `bitwise_definitions`, anything `Integer()` accepts), for which Sorbet has no static type. Those
+# parameters of lib/ are T.untyped, each documented in its YARD comment; T.unsafe, T.cast and T.bind stay
+# forbidden everywhere, and T.untyped outside lib/ (script/forbidden_suppressions.sh).
+Sorbet/ForbidTUntyped:
+  Enabled: false
+
+# Sorbet/ForbidTypeAliasedShapes is off: `bitwise_definitions` returns plain Hashes (public API), and the
+# shape alias Declaration::Definition is the static type of those Hashes.
+Sorbet/ForbidTypeAliasedShapes:
+  Enabled: false
+
+# rubocop-sorbet 0.17.2 crashes (NoMethodError: undefined method 'value' for RuboCop::AST::VarNode) when
+# `alias_method` gets variables instead of symbol literals, which the generated-method helper in this file
+# must do. Every other file is checked.
+Sorbet/ImplicitConversionMethod:
+  Exclude:
+    - "lib/active_record/bitwise/model/generated_methods.rb"
+
+# Sorbet/RedundantExtendTSig is off: it is for codebases that extend T::Sig into every module globally; this
+# gem extends it where it is used, and must not patch Module for its users.
+Sorbet/RedundantExtendTSig:
+  Enabled: false
+
+# Sorbet: lib/ and script/ are `typed: strict`; the files of lib/ that also type-check under `typed: strong`
+# (no T.untyped value reaches them) are held there. The rest of lib/ calls ActiveRecord APIs that the RBIs
+# type as T.untyped, which `strong` forbids, and T.cast/T.unsafe are not allowed.
+Sorbet/StrictSigil:
+  Include:
+    - "lib/**/*.rb"
+    - "script/*.rb"
+
+Sorbet/StrongSigil:
+  Include:
+    - "lib/activerecord-bitwise.rb"
+    - "lib/active_record/bitwise.rb"
+    - "lib/active_record/bitwise/errors.rb"
+    - "lib/active_record/bitwise/flag.rb"
+    - "lib/active_record/bitwise/instance_methods.rb"
+    - "lib/active_record/bitwise/redefinition.rb"
+    - "lib/active_record/bitwise/types.rb"
+    - "lib/active_record/bitwise/version.rb"
+
+# Example groups and shared contexts are typed: false: RSpec evaluates their blocks with an example group or
+# an example as `self`, which Sorbet cannot see without a T.bind in every block (T.bind is an escape hatch
+# this repository does not use). Everything else, the spec helpers included, is at least `typed: true`.
+Sorbet/TrueSigil:
+  Exclude:
+    - "spec/**/*_spec.rb"
+    - "spec/support/shared_contexts.rb"
+
+# Markdown code blocks are snippets of an application, not files of this repository.
+Style/Copyright:
+  AutocorrectNotice: "# Copyright (c) 2026 VitaliiLazebnyi"
+  Exclude:
+    - "**/*.md"
+  Notice: "Copyright \\(c\\) 20\\d\\d VitaliiLazebnyi"
+
+# Style/DocumentationMethod is off: it requires the comment directly above `def`, but the Sorbet `sig`
+# sits between them, and yard-sorbet takes a method's docstring from the comment above the `sig` (a
+# comment moved below the `sig` is dropped from the documentation). Every method's documentation is
+# enforced by `rake yard` instead (script/check_docs.rb fails on any object without a docstring).
+Style/DocumentationMethod:
+  Enabled: false
+
+# Style/MissingElse requires an explicit `else`; `else nil` is how an intentional no-op branch is written,
+# so Style/EmptyElse only rejects an empty `else`.
+Style/EmptyElse:
+  EnforcedStyle: "empty"
+
 Style/FrozenStringLiteralComment:
   Exclude:
-    - '**/*.md'
+    - "**/*.md"
+
+# Style/HashLookupMethod is off: it cannot tell a Hash lookup from Sorbet's generic type syntax and flags
+# every `T::Array[...]`, `T::Hash[...]` and `T::Class[...]` of the signatures (and ActiveModel::Errors#[],
+# which has no `fetch`).
+Style/HashLookupMethod:
+  Enabled: false
+
+# The README shows the result of an expression as a trailing `# =>` comment, the Ruby documentation convention.
+Style/InlineComment:
+  Exclude:
+    - "**/*.md"
+
+Style/OneClassPerFile:
+  Exclude:
+    - "**/*.md"
 
 # The concurrency examples need real threads that start together; the helper that spawns them is the
 # one place in the repository allowed to create a Thread.
 ThreadSafety/NewThread:
   Exclude:
-    - 'spec/support/concurrent_runner.rb'
+    - "spec/support/concurrent_runner.rb"
 
-# Sorbet signatures name every parameter, including the block, so anonymous block forwarding (`&`)
-# cannot be used in typed code.
-Naming/BlockForwarding:
-  EnforcedStyle: explicit
+plugins:
+  - "rubocop-md"
+  - "rubocop-packaging"
+  - "rubocop-performance"
+  - "rubocop-rails"
+  - "rubocop-rake"
+  - "rubocop-rspec"
+  - "rubocop-sorbet"
+  - "rubocop-thread_safety"
+  - "rubocop-yard"
+...

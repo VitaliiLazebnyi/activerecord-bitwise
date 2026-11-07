@@ -1,0 +1,113 @@
+---
+# Pull requests are cancelled when a newer commit arrives; runs on main always finish.
+concurrency:
+  cancel-in-progress: "${{ github.event_name == 'pull_request' }}"
+  group: "${{ github.workflow }}-${{ github.ref }}"
+
+jobs:
+  # Every file type of the repository that RuboCop does not check, each with its linter at its strictest
+  # setting. The linters are installed from tools/requirements.txt, pinned with hashes; script/check runs the
+  # same commands.
+  lint:
+    name: "Workflows, shell, YAML, Markdown, spelling and EditorConfig"
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            files.pythonhosted.org:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pypi.org:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"  # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: "Install the linters (tools/requirements.txt, hash-pinned)"
+        run: |
+          python -m venv "${RUNNER_TEMP}/lint"
+          pip="${RUNNER_TEMP}/lint/bin/pip"
+          "${pip}" install --quiet --disable-pip-version-check --require-hashes --requirement tools/requirements.txt
+          echo "${RUNNER_TEMP}/lint/bin" >> "${GITHUB_PATH}"
+      # actionlint also runs ShellCheck on every `run:` block of the workflows.
+      - if: "${{ !cancelled() }}"
+        name: "actionlint (GitHub workflows)"
+        run: "actionlint -color"
+      - env:
+          GH_TOKEN: "${{ github.token }}"  # online audits (known-vulnerable actions, impostor commits)
+        if: "${{ !cancelled() }}"
+        name: "zizmor (GitHub workflows, auditor persona: every audit)"
+        run: "zizmor --persona auditor --format plain ."
+      - if: "${{ !cancelled() }}"
+        name: "ShellCheck (every optional check, style severity)"
+        run: "shfmt --find . | xargs shellcheck --enable=all --severity=style"
+      - if: "${{ !cancelled() }}"
+        name: "shfmt (format of the shell scripts, .editorconfig)"
+        run: "shfmt --diff ."
+      - if: "${{ !cancelled() }}"
+        name: "yamllint (every rule, strict)"
+        run: "yamllint --strict ."
+      - if: "${{ !cancelled() }}"
+        name: "rumdl (every markdownlint rule, .rumdl.toml)"
+        run: "rumdl check --deny-config-warnings ."
+      - if: "${{ !cancelled() }}"
+        name: "typos (spelling)"
+        run: "typos"
+      - if: "${{ !cancelled() }}"
+        name: "editorconfig-checker"
+        run: "ec"
+    timeout-minutes: 10
+
+  warning-gate:
+    if: "${{ !cancelled() }}"
+    name: "Warning gate"
+    needs:
+      - "lint"
+    permissions:
+      actions: "read"  # reads the logs of the other jobs of this run
+      contents: "read"
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Harden the runner (egress allow-list)"
+        uses: "step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43"  # v2.22.3
+        with:
+          allowed-endpoints: >-
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            results-receiver.actions.githubusercontent.com:443
+          egress-policy: "block"
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          GATE_JOB_NAME: "Warning gate"
+          GH_TOKEN: "${{ github.token }}"
+        name: "Fail on any warning or deprecation in the logs of this run"
+        run: "script/warning_gate.sh"
+    timeout-minutes: 10
+
+name: "Lint"
+
+"on":
+  pull_request:
+    branches:
+      - "main"
+  push:
+    branches:
+      - "main"
+  workflow_dispatch: {}
+
+# Nothing is writable by default; every job declares the (read-only) permissions it needs.
+permissions: {}
+...

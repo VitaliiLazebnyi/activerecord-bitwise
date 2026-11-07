@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/layout'
 require 'active_record/bitwise/types'
@@ -22,6 +24,7 @@ module ActiveRecord
         sig { returns(T::Array[Object]) }
         attr_reader :ids
 
+        # Creates the plan of one atomic UPDATE.
         # @param operation [Symbol] Either :add or :remove.
         # @param column_name [Symbol, String] The database column name.
         # @param ids [Array<Object>] The primary keys of the records to update.
@@ -56,6 +59,7 @@ module ActiveRecord
         record.class.public_method_defined?(:id) ? record.id : record
       end
 
+      # Creates the atomic update that adds or removes flags of one column.
       # @param operation [Symbol] Either :add or :remove.
       # @param layout [ActiveRecord::Bitwise::Layout] The flags of the column.
       sig { params(operation: Symbol, layout: Layout).void }

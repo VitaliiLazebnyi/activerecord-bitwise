@@ -1,5 +1,7 @@
-# typed: strict
+# typed: strong
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 module ActiveRecord
   # The main namespace for the ActiveRecord::Bitwise gem, which provides capabilities

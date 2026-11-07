@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/instance_methods/attribute_writes'
 require 'active_record/bitwise/instance_methods/raw_cache'
@@ -31,10 +33,8 @@ module ActiveRecord
         # @return [void]
         sig { params(column_name: Symbol, operation: Symbol, values: T::Array[Object]).void }
         def _bitwise_atomic_update!(column_name, operation, values)
-          if new_record?
-            raise ActiveRecordError,
-                  "cannot atomically #{operation} #{column_name} on a new record; save the record first"
-          end
+          message = "cannot atomically #{operation} #{column_name} on a new record; save the record first"
+          raise(ActiveRecordError, message) if new_record?
 
           transaction { _bitwise_apply(column_name, operation, values) }
         end
@@ -50,7 +50,7 @@ module ActiveRecord
           klass = self.class
           identity = id
           klass.__send__(:"_bitwise_#{operation}_#{column_name}", values, identity)
-          _bitwise_store(column_name, klass.where(id: identity).lock(true).pluck(column_name).first)
+          _bitwise_store(column_name, klass.where(id: identity).lock(true).pick(column_name))
         end
 
         # Stores +plucked+, the value just read from the database, as the record's value for +column_name+.

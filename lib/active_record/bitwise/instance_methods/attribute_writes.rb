@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/instance_methods/raw_cache'
 require 'active_record/bitwise/raw_mask'
@@ -35,7 +37,7 @@ module ActiveRecord
           super(attr_name, _bitwise_intercept_write(attr_name, value))
         end
 
-        # (see #_write_attribute)
+        # Writes +value+ to the attribute, like {#_write_attribute}.
         # @param attr_name [Symbol, String] The attribute.
         # @param value [Object, nil] The assigned value.
         # @return [Object, nil]
@@ -115,7 +117,8 @@ module ActiveRecord
         # @return [Hash{Symbol, String => ActiveRecord::Bitwise::Type}]
         sig { params(keys: T::Array[Types::Name]).returns(T::Hash[Types::Name, Type]) }
         def _bitwise_types(keys)
-          keys.filter_map { |key| (type = _bitwise_type(key.to_sym)) && [key, type] }.to_h
+          pairs = keys.filter_map { |key| (type = _bitwise_type(key.to_sym)) && [key, type] }
+          pairs.to_h
         end
 
         # The values to write for the bitwise columns among +attrs+.

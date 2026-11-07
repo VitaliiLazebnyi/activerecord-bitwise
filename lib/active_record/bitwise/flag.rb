@@ -1,5 +1,7 @@
-# typed: strict
+# typed: strong
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 require 'active_record'
 require 'active_record/bitwise/types'
@@ -25,6 +27,7 @@ module ActiveRecord
       sig { returns(Symbol) }
       attr_reader :key
 
+      # Creates the flag +key+ of the column +column_name+.
       # @param column_name [Symbol, String] The database column name.
       # @param key [Symbol] The flag name.
       sig { params(column_name: Types::Name, key: Symbol).void }

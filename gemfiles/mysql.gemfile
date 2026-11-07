@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
+
+# The suite against a MySQL server (CI: BUNDLE_GEMFILE=gemfiles/mysql.gemfile and DATABASE_URL).
+source 'https://rubygems.org'
+
+# The gem with its runtime and development dependencies.
+gemspec path: '..'
+
+# The MySQL adapter.
+gem 'mysql2', '~> 0.5'

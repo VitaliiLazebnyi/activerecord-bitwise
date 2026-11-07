@@ -1,0 +1,57 @@
+# rumdl (https://github.com/rvben/rumdl) lints every Markdown file with all of markdownlint's rules, at their
+# default settings except where noted. There are no inline disable comments.
+[global]
+# Prose is wrapped at the width of the code (RuboCop Layout/LineLength, .editorconfig).
+line-length = 120
+respect-gitignore = true
+
+[MD013]
+line-length = 120
+# `strict` stays off: it also measures table rows, which cannot be wrapped (see `tables` below).
+# `rumdl fmt` rewraps paragraphs to the limit.
+reflow = true
+# A table row cannot be wrapped without breaking the table.
+tables = false
+
+# Lists use dashes everywhere.
+[MD004]
+style = "dash"
+
+# The rules below are off by default in rumdl; all of them are enabled except MD063.
+
+# Table columns are padded so that the pipes line up.
+[MD060]
+enabled = true
+style = "aligned"
+
+# MD063 (heading capitalization) stays off: its sentence-case check lowercases the word after a heading
+# number ("1. the 63-bit limit"), single-letter labels ("Appendix a") and product names ("docker"), so it
+# cannot be satisfied without rewriting correct headings.
+
+[MD072]
+enabled = true
+
+[MD073]
+enabled = true
+
+[MD096]
+enabled = true
+
+# The names of the tools and projects the documents mention are spelled as their authors spell them.
+[MD044]
+code-blocks = false
+names = [
+  "ActiveRecord",
+  "GitHub",
+  "MySQL",
+  "PostgreSQL",
+  "RuboCop",
+  "RubyGems",
+  "SQLite",
+  "Sorbet",
+  "YARD",
+]
+
+# Work-in-progress markers do not belong in a published document.
+[MD061]
+terms = ["FIXME", "TODO", "XXX"]

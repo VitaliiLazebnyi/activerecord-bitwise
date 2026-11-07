@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::Model, '#bitwise') do
   include_context 'with a user model'
 
   let(:bitwise_callbacks) do
@@ -12,11 +14,11 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
 
   context 'with several bitwise columns' do
     it 'registers one initialization callback' do
-      expect(bitwise_callbacks.call(model._initialize_callbacks).size).to eq(1)
+      expect(bitwise_callbacks.call(model._initialize_callbacks).size).to(eq(1))
     end
 
     it 'registers one save callback' do
-      expect(bitwise_callbacks.call(model._save_callbacks).size).to eq(1)
+      expect(bitwise_callbacks.call(model._save_callbacks).size).to(eq(1))
     end
   end
 
@@ -24,23 +26,25 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#bitwise' do
     let(:child) { build_model(parent: model) { bitwise :custom_limits, { guest: 0 } } }
 
     it 'does not register the initialization callback again' do
-      expect(bitwise_callbacks.call(child._initialize_callbacks).size).to eq(1)
+      expect(bitwise_callbacks.call(child._initialize_callbacks).size).to(eq(1))
     end
 
     it 'does not register the save callback again' do
-      expect(bitwise_callbacks.call(child._save_callbacks).size).to eq(1)
+      expect(bitwise_callbacks.call(child._save_callbacks).size).to(eq(1))
     end
   end
 
   context 'with a subclass that registers its own callback before declaring another column' do
     # ActiveModel prepends every after_* callback, so the inherited one stays last unless it is registered anew.
-    it 'keeps the position of the inherited initialization callback' do
-      child = build_model(parent: model) do
+    let(:child) do
+      build_model(parent: model) do
         after_initialize { nil }
-        bitwise :custom_limits, { guest: 0 }
+        bitwise(:custom_limits, { guest: 0 })
       end
+    end
 
-      expect(child._initialize_callbacks.map(&:filter).last).to eq(:_validate_bitwise_column_type_and_bounds)
+    it 'keeps the position of the inherited initialization callback' do
+      expect(child._initialize_callbacks.map(&:filter).last).to(eq(:_validate_bitwise_column_type_and_bounds))
     end
   end
 end

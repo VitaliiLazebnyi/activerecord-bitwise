@@ -1,7 +1,9 @@
 # typed: false
 # frozen_string_literal: true
 
-RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
+# Copyright (c) 2026 VitaliiLazebnyi
+
+RSpec.describe(ActiveRecord::Bitwise::Model, '#roles=') do
   include_context 'with a user model'
 
   let(:record) { model.new }
@@ -21,14 +23,14 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
       it "reads back #{expected_flags.inspect} when assigned #{label}" do
         record.roles = assigned
 
-        expect(record.roles).to eq(expected_flags)
+        expect(record.roles).to(eq(expected_flags))
       end
     end
 
     it 'keeps the order in which the flags were given' do
       record.roles = %i[author admin]
 
-      expect(record.roles).to eq(%i[author admin])
+      expect(record.roles).to(eq(%i[author admin]))
     end
   end
 
@@ -42,7 +44,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
       it "reads back #{expected_flags.inspect} when assigned #{label}" do
         record.roles = assigned
 
-        expect(record.roles).to eq(expected_flags)
+        expect(record.roles).to(eq(expected_flags))
       end
     end
   end
@@ -51,21 +53,21 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
     it 'holds them as Strings so that validation can report them' do
       record.roles = %i[admin hacker]
 
-      expect(record.roles).to eq([:admin, 'hacker'])
+      expect(record.roles).to(eq([:admin, 'hacker']))
     end
 
     it 'does not create Symbols from untrusted input' do
       payload = unique_unmapped_name
       record.roles = [payload]
 
-      expect(symbol_exists?(payload)).to be(false)
+      expect(symbol_exists?(payload)).to(be(false))
     end
 
     it 'does not persist them' do
       record.roles = %i[admin hacker]
       record.save!(validate: false)
 
-      expect(raw_value(record)).to eq(1)
+      expect(raw_value(record)).to(eq(1))
     end
   end
 
@@ -73,12 +75,12 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
     it 'accepts 100 names' do
       record.roles = Array.new(100) { |i| "name_#{i}" }
 
-      expect(record.roles.size).to eq(100)
+      expect(record.roles.size).to(eq(100))
     end
 
     it 'rejects 101 names naming the limit' do
       expect { record.roles = Array.new(101) { |i| "name_#{i}" } }
-        .to raise_error(ArgumentError, 'Array size cannot exceed 100')
+        .to(raise_error(ArgumentError, 'Array size cannot exceed 100'))
     end
   end
 
@@ -86,7 +88,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
     [{ a: 1 }, true, false].each do |uncastable|
       it "rejects #{uncastable.inspect}" do
         expect { record.roles = uncastable }
-          .to raise_error(ArgumentError, "cannot cast #{uncastable.inspect} to a bitwise flag array for column roles")
+          .to(raise_error(ArgumentError, "cannot cast #{uncastable.inspect} to a bitwise flag array for column roles"))
       end
     end
 
@@ -94,7 +96,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
       record.roles = [:admin]
       capture_error { record.roles = true }
 
-      expect(record.roles).to eq([:admin])
+      expect(record.roles).to(eq([:admin]))
     end
   end
 
@@ -110,7 +112,7 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
         record.roles = flags
         record.save!
 
-        expect(raw_value(record)).to eq(expected_bitmask)
+        expect(raw_value(record)).to(eq(expected_bitmask))
       end
     end
 
@@ -118,21 +120,21 @@ RSpec.describe ActiveRecord::Bitwise::Model, '#roles=' do
       record.roles = nil
       record.save!
 
-      expect(raw_value(record)).to be_nil
+      expect(raw_value(record)).to(be_nil)
     end
 
     it 'stores an assigned Integer verbatim, including unmapped bits' do
       record.roles = 0b10_0001
       record.save!
 
-      expect(raw_value(record)).to eq(0b10_0001)
+      expect(raw_value(record)).to(eq(0b10_0001))
     end
 
     it 'reads the same flags back after reloading' do
       record.roles = %i[admin author]
       record.save!
 
-      expect(record.reload.roles).to eq(%i[admin author])
+      expect(record.reload.roles).to(eq(%i[admin author]))
     end
   end
 end

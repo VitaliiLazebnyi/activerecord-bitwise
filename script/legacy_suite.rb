@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
-# typed: false
+# typed: strict
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Runs the ORIGINAL spec files of this gem (as they were on `main` before the test and
 # refactoring pass) against the current `lib/`, to prove that behavior did not change.
@@ -11,6 +13,7 @@
 require 'fileutils'
 require 'json'
 require 'open3'
+require 'sorbet-runtime'
 
 # The last commit of `main` before the pass; its spec directory is the original suite.
 ORIGINAL_COMMIT = '7f2f61bd8b9e7ef0f6f176c48acbf471ea6dcf97'
@@ -30,22 +33,24 @@ abort 'tar failed' unless status.success?
 # The one deliberate difference: the original suite pins the bug fixed in this release, that a 3-byte
 # column (MySQL MEDIUMINT, which holds 23 signed bits) was validated as if it held 31. Its limit-3
 # assertions are updated to the correct capacity (position 22 fits, 23 does not); nothing else changes.
-CORRECTED_LIMIT_THREE = {
-  "# Position 30 -> valid\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
-  'TestUser.bitwise_definitions[:roles][:mapping] = { a: 30 }' =>
-    "# Position 22 -> valid\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
-    'TestUser.bitwise_definitions[:roles][:mapping] = { a: 22 }',
-  "# Position 31 -> fails (max 31 flags)\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
-  'TestUser.bitwise_definitions[:roles][:mapping] = { a: 31 }' =>
-    "# Position 23 -> fails (max 23)\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
-    'TestUser.bitwise_definitions[:roles][:mapping] = { a: 23 }'
-}.freeze
+CORRECTED_LIMIT_THREE = T.let(
+  {
+    "# Position 30 -> valid\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+      'TestUser.bitwise_definitions[:roles][:mapping] = { a: 30 }' =>
+      "# Position 22 -> valid\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+      'TestUser.bitwise_definitions[:roles][:mapping] = { a: 22 }',
+    "# Position 31 -> fails (max 31 flags)\n        " \
+      "TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+      'TestUser.bitwise_definitions[:roles][:mapping] = { a: 31 }' =>
+      "# Position 23 -> fails (max 23)\n        TestUser.bitwise_definitions[:roles][:validated] = false\n        " \
+      'TestUser.bitwise_definitions[:roles][:mapping] = { a: 23 }'
+  }.freeze,
+  T::Hash[String, String]
+)
 original_spec = File.join(work, 'spec', 'activerecord_bitwise_spec.rb')
 text = File.read(original_spec)
 CORRECTED_LIMIT_THREE.each do |before, after|
-  abort "the original suite no longer contains the limit-3 assertion:\n#{before}" unless text.include?(before)
-
-  text = text.sub(before, after)
+  text.sub!(before, after) || abort("the original suite no longer contains the limit-3 assertion:\n#{before}")
 end
 File.write(original_spec, text)
 
@@ -54,17 +59,18 @@ File.write(original_spec, text)
 # prints a DEPRECATION notice on every run) and enforces a 100% coverage floor on the files it loads. That
 # floor belongs to the old single-file layout; coverage is enforced by this release's own suite, so here
 # the floor is dropped and only the API rename is applied. The examples themselves are untouched.
-SIMPLECOV_ADAPTATIONS = [
-  %w[add_filter skip],
-  ['minimum_coverage line: 100, branch: 100', 'minimum_coverage line: 0, branch: 0'],
-  ['minimum_coverage line: 99, branch: 99', 'minimum_coverage line: 0, branch: 0']
-].freeze
+SIMPLECOV_ADAPTATIONS = T.let(
+  [
+    %w[add_filter skip],
+    ['minimum_coverage line: 100, branch: 100', 'minimum_coverage line: 0, branch: 0'],
+    ['minimum_coverage line: 99, branch: 99', 'minimum_coverage line: 0, branch: 0']
+  ].freeze,
+  T::Array[[String, String]]
+)
 original_helper = File.join(work, 'spec', 'spec_helper.rb')
 helper = File.read(original_helper)
 SIMPLECOV_ADAPTATIONS.each do |before, after|
-  abort "the original spec_helper no longer contains: #{before}" unless helper.include?(before)
-
-  helper = helper.gsub(before, after)
+  helper.gsub!(before, after) || abort("the original spec_helper no longer contains: #{before}")
 end
 File.write(original_helper, helper)
 # One original example looks for the Tapioca compiler relative to the spec directory.
@@ -72,16 +78,17 @@ FileUtils.mkdir_p(File.join(work, 'lib'))
 FileUtils.cp_r(File.join(root, 'lib', 'tapioca'), File.join(work, 'lib'))
 
 result = File.join(work, 'result.json')
-ENV['BUNDLE_GEMFILE'] = File.join(root, 'Gemfile')
-# The per-example JSON result is judged, not the exit code.
-system('bundle', 'exec', 'rspec', '--options', File::NULL, '-I', File.join(root, 'lib'), '-I', 'spec',
-       '-r', 'spec_helper', '--format', 'json', '--out', result, *Dir.glob('spec/*_spec.rb', base: work),
-       chdir: work, out: File::NULL)
+rspec = %W[env BUNDLE_GEMFILE=#{File.join(root, 'Gemfile')} bundle exec rspec --options #{File::NULL}]
+load_path = %W[-I #{File.join(root, 'lib')} -I spec -r spec_helper]
+specs = Dir.glob('spec/*_spec.rb', base: work)
+# The per-example JSON result is judged, not the exit code; the progress output is not needed.
+IO.popen([*rspec, *load_path, '--format', 'json', '--out', result, *specs], chdir: work, err: %i[child out], &:read)
 
 report = JSON.parse(File.read(result))
-failed = report.fetch('examples').filter_map do |example|
-  example.fetch('full_description') if example.fetch('status') == 'failed'
-end
+failed =
+  report.fetch('examples').filter_map do |example|
+    example.fetch('full_description') if example.fetch('status') == 'failed'
+  end
 puts "Original suite: #{report.dig('summary', 'example_count')} examples, #{failed.size} failing"
 failed.each { |name| warn "FAILURE: #{name}" }
 errors = Integer(report.dig('summary', 'errors_outside_of_examples_count') || 0)

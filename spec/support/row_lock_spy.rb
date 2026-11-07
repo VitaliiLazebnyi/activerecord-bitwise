@@ -1,17 +1,24 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # SQLite ignores FOR UPDATE, so whether a query asks for a row lock cannot be seen in its SQL
 # on the default test database. This records the arguments of every +lock+ call made on
 # relations built through +model.where+ instead (the lock itself still runs).
 module RowLockSpy
+  extend T::Helpers
+
+  # The spy is set up with the mocks of the example it is included into.
+  requires_ancestor { RSpec::Mocks::ExampleMethods }
+
   # @param model [Class] the ActiveRecord model to observe
   # @return [Array<Array>] a live list: one entry (the lock arguments) per +lock+ call
   def track_row_locks(model)
     locks = []
-    allow(model).to receive(:where).and_wrap_original do |original, *conditions|
+    allow(model).to(receive(:where).and_wrap_original) do |original, *conditions|
       original.call(*conditions).tap do |relation|
-        allow(relation).to receive(:lock).and_wrap_original do |lock, *arguments|
+        allow(relation).to(receive(:lock).and_wrap_original) do |lock, *arguments|
           locks << arguments
           lock.call(*arguments)
         end

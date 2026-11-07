@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record/bitwise/types'
 require 'sorbet-runtime'
 
@@ -41,7 +43,11 @@ module ActiveRecord
       # @param array [Array] The array to stamp (must not be frozen).
       # @param raw [Object, nil] The marker value.
       # @return [Array] +array+.
-      sig { type_parameters(:Item).params(array: T::Array[T.type_parameter(:Item)], raw: T.nilable(Object)).returns(T::Array[T.type_parameter(:Item)]) }
+      sig do
+        type_parameters(:Item)
+          .params(array: T::Array[T.type_parameter(:Item)], raw: T.nilable(Object))
+          .returns(T::Array[T.type_parameter(:Item)])
+      end
       def self.stamp(array, raw)
         array.instance_variable_set(IVAR, raw)
         array
@@ -59,7 +65,11 @@ module ActiveRecord
       # @param target [Array] The array to stamp (must not be frozen).
       # @param source [Object] Any object.
       # @return [Array] +target+.
-      sig { type_parameters(:Item).params(target: T::Array[T.type_parameter(:Item)], source: Object).returns(T::Array[T.type_parameter(:Item)]) }
+      sig do
+        type_parameters(:Item)
+          .params(target: T::Array[T.type_parameter(:Item)], source: Object)
+          .returns(T::Array[T.type_parameter(:Item)])
+      end
       def self.carry(target, source)
         marker = read(source) if source.is_a?(Array)
         marker ? stamp(target, marker) : target

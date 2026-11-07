@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_model'
 require 'active_record/bitwise/definitions'
 require 'active_record/bitwise/types'
@@ -37,7 +39,8 @@ class BitwiseValidator < ActiveModel::EachValidator
   # @return [void]
   sig do
     override.params(
-      record: T.all(ActiveModel::Validations, Object), attribute: ActiveRecord::Bitwise::Types::Name,
+      record: T.all(ActiveModel::Validations, Object),
+      attribute: ActiveRecord::Bitwise::Types::Name,
       value: T.nilable(Object)
     ).void
   end

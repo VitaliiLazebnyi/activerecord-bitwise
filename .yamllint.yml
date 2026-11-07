@@ -1,0 +1,45 @@
+---
+# yamllint (https://github.com/adrienverge/yamllint) checks every YAML file of the repository with every rule
+# enabled, the optional ones included, and runs in strict mode (`yamllint --strict`): warnings fail too.
+extends: "default"
+
+# Generated and installed files (coverage/, tmp/, vendor/, ...) are not checked.
+ignore-from-file: ".gitignore"
+
+rules:
+  anchors:
+    forbid-duplicated-anchors: true
+    forbid-undeclared-aliases: true
+    forbid-unused-anchors: true
+  braces:
+    forbid: "non-empty"
+  brackets:
+    forbid: "non-empty"
+  document-end:
+    present: true
+  empty-values: "enable"
+  float-values:
+    forbid-inf: true
+    forbid-nan: true
+    forbid-scientific-notation: true
+    require-numeral-before-decimal: true
+  indentation:
+    check-multi-line-strings: true
+    indent-sequences: true
+    spaces: 2
+  key-ordering: "enable"
+  # The width of the code and prose of the repository (RuboCop Layout/LineLength, .rumdl.toml).
+  line-length:
+    allow-non-breakable-words: false
+    max: 120
+  octal-values:
+    forbid-explicit-octal: true
+    forbid-implicit-octal: true
+  quoted-strings:
+    quote-type: "double"
+    required: true
+  truthy:
+    allowed-values:
+      - "false"
+      - "true"
+...

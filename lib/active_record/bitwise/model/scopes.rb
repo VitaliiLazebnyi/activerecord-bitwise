@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/declaration'
 require 'active_record/bitwise/layout'
@@ -20,8 +22,10 @@ module ActiveRecord
         requires_ancestor { T.class_of(ActiveRecord::Base) }
 
         # The scopes of a column: name prefix and the {ScopeQuery} method that builds the `where` arguments.
-        SCOPES = T.let({ with_: :with, with_any_: :with_any, with_exact_: :with_exact, without_: :without }.freeze,
-                       T::Hash[Symbol, Symbol])
+        SCOPES = T.let(
+          { with_: :with, with_any_: :with_any, with_exact_: :with_exact, without_: :without }.freeze,
+          T::Hash[Symbol, Symbol]
+        )
         private_constant :SCOPES
 
         private
@@ -45,10 +49,13 @@ module ActiveRecord
         def _bitwise_scope(name, layout, query)
           Redefinition.release(singleton_class, name)
           # A scope body that returns nil leaves the relation unfiltered (ActiveRecord falls back to `all`).
-          scope(name, lambda do |*values|
-            clause = ScopeQuery.new(layout, values).public_send(query)
-            where(clause.arguments(connection, table_name)) if clause
-          end)
+          scope(
+            name,
+            lambda do |*values|
+              clause = ScopeQuery.new(layout, values).public_send(query)
+              where(clause.arguments(connection, table_name)) if clause
+            end
+          )
         end
       end
     end

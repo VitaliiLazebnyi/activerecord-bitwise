@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record/bitwise/errors'
 require 'sorbet-runtime'
 
@@ -26,12 +28,12 @@ module ActiveRecord
       # @return [Object, nil] The block's result.
       sig do
         type_parameters(:Result).params(blk: T.proc.returns(T.type_parameter(:Result)))
-                                .returns(T.type_parameter(:Result))
+          .returns(T.type_parameter(:Result))
       end
       def self.run(&blk)
         thread = Thread.current
         depth = thread[KEY] || 0
-        raise Error, 'System recursion limit exceeded in deserialize' if depth == LIMIT
+        raise(Error, 'System recursion limit exceeded in deserialize') if depth == LIMIT
 
         nested(thread, depth, blk)
       end
@@ -43,7 +45,7 @@ module ActiveRecord
       # @return [Object, nil] The work's result.
       sig do
         type_parameters(:Result).params(thread: Thread, depth: Integer, work: T.proc.returns(T.type_parameter(:Result)))
-                                .returns(T.type_parameter(:Result))
+          .returns(T.type_parameter(:Result))
       end
       def self.nested(thread, depth, work)
         thread[KEY] = depth + 1

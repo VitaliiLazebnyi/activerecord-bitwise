@@ -1,5 +1,7 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Builds flag arrays carrying the gem's internal "raw bitmask" marker, which the
 # getter attaches to every array it returns. Used to model markers that a public

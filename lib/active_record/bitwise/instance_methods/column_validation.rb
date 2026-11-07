@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 require 'active_record'
 require 'active_record/bitwise/declaration'
 require 'active_record/bitwise/mapping'
@@ -27,6 +29,7 @@ module ActiveRecord
         DEFAULT_CAPACITY = 31
         private_constant :DEFAULT_CAPACITY
 
+        # Creates the column check of +model+.
         # @param model [Class] The model class that declared the bitwise columns.
         sig { params(model: Types::ModelClass).void }
         def initialize(model)
@@ -78,13 +81,14 @@ module ActiveRecord
 
           database_column = @model.columns_hash[column.to_s]
           unless database_column&.type == :integer
-            raise ArgumentError, "Bitwise column #{column} must be an integer database column"
+            raise(ArgumentError, "Bitwise column #{column} must be an integer database column")
           end
 
           verify_fit(column, Mapping.highest_position(config.fetch(:mapping)), database_column.limit || 4)
           config[:validated] = true
         end
 
+        # Checks that the highest bit position of a mapping fits the column.
         # @param column [Symbol]
         # @param position [Integer] The highest bit position of the mapping (-1 for an empty mapping).
         # @param bytes [Integer] The byte limit of the database column (4 when it reports none).
@@ -95,8 +99,11 @@ module ActiveRecord
           capacity = CAPACITY.fetch(bytes, DEFAULT_CAPACITY)
           return if position < capacity
 
-          raise ArgumentError, "Bitwise column #{column} has limit of #{bytes} bytes (max #{capacity} flags), " \
-                               "but mapping requires bit shift position #{position}."
+          raise(
+            ArgumentError,
+            "Bitwise column #{column} has limit of #{bytes} bytes (max #{capacity} flags), " \
+              "but mapping requires bit shift position #{position}."
+          )
         end
       end
     end

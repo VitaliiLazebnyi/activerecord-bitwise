@@ -1,13 +1,17 @@
 # frozen_string_literal: true
 
+# Copyright (c) 2026 VitaliiLazebnyi
+
 source 'https://rubygems.org'
 
-# Specify your gem's dependencies in activerecord-bitwise.gemspec
+# The gem with its runtime and development dependencies (activerecord-bitwise.gemspec). Gemfile.lock pins
+# them for every single-version check; the test matrix resolves its own bundles from gemfiles/.
 gemspec
 
-# Allow CI to pin a specific ActiveRecord release, e.g. AR_VERSION="~> 7.1.0"
-gem 'activerecord', ENV['AR_VERSION'] if ENV['AR_VERSION']
-
-# Alternate database adapters for running the suite against a real server (see spec_helper)
-gem 'mysql2', '~> 0.5' if ENV.fetch('DATABASE_URL', '').start_with?('mysql2')
-gem 'pg', '~> 1.7' if ENV.fetch('DATABASE_URL', '').start_with?('postgres') # matches postgres:// and postgresql://
+# `rake typecheck` only (BUNDLE_WITH=typecheck). The group is optional so that the specs run without Tapioca:
+# loading it changes how lib/tapioca/dsl/compilers/activerecord_bitwise.rb is loaded, and the specs exercise
+# its stand-in for Tapioca's compiler base class.
+group :typecheck, optional: true do
+  # Generates the RBI files of the bundled gems that Sorbet checks against.
+  gem 'tapioca', '~> 0.20', require: false
+end

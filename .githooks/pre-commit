@@ -1,18 +1,7 @@
 #!/usr/bin/env bash
-# Pre-commit hook: runs tests, linting, and type-checking.
+# Pre-commit hook: every check of script/check except mutation testing and the outdated-gem check.
 # Install: git config core.hooksPath .githooks
 set -euo pipefail
 
-echo "==> Running RSpec..."
-bundle exec rspec --format progress
-
-echo "==> Running RuboCop..."
-bundle exec rubocop
-
-echo "==> Checking for inline suppressions..."
-script/forbidden_suppressions.sh
-
-echo "==> Running Sorbet type-check..."
-bundle exec rake typecheck
-
-echo "==> All checks passed."
+root=$(git rev-parse --show-toplevel)
+exec "${root}/script/check" --fast

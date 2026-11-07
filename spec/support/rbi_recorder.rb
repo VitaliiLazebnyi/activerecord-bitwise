@@ -1,5 +1,7 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
+
+# Copyright (c) 2026 VitaliiLazebnyi
 
 # Stands in for Tapioca's RBI tree (the external boundary of the Tapioca DSL compiler):
 # it plays both the root and the model scope, and records every method the compiler declares.
@@ -7,9 +9,6 @@ class RbiRecorder
   # One declared method.
   Declaration = Struct.new(:name, :return_type, :class_method)
   public_constant :Declaration
-
-  # @return [Array<Declaration>] the declared methods, in declaration order
-  attr_reader :declarations
 
   def initialize
     @declarations = []
@@ -20,7 +19,7 @@ class RbiRecorder
   # @yieldparam scope [RbiRecorder]
   # @return [void]
   def create_path(_constant)
-    yield self
+    yield(self)
   end
 
   # Mirrors RBI::Scope#create_method.
