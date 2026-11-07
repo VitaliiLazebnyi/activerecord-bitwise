@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Development dependencies: rubocop-md 2.x to 3.0 and, for the PostgreSQL test run, pg 1.6 to 1.7. The
+  diff-lcs and prism holds now quote rspec-expectations 3.13.6 and rspec-mocks 3.13.9.
+- CI: ruby/setup-ruby v1.338.0, github/codeql-action v4.39.3, zizmorcore/zizmor-action v0.8.1, and
+  current digests of the PostgreSQL 18, MySQL LTS and MySQL latest service images.
+
 ## [0.12.0] - 2026-10-28
 
 ### Changed (breaking)

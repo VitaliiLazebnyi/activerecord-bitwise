@@ -64,7 +64,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake', '~> 13.4'
   # Linter and its plugins.
   spec.add_development_dependency 'rubocop', '~> 1.92'
-  spec.add_development_dependency 'rubocop-md', '~> 2.0'
+  spec.add_development_dependency 'rubocop-md', '~> 3.0'
   spec.add_development_dependency 'rubocop-performance', '~> 1.27'
   spec.add_development_dependency 'rubocop-rake', '~> 0.7'
   spec.add_development_dependency 'rubocop-rspec', '~> 3.10'
