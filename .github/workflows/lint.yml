@@ -70,7 +70,7 @@ jobs:
 
   warning-gate:
     if: "${{ !cancelled() }}"
-    name: "Warning gate"
+    name: "Warning gate (Lint)"
     needs:
       - "lint"
     permissions:
@@ -91,7 +91,7 @@ jobs:
         with:
           persist-credentials: false
       - env:
-          GATE_JOB_NAME: "Warning gate"
+          GATE_JOB_NAME: "Warning gate (Lint)"
           GH_TOKEN: "${{ github.token }}"
         name: "Fail on any warning or deprecation in the logs of this run"
         run: "script/warning_gate.sh"

@@ -48,7 +48,7 @@ jobs:
 
   warning-gate:
     if: "${{ !cancelled() }}"
-    name: "Warning gate"
+    name: "Warning gate (Mutation testing)"
     needs:
       - "mutant"
     permissions:
@@ -69,7 +69,7 @@ jobs:
         with:
           persist-credentials: false
       - env:
-          GATE_JOB_NAME: "Warning gate"
+          GATE_JOB_NAME: "Warning gate (Mutation testing)"
           GH_TOKEN: "${{ github.token }}"
         name: "Fail on any warning or deprecation in the logs of this run"
         run: "script/warning_gate.sh"

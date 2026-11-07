@@ -259,7 +259,7 @@ jobs:
   # are tested on the newest Ruby 3.x; ActiveRecord 8.x runs on the primary Ruby.
   test-activerecord:
     env:
-      BUNDLE_GEMFILE: "${{ github.workspace }}/gemfiles/activerecord_${{ matrix.activerecord }}.gemfile"
+      BUNDLE_GEMFILE: "${{ github.workspace }}/gemfiles/${{ matrix.gemfile }}.gemfile"
     name: "RSpec (ActiveRecord ${{ matrix.activerecord }})"
     permissions:
       contents: "read"
@@ -295,13 +295,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - activerecord: "7_1"
+          - activerecord: "7.1"
+            gemfile: "activerecord_7_1"
             ruby: "3.4.12"
-          - activerecord: "7_2"
+          - activerecord: "7.2"
+            gemfile: "activerecord_7_2"
             ruby: "3.4.12"
-          - activerecord: "8_0"
+          - activerecord: "8.0"
+            gemfile: "activerecord_8_0"
             ruby: "4.0.9"
-          - activerecord: "8_1"
+          - activerecord: "8.1"
+            gemfile: "activerecord_8_1"
             ruby: "4.0.9"
     timeout-minutes: 15
 
@@ -449,7 +453,7 @@ jobs:
 
   warning-gate:
     if: "${{ !cancelled() }}"
-    name: "Warning gate"
+    name: "Warning gate (CI)"
     needs:
       - "docs"
       - "legacy-suite"
@@ -480,7 +484,7 @@ jobs:
         with:
           persist-credentials: false
       - env:
-          GATE_JOB_NAME: "Warning gate"
+          GATE_JOB_NAME: "Warning gate (CI)"
           GH_TOKEN: "${{ github.token }}"
         name: "Fail on any warning or deprecation in the logs of this run"
         run: "script/warning_gate.sh"

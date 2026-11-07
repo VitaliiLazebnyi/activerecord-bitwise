@@ -64,7 +64,7 @@ BUNDLE_GEMFILE=gemfiles/postgresql.gemfile DATABASE_URL=postgresql://localhost/b
   and so on, and no todo or ignore file of any tool.
   Fix the cause. A rule that cannot apply to a file is configured narrowly in the tool's configuration
   file, with the reason written next to it.
-- **No warnings.** Every workflow ends with a "Warning gate" job (`script/warning_gate.sh`) that fails
+- **No warnings.** Every workflow ends with a "Warning gate (<workflow>)" job (`script/warning_gate.sh`) that fails
   the run when the log of any job contains a warning or a deprecation notice.
 - **Least privilege in CI.** Every job declares its permissions, a timeout, and a `step-security/harden-runner`
   egress allow-list; every action is pinned to a commit SHA, and every dependency manifest is covered by

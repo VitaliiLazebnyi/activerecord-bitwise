@@ -96,7 +96,7 @@ jobs:
 
   warning-gate:
     if: "${{ !cancelled() }}"
-    name: "Warning gate"
+    name: "Warning gate (Release)"
     needs:
       - "build_and_release"
     permissions:
@@ -117,7 +117,7 @@ jobs:
         with:
           persist-credentials: false
       - env:
-          GATE_JOB_NAME: "Warning gate"
+          GATE_JOB_NAME: "Warning gate (Release)"
           GH_TOKEN: "${{ github.token }}"
         name: "Fail on any warning or deprecation in the logs of this run"
         run: "script/warning_gate.sh"
@@ -125,7 +125,7 @@ jobs:
 
   # Nothing is published when the verification logged a warning.
   warning-gate-verify:
-    name: "Warning gate (verify)"
+    name: "Warning gate (Release verification)"
     needs:
       - "verify"
     permissions:
@@ -146,7 +146,7 @@ jobs:
         with:
           persist-credentials: false
       - env:
-          GATE_JOB_NAME: "Warning gate (verify)"
+          GATE_JOB_NAME: "Warning gate (Release verification)"
           GH_TOKEN: "${{ github.token }}"
         name: "Fail on any warning or deprecation in the log of the verification"
         run: "script/warning_gate.sh"
