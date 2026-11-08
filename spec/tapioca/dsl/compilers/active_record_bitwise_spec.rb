@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -6,10 +6,13 @@
 require 'tapioca/dsl/compilers/activerecord_bitwise'
 
 RSpec.describe(Tapioca::Dsl::Compilers::ActiveRecordBitwise) do
-  let(:recorder) { RbiRecorder.new }
+  # Compiles +model+ into a new recorder. The compiler is built without its constructor: Sorbet types it
+  # against Tapioca's own Compiler (three arguments), while the specs run against the stand-in (one argument).
   let(:compile) do
     lambda do |model|
-      compiler = described_class.new(model)
+      recorder = RbiRecorder.new
+      compiler = described_class.allocate
+      compiler.instance_variable_set(:@constant, model)
       compiler.instance_variable_set(:@root, recorder)
       compiler.decorate
       recorder
@@ -64,6 +67,17 @@ RSpec.describe(Tapioca::Dsl::Compilers::ActiveRecordBitwise) do
       ]
     end
 
+    let(:affixes) do
+      [
+        [nil, nil, 'admin?'],
+        [true, nil, 'role_admin?'],
+        [nil, true, 'admin_role?'],
+        [:can, nil, 'can_admin?'],
+        [nil, :flag, 'admin_flag?'],
+        ['is', 'now', 'is_admin_now?']
+      ]
+    end
+
     it 'declares exactly the methods the macro generates, with their return types' do
       expect(compile.call(model).triples).to(match_array(generated_declarations))
     end
@@ -80,18 +94,10 @@ RSpec.describe(Tapioca::Dsl::Compilers::ActiveRecordBitwise) do
     end
 
     # Decision table: prefix x suffix -> generated predicate names for the key :admin
-    [
-      [nil, nil, 'admin?'],
-      [true, nil, 'role_admin?'],
-      [nil, true, 'admin_role?'],
-      [:can, nil, 'can_admin?'],
-      [nil, :flag, 'admin_flag?'],
-      ['is', 'now', 'is_admin_now?']
-    ].each do |prefix, suffix, predicate|
-      it "declares #{predicate} for prefix: #{prefix.inspect} and suffix: #{suffix.inspect}" do
+    it 'declares the predicate that every combination of prefix and suffix names', :aggregate_failures do
+      affixes.each do |prefix, suffix, predicate|
         affixed = build_model { bitwise(:roles, { admin: 0 }, prefix: prefix, suffix: suffix) }
-
-        expect(compile.call(affixed).instance_method_names).to(include(predicate))
+        aggregate_failures(predicate) { expect(compile.call(affixed).instance_method_names).to(include(predicate)) }
       end
     end
 
@@ -106,6 +112,13 @@ RSpec.describe(Tapioca::Dsl::Compilers::ActiveRecordBitwise) do
   describe 'the stand-in for the compiler base class' do
     it 'gathers nothing on its own' do
       expect(Tapioca::Dsl::Compiler.gather_constants).to(eq([]))
+    end
+
+    it 'remembers the constant it compiles, and starts without an RBI tree' do
+      model = build_model
+      compiler = Tapioca::Dsl::CompilerStandIn.new(model)
+
+      expect([compiler.constant, compiler.root]).to(eq([model, nil]))
     end
   end
 end

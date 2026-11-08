@@ -4,8 +4,10 @@
 #     the suppression scan, Sorbet, YARD, Reek, Flay, Flog, Debride, bundler-audit, the strict gem build),
 #     the outdated-gem check and mutation testing (`rake outdated mutant`);
 #   - the linters of every other file type, installed from tools/requirements.txt (hash-pinned) into tmp/lint:
-#     actionlint, zizmor, ShellCheck, shfmt, yamllint, rumdl, typos and editorconfig-checker;
-#   - gitleaks over the whole history (it must be on PATH: https://github.com/gitleaks/gitleaks).
+#     actionlint (with ShellCheck on every `run:` block), zizmor, ShellCheck, shfmt, yamllint, taplo, rumdl, typos
+#     and editorconfig-checker;
+#   - lychee on every link of the Markdown files and gitleaks over the whole history (both must be on PATH:
+#     https://github.com/lycheeverse/lychee, https://github.com/gitleaks/gitleaks).
 # CI also runs the suite on every supported Ruby, ActiveRecord minor and database server (gemfiles/, see
 # CONTRIBUTING.md), CodeQL, the dependency review and OpenSSF Scorecard.
 #
@@ -41,9 +43,10 @@ if [[ ${fast} == false ]]; then
   step bundle exec rake outdated mutant
 fi
 
-step actionlint -color
+step env SHELLCHECK_OPTS='--enable=all --severity=style' actionlint -color
+# The GitHub token reaches the online checks through the environment only, so that `step` never prints it.
 if token=$(gh auth token 2>/dev/null); then
-  step env GH_TOKEN="${token}" zizmor --persona auditor --format plain .
+  GH_TOKEN="${token}" step zizmor --persona auditor --format plain .
 else
   step zizmor --persona auditor --format plain --offline .
 fi
@@ -52,7 +55,14 @@ mapfile -t shell_scripts <<<"${scripts}"
 step shellcheck --enable=all --severity=style "${shell_scripts[@]}"
 step shfmt --diff .
 step yamllint --strict .
+step taplo lint
+step taplo format --check
 step rumdl check --deny-config-warnings .
+if [[ -n ${token:-} ]]; then
+  GITHUB_TOKEN="${token}" step lychee --root-dir "${PWD}" '**/*.md'
+else
+  step lychee --root-dir "${PWD}" '**/*.md'
+fi
 step typos
 step ec
 step gitleaks git --redact --exit-code 1 .

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -152,8 +152,9 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '.add_roles!') do
   end
 
   context 'with the highest bit position' do
+    let(:wide) { build_model('capacity_records') { bitwise(:big, { low: 0, top: 62 }) } }
+
     it 'sets bit 62 on a bigint column' do
-      wide = build_model('capacity_records') { bitwise(:big, { low: 0, top: 62 }) }
       record = wide.create!
       wide.add_big!(:top, records: record)
 
@@ -164,7 +165,7 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '.add_roles!') do
   context 'with the generated SQL' do
     it 'ORs the mask into the column wrapped in COALESCE in one UPDATE' do
       column = model.connection.quote_column_name('roles')
-      statements = normalized_sql(capture_sql { model.add_roles!(:admin, records: admin.id) })
+      statements = normalized_statements(capture_sql { model.add_roles!(:admin, records: admin.id) })
 
       expect(statements).to(include(a_string_including("#{column} = COALESCE(#{column}, 0) | 1")))
     end

@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -99,6 +99,9 @@ RSpec.configure do |config|
   config.expect_with(:rspec) do |c|
     c.syntax = :expect
   end
+
+  # A deprecated RSpec API fails the suite instead of printing a notice.
+  config.raise_errors_for_deprecations!
 
   config.mock_with(:rspec) do |mocks|
     mocks.verify_partial_doubles = true

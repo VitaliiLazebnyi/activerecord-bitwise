@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -6,25 +6,31 @@
 RSpec.describe(ActiveRecord::Bitwise::RelationExtension, '#where') do
   include_context 'with scope fixtures'
 
+  let(:decisions) do
+    [
+      [[:admin], %i[admin]],
+      [%i[admin author], %i[both]],
+      [%i[author admin], %i[both]],
+      [%i[admin author subscriber], %i[three]],
+      [%w[admin author], %i[both]],
+      [:admin, %i[admin]],
+      ['admin', %i[admin]],
+      [[], %i[none]],
+      [0, %i[none]],
+      [1, %i[admin]],
+      [5, %i[both]],
+      [[1, 5], %i[admin both]],
+      ['5', %i[both]],
+      [nil, []]
+    ]
+  end
+
   # Decision table: value given for the bitwise column -> fixtures matched (exact bitmask).
-  [
-    [[:admin], %i[admin]],
-    [%i[admin author], %i[both]],
-    [%i[author admin], %i[both]],
-    [%i[admin author subscriber], %i[three]],
-    [%w[admin author], %i[both]],
-    [:admin, %i[admin]],
-    ['admin', %i[admin]],
-    [[], %i[none]],
-    [0, %i[none]],
-    [1, %i[admin]],
-    [5, %i[both]],
-    [[1, 5], %i[admin both]],
-    ['5', %i[both]],
-    [nil, []]
-  ].each do |value, expected|
-    it "matches #{expected.inspect} for roles: #{value.inspect}" do
-      expect(names_in.call(model.where(roles: value))).to(eq(expected))
+  it 'matches the right records for every form of value', :aggregate_failures do
+    decisions.each do |value, expected|
+      aggregate_failures("matches #{expected.inspect} for roles: #{value.inspect}") do
+        expect(names_in.call(model.where(roles: value))).to(eq(expected))
+      end
     end
   end
 

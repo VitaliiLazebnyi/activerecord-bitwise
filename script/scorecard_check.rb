@@ -95,11 +95,21 @@ module ScorecardCheck
   # @return [Integer] The exit status: 0 when the check passes.
   sig { params(changes_json: String).returns(Integer) }
   def self.main(changes_json)
-    changes = changes_json.empty? ? [] : JSON.parse(changes_json, symbolize_names: true)
-    config = YAML.safe_load_file(CONFIG, symbolize_names: true)
-    found = problems(changes, config, File.read(LOCKFILE))
+    found = problems(
+      parse_changes(changes_json),
+      YAML.safe_load_file(CONFIG, symbolize_names: true),
+      File.read(LOCKFILE)
+    )
     found.each { |problem| $stdout.puts("::error::#{problem}") }
     found.empty? ? 0 : 1
+  end
+
+  # The dependency changes of the `dependency-changes` JSON.
+  # @param changes_json [String] Empty when the change touches no dependency (the action then sets no output).
+  # @return [Array<Hash>]
+  sig { params(changes_json: String).returns(T::Array[T::Hash[Symbol, Object]]) }
+  def self.parse_changes(changes_json)
+    changes_json.empty? ? [] : JSON.parse(changes_json, symbolize_names: true)
   end
 
   # The problems the check finds (an empty list when it passes).
@@ -115,11 +125,27 @@ module ScorecardCheck
     ).returns(T::Array[String])
   end
   def self.problems(changes, config, lockfile)
-    allowances = config.fetch(:'scorecard-allowances', nil)
-    allowances = {} unless allowances.is_a?(Hash)
-    threshold = Float(config.fetch(:'warn-on-openssf-scorecard-level').to_s)
+    allowances = allowances(config)
+    threshold = threshold(config)
     added(changes).filter_map { |entry| entry.problem(threshold, allowances[entry.package.to_sym]) } +
       allowances.filter_map { |package, allowance| allowance_problem(package.to_s, allowance, lockfile) }
+  end
+
+  # The lowest acceptable Scorecard score.
+  # @param config [Hash] The parsed .github/dependency-review.yml.
+  # @return [Float]
+  sig { params(config: T::Hash[Symbol, Object]).returns(Float) }
+  def self.threshold(config)
+    Float(config.fetch(:'warn-on-openssf-scorecard-level').to_s)
+  end
+
+  # The Scorecard allowances of the configuration, by package.
+  # @param config [Hash] The parsed .github/dependency-review.yml.
+  # @return [Hash{Symbol => Hash}]
+  sig { params(config: T::Hash[Symbol, Object]).returns(T::Hash[Symbol, T::Hash[Symbol, Object]]) }
+  def self.allowances(config)
+    allowances = config.fetch(:'scorecard-allowances', nil)
+    allowances.is_a?(Hash) ? allowances : {}
   end
 
   # The added dependencies with their scores, each printed.
@@ -139,21 +165,27 @@ module ScorecardCheck
     ecosystem = change.fetch(:ecosystem).to_s
     name = change.fetch(:name).to_s
     version = change.fetch(:version).to_s
-    repository = repository(ecosystem, name, version, change[:source_repository_url].to_s)
+    repository = known_repository(change) || repository(ecosystem, name, version)
     Result.new("#{ecosystem}/#{name}", version, repository && score(repository))
   end
 
-  # The source repository of a dependency, the way dependency-review-action finds it: the URL GitHub knows,
-  # the owner/repository of a GitHub Action, or else the project deps.dev links to that version.
+  # The source repository GitHub knows for a dependency.
+  # @param change [Hash] One dependency change.
+  # @return [String, nil] e.g. "github.com/jfelchner/ruby-progressbar"; nil when GitHub knows none
+  sig { params(change: T::Hash[Symbol, Object]).returns(T.nilable(String)) }
+  def self.known_repository(change)
+    known = change[:source_repository_url].to_s.delete_prefix('https://')
+    known unless known.empty?
+  end
+
+  # The source repository of a dependency GitHub knows none for, the way dependency-review-action finds it: the
+  # owner/repository of a GitHub Action, or else the project deps.dev links to that version.
   # @param ecosystem [String] e.g. "rubygems".
   # @param name [String] The package name.
   # @param version [String] The added version.
-  # @param url [String] The source repository URL GitHub knows (empty when it knows none).
   # @return [String, nil] e.g. "github.com/jfelchner/ruby-progressbar"
-  sig { params(ecosystem: String, name: String, version: String, url: String).returns(T.nilable(String)) }
-  def self.repository(ecosystem, name, version, url)
-    known = url.delete_prefix('https://')
-    return known unless known.empty?
+  sig { params(ecosystem: String, name: String, version: String).returns(T.nilable(String)) }
+  def self.repository(ecosystem, name, version)
     return "github.com/#{name.split('/').first(2).join('/')}" if ecosystem == 'actions'
 
     # Gemspec entries name a requirement (e.g. "~> 0.9") instead of a version: deps.dev knows no such version.

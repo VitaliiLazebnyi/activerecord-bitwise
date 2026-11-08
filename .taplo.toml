@@ -1,0 +1,4 @@
+# taplo (https://taplo.tamasfe.dev) lints and checks the format of every TOML file of the repository (CI: the
+# Lint workflow; locally: script/check).
+exclude = [".mutant/**", "coverage/**", "doc/**", "tmp/**", "vendor/**"]
+include = ["**/*.toml"]

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -13,9 +13,11 @@ RSpec.describe(ActiveRecord::Bitwise::Type, '#serialize') do
   end
 
   context 'with an Integer' do
-    [0, 5, -5, (2**63) - 1, -(2**63)].each do |bitmask|
-      it "passes #{bitmask} through untouched" do
-        expect(type.serialize(bitmask)).to(eq(bitmask))
+    it 'passes every Integer bitmask through untouched', :aggregate_failures do
+      [0, 5, -5, (2**63) - 1, -(2**63)].each do |bitmask|
+        aggregate_failures("passes #{bitmask} through untouched") do
+          expect(type.serialize(bitmask)).to(eq(bitmask))
+        end
       end
     end
   end
@@ -23,12 +25,11 @@ RSpec.describe(ActiveRecord::Bitwise::Type, '#serialize') do
   # SQLite would store an out-of-range Integer as a lossy REAL, other adapters fail late and differently,
   # so the type refuses everything beyond a signed 64-bit column, like ActiveModel's own Integer type.
   context 'with an Integer outside the signed 64-bit range' do
-    [2**63, 2**64, 2**70, -(2**63) - 1].each do |bitmask|
-      it "raises ActiveModel::RangeError for #{bitmask}" do
+    it 'raises ActiveModel::RangeError for every bitmask out of range', :aggregate_failures do
+      [2**63, 2**64, 2**70, -(2**63) - 1].each do |bitmask|
         message = "#{bitmask} is out of range for column roles: it must fit a signed 64-bit integer"
-
-        expect { type.serialize(bitmask) }
-          .to(raise_error(ActiveModel::RangeError, message))
+        serialize = -> { type.serialize(bitmask) }
+        aggregate_failures(bitmask.to_s) { expect(&serialize).to(raise_error(ActiveModel::RangeError, message)) }
       end
     end
 

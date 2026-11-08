@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -9,20 +9,21 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#admin=') do
   let(:record) { model.new(roles: [:author]) }
 
   # Decision table: ActiveModel boolean semantics (the values a Rails checkbox submits).
-  [false, 0, '0', 'f', 'F', 'false', 'FALSE', 'off', 'OFF', nil, ''].each do |disabling|
-    it "disables the flag when assigned #{disabling.inspect}" do
-      record.roles = %i[admin author]
-      record.admin = disabling
+  it 'disables the flag for every value ActiveModel casts to false', :aggregate_failures do
+    [false, 0, '0', 'f', 'F', 'false', 'FALSE', 'off', 'OFF', nil, ''].each do |disabling|
+      assigned = model.new(roles: %i[admin author])
+      assigned.admin = disabling
 
-      expect(record.roles).to(eq([:author]))
+      aggregate_failures("assigned #{disabling.inspect}") { expect(assigned.roles).to(eq([:author])) }
     end
   end
 
-  [true, 1, '1', 't', 'true', 'on', 'yes', 'anything'].each do |enabling|
-    it "enables the flag when assigned #{enabling.inspect}" do
-      record.admin = enabling
+  it 'enables the flag for every value ActiveModel casts to true', :aggregate_failures do
+    [true, 1, '1', 't', 'true', 'on', 'yes', 'anything'].each do |enabling|
+      assigned = model.new(roles: [:author])
+      assigned.admin = enabling
 
-      expect(record.roles).to(eq(%i[author admin]))
+      aggregate_failures("assigned #{enabling.inspect}") { expect(assigned.roles).to(eq(%i[author admin])) }
     end
   end
 

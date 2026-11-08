@@ -15,3 +15,4 @@ tmp/
 --suppress-payload-superclass-redefinition-for=RDoc::Markup::ListItem
 --suppress-payload-superclass-redefinition-for=RDoc::Markup::Raw
 --enable-experimental-requires-ancestor
+--enable-experimental-rspec

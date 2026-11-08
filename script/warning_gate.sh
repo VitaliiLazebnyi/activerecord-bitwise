@@ -14,13 +14,18 @@ token=${GH_TOKEN:?}
 warning='[Ww]arning:|WARNING:|##\[warning\]|\[warn\]:'
 deprecation='DEPRECATION|DEPRECATED|is deprecated|will be deprecated|Node\.js [0-9]+ actions are deprecated'
 pattern="${warning}|${deprecation}"
-# The two kinds of matching line that are not warnings, each skipped only where it occurs:
+# The kinds of matching line that are not warnings of this repository, each skipped as narrowly as possible:
 # - CodeQL prints the JSON schema of its extractor options, whose "title" and "description" fields document a
 #   deprecated option ("DEPRECATED - Whether to use buildless ...").
 # - The Scorecard action prints the event that triggered the run, whose "message" fields are the commit
 #   messages of the push (text written by people, which may mention a warning).
+# - The Harden-Runner agent prints its log in its post step. With disable-sudo-and-containers it uninstalls Docker
+#   from the runner image, and dpkg notes that it leaves a non-empty directory of the image behind (upstream,
+#   step-security/harden-runner; nothing in this repository can change it). Only that exact line is skipped.
 documentation='^[0-9TZ:.-]+ +"(title|description)" : "'
 event_payload='^[0-9TZ:.-]+ +"message": "'
+dpkg_notice='^[0-9TZ:.-]+ +[A-Z][a-z]{2}, [0-9]{2} [A-Z][a-z]{2} [0-9]{4} [0-9:]{8} GMT:dpkg: warning: '
+dpkg_notice+="while removing docker-ce, directory '/usr/libexec/docker' not empty so not removed[[:space:]]*\$"
 
 jobs=$(gh api --paginate "repos/${repository}/actions/runs/${run_id}/jobs?per_page=100" \
   --jq ".jobs[] | select(.name != \"${gate_job}\" and .conclusion != \"skipped\") | \"\(.id)\t\(.name)\"")
@@ -28,8 +33,8 @@ jobs=$(gh api --paginate "repos/${repository}/actions/runs/${run_id}/jobs?per_pa
 status=0
 while IFS=$'\t' read -r id name; do
   [[ -n ${id} ]] || continue
-  skipped=${documentation}
-  [[ ${name} != 'Scorecard analysis' ]] || skipped="${documentation}|${event_payload}"
+  skipped="${documentation}|${dpkg_notice}"
+  [[ ${name} != 'Scorecard analysis' ]] || skipped="${skipped}|${event_payload}"
   # Downloaded with curl: depending on its version, gh refuses to print a log that contains terminal escape
   # sequences (colored tool output), and older versions do not know the flag that allows them.
   log=$(curl --fail --silent --show-error --location \

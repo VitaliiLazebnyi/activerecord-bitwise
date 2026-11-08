@@ -1,10 +1,34 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
 
 RSpec.describe(ActiveRecord::Bitwise::Model, '.with_roles') do
   include_context 'with scope fixtures'
+
+  let(:decisions) do
+    [
+      [[:admin], %i[admin both three]],
+      [[:author], %i[author both three]],
+      [[:subscriber], %i[three]],
+      [%i[admin author], %i[both three]],
+      [[%i[admin author]], %i[both three]],
+      [%w[admin author], %i[both three]],
+      [%i[admin admin], %i[admin both three]],
+      [%i[admin author subscriber], %i[three]],
+      [%i[admin bogus], %i[admin both three]],
+      [[:bogus], []],
+      [%w[bogus other], []],
+      [[], %i[none admin author both three]],
+      [[[]], %i[none]],
+      [[nil], %i[none]],
+      [[''], %i[none]],
+      [[nil, ''], %i[none]],
+      [[0], %i[none]],
+      [%w[0], %i[none]],
+      [[:admin, 0], %i[none]]
+    ]
+  end
 
   context 'with a flag whose name is numeric' do
     let(:model) { build_model { bitwise :roles, { '5': 0, other: 1 } } }
@@ -18,29 +42,11 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '.with_roles') do
   end
 
   # Decision table: arguments -> fixtures returned (records having ALL the given flags).
-  [
-    [[:admin], %i[admin both three]],
-    [[:author], %i[author both three]],
-    [[:subscriber], %i[three]],
-    [%i[admin author], %i[both three]],
-    [[%i[admin author]], %i[both three]],
-    [%w[admin author], %i[both three]],
-    [%i[admin admin], %i[admin both three]],
-    [%i[admin author subscriber], %i[three]],
-    [%i[admin bogus], %i[admin both three]],
-    [[:bogus], []],
-    [%w[bogus other], []],
-    [[], %i[none admin author both three]],
-    [[[]], %i[none]],
-    [[nil], %i[none]],
-    [[''], %i[none]],
-    [[nil, ''], %i[none]],
-    [[0], %i[none]],
-    [%w[0], %i[none]],
-    [[:admin, 0], %i[none]]
-  ].each do |arguments, expected|
-    it "with #{arguments.inspect} returns #{expected.inspect}" do
-      expect(names_in.call(model.with_roles(*arguments))).to(eq(expected))
+  it 'returns the right records for every form of arguments', :aggregate_failures do
+    decisions.each do |arguments, expected|
+      aggregate_failures("with #{arguments.inspect} returns #{expected.inspect}") do
+        expect(names_in.call(model.with_roles(*arguments))).to(eq(expected))
+      end
     end
   end
 

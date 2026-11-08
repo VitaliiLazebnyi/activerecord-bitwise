@@ -1,0 +1,14 @@
+# lychee (https://lychee.cli.rs) checks every link of every Markdown file, external ones and #anchors included
+# (CI: the Lint workflow; locally: script/check). A redirect fails like a broken link: links point at their final
+# address.
+exclude_path = [
+  "(^|/)\\.claude/",
+  "(^|/)coverage/",
+  "(^|/)doc/",
+  "(^|/)tmp/",
+  "(^|/)vendor/",
+]
+include_fragments = "full"
+max_redirects = 0
+max_retries = 3
+no_progress = true

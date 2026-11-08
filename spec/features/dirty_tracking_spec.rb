@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -8,24 +8,28 @@ RSpec.describe('Dirty tracking') do
 
   # State transition table: flags stored -> value assigned -> is the column considered changed?
   describe 'assigning a value to a persisted record' do
-    [
-      [[:admin], [:admin], false],
-      [[:admin], ['admin'], false],
-      [[:admin], 1, false],
-      [[:admin], %i[admin author], true],
-      [[:admin], [], true],
-      [[:admin], nil, true],
-      [[:admin], 0, true],
-      [[], [], false],
-      [[], 0, false],
-      [%i[admin author], %i[author admin], true],
-      [[:admin], 0b1_0000_0001, true]
-    ].each do |stored, assigned, changed|
-      it "reports changed? #{changed} when #{stored.inspect} becomes #{assigned.inspect}" do
+    let(:transitions) do
+      [
+        [[:admin], [:admin], false],
+        [[:admin], ['admin'], false],
+        [[:admin], 1, false],
+        [[:admin], %i[admin author], true],
+        [[:admin], [], true],
+        [[:admin], nil, true],
+        [[:admin], 0, true],
+        [[], [], false],
+        [[], 0, false],
+        [%i[admin author], %i[author admin], true],
+        [[:admin], 0b1_0000_0001, true]
+      ]
+    end
+
+    it 'reports changed? exactly when the assigned value changes the stored flags', :aggregate_failures do
+      transitions.each do |stored, assigned, changed|
         record = model.create!(roles: stored)
         record.roles = assigned
 
-        expect(record.roles_changed?).to(be(changed))
+        expect(record.roles_changed?).to(be(changed), "#{stored.inspect} becoming #{assigned.inspect}")
       end
     end
   end

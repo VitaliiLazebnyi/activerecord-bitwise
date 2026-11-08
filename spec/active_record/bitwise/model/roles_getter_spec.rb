@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -17,19 +17,23 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#roles') do
   end
 
   context 'with a persisted record' do
-    {
-      0 => [],
-      1 => [:admin],
-      0b1010 => %i[editor subscriber],
-      0b1111 => %i[admin editor author subscriber],
-      0b1_0000 => [],
-      0b1_0000_0101 => %i[admin author],
-      nil => []
-    }.each do |stored, expected_flags|
-      it "decodes the stored value #{stored.inspect} into #{expected_flags.inspect}" do
+    let(:stored_values) do
+      {
+        0 => [],
+        1 => [:admin],
+        0b1010 => %i[editor subscriber],
+        0b1111 => %i[admin editor author subscriber],
+        0b1_0000 => [],
+        0b1_0000_0101 => %i[admin author],
+        nil => []
+      }
+    end
+
+    it 'decodes every stored value into its mapped flags', :aggregate_failures do
+      stored_values.each do |stored, expected_flags|
         record = plant_raw_value(model.create!, stored)
 
-        expect(record.roles).to(eq(expected_flags))
+        aggregate_failures("stored #{stored.inspect}") { expect(record.roles).to(eq(expected_flags)) }
       end
     end
 

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -66,13 +66,18 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#bitwise') do
   end
 
   context 'with an invalid bit position' do
-    [-1, 63, 2**64, 'abc', '63', '-1', '', 1.5, nil, :one].each do |position|
-      it "rejects #{position.inspect}" do
-        message = "Bitwise column roles mapping key admin has invalid bit position #{position.inspect}. " \
+    let(:invalid_position) do
+      lambda do |position|
+        "Bitwise column roles mapping key admin has invalid bit position #{position.inspect}. " \
           'Positions must be Integers between 0 and 62; they are bit POSITIONS (1 << position), not masks.'
+      end
+    end
 
-        expect { define.call({ admin: position }) }
-          .to(raise_error(ActiveRecord::Bitwise::ConfigurationError, message))
+    it 'rejects every position that is not a valid bit position', :aggregate_failures do
+      [-1, 63, 2**64, 'abc', '63', '-1', '', 1.5, nil, :one].each do |position|
+        error = [ActiveRecord::Bitwise::ConfigurationError, invalid_position.call(position)]
+        declare = -> { define.call({ admin: position }) }
+        aggregate_failures(position.inspect) { expect(&declare).to(raise_error(*error)) }
       end
     end
   end

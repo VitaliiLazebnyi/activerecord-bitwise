@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -30,18 +30,27 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#bitwise') do
   end
 
   context 'with a key that would clobber a core ActiveRecord method' do
-    {
-      save: '#save!',
-      destroyed: '#destroyed?',
-      changed: '#changed?',
-      valid: '#valid?'
-    }.each do |key, generated|
-      it "rejects :#{key} because it generates #{generated}" do
+    let(:colliding_keys) do
+      {
+        save: '#save!',
+        destroyed: '#destroyed?',
+        changed: '#changed?',
+        valid: '#valid?'
+      }
+    end
+
+    let(:collision) do
+      lambda do |key, generated|
         message = "Bitwise column roles mapping key #{key} generates method #{generated} " \
           'which collides with core ActiveRecord::Base instance methods.'
+        an_instance_of(ArgumentError).and(having_attributes(message: message))
+      end
+    end
 
-        expect { build_model { bitwise(:roles, { key => 0 }) } }
-          .to(raise_error(an_instance_of(ArgumentError).and(having_attributes(message: message))))
+    it 'rejects every key whose generated method already exists', :aggregate_failures do
+      colliding_keys.each do |key, generated|
+        rejected = -> { build_model { bitwise(:roles, { key => 0 }) } }
+        aggregate_failures("key #{key.inspect}") { expect(&rejected).to(raise_error(collision.call(key, generated))) }
       end
     end
   end

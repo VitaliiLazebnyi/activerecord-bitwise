@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -13,94 +13,104 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#bitwise') do
     end
   end
 
-  [
-    { column: :tiny, limit: 1 },
-    { column: :small, limit: 2 },
-    { column: :medium, limit: 3 },
-    { column: :regular, limit: 4 },
-    { column: :big, limit: 8 }
-  ].each do |tier|
-    context "with a #{tier[:limit]}-byte column" do
-      let(:column_limit) { build_model('capacity_records').columns_hash[tier[:column].to_s].limit || 4 }
-      # The byte size the database actually reports (PostgreSQL widens 1 byte to 2 and 3 to 4).
-      let(:usable_flags) { (column_limit * 8) - 1 }
-
-      it 'accepts the highest bit position that fits' do
-        expect { define.call(tier[:column], usable_flags - 1).new }
-          .not_to(raise_error)
-      end
-
-      # An 8-byte column fits every position the mapping allows, so there is nothing to reject.
-      unless tier[:limit] == 8
-        it 'rejects the first bit position that does not fit' do
-          message = "Bitwise column #{tier[:column]} has limit of #{column_limit} bytes " \
-            "(max #{usable_flags} flags), but mapping requires bit shift position #{usable_flags}."
-
-          expect { define.call(tier[:column], usable_flags).new }
-            .to(raise_error(ArgumentError, message))
-        end
-      end
-
-      it 'stores the highest flag exactly' do
-        record = define.call(tier[:column], usable_flags - 1).create!(tier[:column] => [:flag])
-
-        expect(raw_value(record, tier[:column])).to(eq(1 << (usable_flags - 1)))
+  # Runs +check+ for the column of every byte size, each in a failure group named after the column, with the
+  # number of flags the column holds and the byte size the database actually reports for it (PostgreSQL widens
+  # 1 byte to 2 and 3 to 4).
+  let(:each_column) do
+    lambda do |columns = %i[tiny small medium regular big], &check|
+      columns.each do |column|
+        limit = build_model('capacity_records').columns_hash.fetch(column.to_s).limit || 4
+        aggregate_failures(column.inspect) { check.call(column, (limit * 8) - 1, limit) }
       end
     end
   end
 
+  it 'accepts the highest bit position that fits a column of every byte size', :aggregate_failures do
+    each_column.call do |column, flags|
+      expect { define.call(column, flags - 1).new }
+        .not_to(raise_error)
+    end
+  end
+
+  # An 8-byte column fits every position the mapping allows, so there is nothing to reject.
+  it 'rejects the first bit position that does not fit a column of every smaller byte size', :aggregate_failures do
+    each_column.call(%i[tiny small medium regular]) do |column, flags, limit|
+      message = "Bitwise column #{column} has limit of #{limit} bytes " \
+        "(max #{flags} flags), but mapping requires bit shift position #{flags}."
+      expect(&-> { define.call(column, flags).new }).to(raise_error(ArgumentError, message))
+    end
+  end
+
+  it 'stores the highest flag of a column of every byte size exactly', :aggregate_failures do
+    each_column.call do |column, flags|
+      record = define.call(column, flags - 1).create!(column => [:flag])
+
+      expect(raw_value(record, column)).to(eq(1 << (flags - 1)))
+    end
+  end
+
   # A 5-byte column is not a size any database offers natively (MySQL and PostgreSQL widen it to
-  # BIGINT); where it is kept (SQLite) the gem assumes the 4-byte capacity of a plain INTEGER.
+  # BIGINT); where it is kept (SQLite) the gem assumes the 4-byte capacity of a plain INTEGER. The examples run
+  # on every database, so they expect what the connected one does with the column.
   odd_bytes = DatabaseHelpers.column_limit('capacity_records', 'odd')
   context "with an unusual byte size (reported as #{odd_bytes} bytes)" do
-    let(:odd_flags) { DatabaseHelpers.column_limit('capacity_records', 'odd') == 5 ? 31 : 63 }
+    let(:kept)      { DatabaseHelpers.column_limit('capacity_records', 'odd') == 5 }
+    let(:odd_flags) { kept ? 31 : 63                                               }
+    # The first position past the capacity: past the 31 flags of a kept 5-byte column, or, for a BIGINT, which
+    # holds every position the mapping accepts (0..62), not a bit position at all.
+    let(:first_misfit) do
+      if kept
+        [
+          ArgumentError,
+          'Bitwise column odd has limit of 5 bytes (max 31 flags), but mapping requires bit shift position 31.'
+        ]
+      else
+        [ActiveRecord::Bitwise::ConfigurationError, /invalid bit position 63\./]
+      end
+    end
+
+    it 'is kept at 5 bytes or widened to a BIGINT by the database' do
+      expect(DatabaseHelpers.column_limit('capacity_records', 'odd')).to(eq(5).or(eq(8)))
+    end
 
     it 'accepts the highest bit position that fits' do
       expect { define.call(:odd, odd_flags - 1).new }
         .not_to(raise_error)
     end
 
-    if odd_bytes == 5
-      it 'rejects the first bit position that does not fit' do
-        message = 'Bitwise column odd has limit of 5 bytes (max 31 flags), but mapping requires bit shift position 31.'
-
-        expect { define.call(:odd, 31).new }
-          .to(raise_error(ArgumentError, message))
-      end
-    else
-      it 'is widened to a BIGINT by the database' do
-        expect(DatabaseHelpers.column_limit('capacity_records', 'odd')).to(eq(8))
-      end
+    it 'rejects the first bit position that does not fit' do
+      expect { define.call(:odd, odd_flags).new }
+        .to(raise_error(*first_misfit))
     end
   end
 
   # Not every adapter offers every byte size (PostgreSQL has no 1- or 3-byte integers), so the capacity
   # table is also checked against a wrapper around the real column that reports another limit.
-  { 1 => 7, 2 => 15, 3 => 23, 4 => 31, 8 => 63, 5 => 31, nil => 31 }.each do |limit, flags|
-    context "with a column reported as #{limit.inspect} bytes" do
-      let(:model_with_limit) do
-        lambda do |reported_limit, position|
-          model = define.call(:regular, position)
-          real = model.columns_hash
-          reported = SimpleDelegator.new(real.fetch('regular'))
-          reported.define_singleton_method(:limit) { reported_limit }
-          columns = real.dup.tap { |copy| copy.store('regular', reported) }
-          allow(model).to(receive(:columns_hash).and_return(columns))
-          model
-        end
+  context 'with a column that reports another byte size' do
+    # Reported byte limit -> flags the column holds.
+    let(:capacities) { { 1 => 7, 2 => 15, 3 => 23, 4 => 31, 8 => 63, 5 => 31, nil => 31 } }
+    let(:model_with_limit) do
+      lambda do |reported_limit, position|
+        model = define.call(:regular, position)
+        real = model.columns_hash
+        reported = ColumnWithLimit.new(real.fetch('regular'), reported_limit)
+        allow(model).to(receive(:columns_hash).and_return(real.dup.tap { |copy| copy.store('regular', reported) }))
+        model
       end
+    end
 
-      it "accepts position #{flags - 1}" do
-        expect { model_with_limit.call(limit, flags - 1).new }
-          .not_to(raise_error)
+    it 'accepts the highest position that fits each size', :aggregate_failures do
+      capacities.each do |limit, flags|
+        instantiate = -> { model_with_limit.call(limit, flags - 1).new }
+        aggregate_failures("#{limit.inspect} bytes") { expect(&instantiate).not_to(raise_error) }
       end
+    end
 
-      # An 8-byte column holds every position the mapping itself accepts, so there is nothing to reject.
-      next if limit == 8
-
-      it "rejects position #{flags}" do
-        expect { model_with_limit.call(limit, flags).new }
-          .to(raise_error(ArgumentError, /max #{flags} flags/))
+    # An 8-byte column holds every position the mapping itself accepts, so there is nothing to reject.
+    it 'rejects the first position that does not fit each size below 8 bytes', :aggregate_failures do
+      capacities.except(8).each do |limit, flags|
+        instantiate = -> { model_with_limit.call(limit, flags).new }
+        aggregate_failures(limit.inspect) { expect(&instantiate).to(raise_error(ArgumentError, /max #{flags} flags/)) }
       end
     end
   end

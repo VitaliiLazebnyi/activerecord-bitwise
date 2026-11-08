@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -9,21 +9,26 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#roles=') do
   let(:record) { model.new }
 
   context 'with flag names' do
-    [
-      ['Symbols', %i[admin author], %i[admin author]],
-      ['Strings', %w[admin author], %i[admin author]],
-      ['mixed Symbols and Strings', ['admin', :author], %i[admin author]],
-      ['a single Symbol', :author, [:author]],
-      ['a single String', 'author', [:author]],
-      ['an empty array', [], []],
-      ['nil', nil, []],
-      ['nil and empty strings among the names', ['', 'admin', nil, 'author'], %i[admin author]],
-      ['duplicates', [:admin, 'admin', :admin], [:admin]]
-    ].each do |label, assigned, expected_flags|
-      it "reads back #{expected_flags.inspect} when assigned #{label}" do
-        record.roles = assigned
+    let(:flag_names) do
+      [
+        ['Symbols', %i[admin author], %i[admin author]],
+        ['Strings', %w[admin author], %i[admin author]],
+        ['mixed Symbols and Strings', ['admin', :author], %i[admin author]],
+        ['a single Symbol', :author, [:author]],
+        ['a single String', 'author', [:author]],
+        ['an empty array', [], []],
+        ['nil', nil, []],
+        ['nil and empty strings among the names', ['', 'admin', nil, 'author'], %i[admin author]],
+        ['duplicates', [:admin, 'admin', :admin], [:admin]]
+      ]
+    end
 
-        expect(record.roles).to(eq(expected_flags))
+    it 'reads back the flags of every form of flag names', :aggregate_failures do
+      flag_names.each do |label, assigned, expected_flags|
+        assigned_record = model.new
+        assigned_record.roles = assigned
+
+        aggregate_failures(label) { expect(assigned_record.roles).to(eq(expected_flags)) }
       end
     end
 
@@ -35,16 +40,21 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#roles=') do
   end
 
   context 'with an Integer or numeric String bitmask' do
-    [
-      ['8', 8, [:subscriber]],
-      ['0', 0, []],
-      ['5 as a String', '5', %i[admin author]],
-      ['a bitmask with unmapped bits', 0b1_0000_0001, [:admin]]
-    ].each do |label, assigned, expected_flags|
-      it "reads back #{expected_flags.inspect} when assigned #{label}" do
-        record.roles = assigned
+    let(:bitmasks) do
+      [
+        ['8', 8, [:subscriber]],
+        ['0', 0, []],
+        ['5 as a String', '5', %i[admin author]],
+        ['a bitmask with unmapped bits', 0b1_0000_0001, [:admin]]
+      ]
+    end
 
-        expect(record.roles).to(eq(expected_flags))
+    it 'reads back the mapped flags of every bitmask', :aggregate_failures do
+      bitmasks.each do |label, assigned, expected_flags|
+        assigned_record = model.new
+        assigned_record.roles = assigned
+
+        aggregate_failures(label) { expect(assigned_record.roles).to(eq(expected_flags)) }
       end
     end
   end
@@ -85,10 +95,11 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#roles=') do
   end
 
   context 'with a value that cannot be a flag array' do
-    [{ a: 1 }, true, false].each do |uncastable|
-      it "rejects #{uncastable.inspect}" do
-        expect { record.roles = uncastable }
-          .to(raise_error(ArgumentError, "cannot cast #{uncastable.inspect} to a bitwise flag array for column roles"))
+    it 'rejects a Hash, true and false', :aggregate_failures do
+      [{ a: 1 }, true, false].each do |uncastable|
+        message = "cannot cast #{uncastable.inspect} to a bitwise flag array for column roles"
+        assign = -> { record.roles = uncastable }
+        aggregate_failures(uncastable.inspect) { expect(&assign).to(raise_error(ArgumentError, message)) }
       end
     end
 
@@ -101,18 +112,21 @@ RSpec.describe(ActiveRecord::Bitwise::Model, '#roles=') do
   end
 
   context 'when persisted' do
-    [
-      ['no flags', [], 0],
-      ['the first bit', [:admin], 0b0001],
-      ['the last mapped bit', [:subscriber], 0b1000],
-      ['several flags', %i[admin subscriber], 0b1001],
-      ['every flag', %i[admin editor author subscriber], 0b1111]
-    ].each do |label, flags, expected_bitmask|
-      it "stores #{expected_bitmask} for #{label}" do
-        record.roles = flags
-        record.save!
+    let(:flag_sets) do
+      [
+        ['no flags', [], 0],
+        ['the first bit', [:admin], 0b0001],
+        ['the last mapped bit', [:subscriber], 0b1000],
+        ['several flags', %i[admin subscriber], 0b1001],
+        ['every flag', %i[admin editor author subscriber], 0b1111]
+      ]
+    end
 
-        expect(raw_value(record)).to(eq(expected_bitmask))
+    it 'stores the bitmask of the flags', :aggregate_failures do
+      flag_sets.each do |label, flags, expected_bitmask|
+        saved = model.new.tap { |assigned| assigned.roles = flags }
+        saved.save!
+        aggregate_failures(label) { expect(raw_value(saved)).to(eq(expected_bitmask)) }
       end
     end
 

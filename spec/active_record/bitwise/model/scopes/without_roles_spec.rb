@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -6,25 +6,31 @@
 RSpec.describe(ActiveRecord::Bitwise::Model, '.without_roles') do
   include_context 'with scope fixtures'
 
+  let(:decisions) do
+    [
+      [[:admin], %i[none author]],
+      [[:author], %i[none admin]],
+      [%i[admin author], %i[none]],
+      [[%i[admin author]], %i[none]],
+      [%w[admin author], %i[none]],
+      [%i[admin bogus], %i[none author]],
+      [[:subscriber], %i[none admin author both]],
+      [[:bogus], %i[none admin author both three]],
+      [%w[bogus other], %i[none admin author both three]],
+      [[], %i[none admin author both three]],
+      [[[]], %i[none admin author both three]],
+      [[nil], %i[none admin author both three]],
+      [[''], %i[none admin author both three]],
+      [[0], %i[none admin author both three]]
+    ]
+  end
+
   # Decision table: arguments -> fixtures returned (records having NONE of the given flags).
-  [
-    [[:admin], %i[none author]],
-    [[:author], %i[none admin]],
-    [%i[admin author], %i[none]],
-    [[%i[admin author]], %i[none]],
-    [%w[admin author], %i[none]],
-    [%i[admin bogus], %i[none author]],
-    [[:subscriber], %i[none admin author both]],
-    [[:bogus], %i[none admin author both three]],
-    [%w[bogus other], %i[none admin author both three]],
-    [[], %i[none admin author both three]],
-    [[[]], %i[none admin author both three]],
-    [[nil], %i[none admin author both three]],
-    [[''], %i[none admin author both three]],
-    [[0], %i[none admin author both three]]
-  ].each do |arguments, expected|
-    it "with #{arguments.inspect} returns #{expected.inspect}" do
-      expect(names_in.call(model.without_roles(*arguments))).to(eq(expected))
+  it 'returns the right records for every form of arguments', :aggregate_failures do
+    decisions.each do |arguments, expected|
+      aggregate_failures("with #{arguments.inspect} returns #{expected.inspect}") do
+        expect(names_in.call(model.without_roles(*arguments))).to(eq(expected))
+      end
     end
   end
 

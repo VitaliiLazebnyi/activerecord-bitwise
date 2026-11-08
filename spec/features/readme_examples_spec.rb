@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -19,6 +19,15 @@ RSpec.describe('README examples') do
   end
 
   describe 'Model Configuration' do
+    let(:invalid_mappings) do
+      [
+        ['a non-integer bit position', { a: 'one' }],
+        ['a negative bit position', { a: -1 }],
+        ['a bit position above 62', { a: 63 }],
+        ['two keys with the same bit position', { a: 1, b: 1 }]
+      ]
+    end
+
     it 'treats hash values as bit positions: admin is bit 0 (value 1)' do
       expect(raw_value(user_class.create!(roles: [:admin]))).to(eq(1))
     end
@@ -46,15 +55,10 @@ RSpec.describe('README examples') do
     end
 
     # The README lists what raises ConfigurationError at definition time.
-    [
-      ['a non-integer bit position', { a: 'one' }],
-      ['a negative bit position', { a: -1 }],
-      ['a bit position above 62', { a: 63 }],
-      ['two keys with the same bit position', { a: 1, b: 1 }]
-    ].each do |label, mapping|
-      it "raises ConfigurationError for #{label}" do
-        expect { build_model { bitwise(:roles, mapping) } }
-          .to(raise_error(ActiveRecord::Bitwise::ConfigurationError))
+    it 'raises ConfigurationError for every invalid mapping', :aggregate_failures do
+      invalid_mappings.each do |label, mapping|
+        declare = -> { build_model { bitwise(:roles, mapping) } }
+        aggregate_failures(label) { expect(&declare).to(raise_error(ActiveRecord::Bitwise::ConfigurationError)) }
       end
     end
 
@@ -281,12 +285,11 @@ RSpec.describe('README examples') do
       expect(user.reload.roles_before_type_cast).to(eq(5))
     end
 
-    ['0', 'false', '', 'off', 0, false, nil].each do |falsy|
-      it "disables the flag when assigned #{falsy.inspect}" do
+    it 'disables the flag for every false-like value', :aggregate_failures do
+      ['0', 'false', '', 'off', 0, false, nil].each do |falsy|
         user.roles = [:admin]
         user.admin = falsy
-
-        expect(user.admin?).to(be(false))
+        aggregate_failures(falsy.inspect) { expect(user.admin?).to(be(false)) }
       end
     end
   end
@@ -302,7 +305,7 @@ RSpec.describe('README examples') do
 
     it 'issues the documented OR statement' do
       column = user_class.connection.quote_column_name('roles')
-      statements = normalized_sql(capture_sql { user_class.add_roles!(:admin, records: record.id) })
+      statements = normalized_statements(capture_sql { user_class.add_roles!(:admin, records: record.id) })
 
       expect(statements).to(include(a_string_including("#{column} = COALESCE(#{column}, 0) | 1")))
     end
@@ -316,7 +319,7 @@ RSpec.describe('README examples') do
     it 'issues the documented subtraction statement' do
       column = user_class.connection.quote_column_name('roles')
       expected = "#{column} = COALESCE(#{column}, 0) - (COALESCE(#{column}, 0) & 4)"
-      statements = normalized_sql(capture_sql { record.remove_role!(:author) })
+      statements = normalized_statements(capture_sql { record.remove_role!(:author) })
 
       expect(statements).to(include(a_string_including(expected)))
     end

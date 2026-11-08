@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -10,23 +10,27 @@ RSpec.describe(ActiveRecord::Bitwise::RelationExtension, '#update_all') do
   let!(:ghosted) { plant_raw_value(model.create!, 0b1_0000_0101) }
   let!(:plain)   { model.create!(roles: [:editor])               }
 
-  # Decision table: value assigned -> raw column afterwards for the ghosted row.
-  [
-    [[:subscriber], 0b1_0000_1000],
-    [%w[author], 0b1_0000_0100],
-    [%i[admin author], 0b1_0000_0101],
-    [%i[author admin], 0b1_0000_0101],
-    [[], 0b1_0000_0000],
-    [:editor, 0b1_0000_0010],
-    ['editor', 0b1_0000_0010],
-    [7, 7],
-    [0, 0],
-    [nil, nil]
-  ].each do |value, expected_raw|
-    it "stores #{expected_raw.inspect} for roles: #{value.inspect}" do
-      model.where(id: ghosted.id).update_all(roles: value)
+  let(:decisions) do
+    [
+      [[:subscriber], 0b1_0000_1000],
+      [%w[author], 0b1_0000_0100],
+      [%i[admin author], 0b1_0000_0101],
+      [%i[author admin], 0b1_0000_0101],
+      [[], 0b1_0000_0000],
+      [:editor, 0b1_0000_0010],
+      ['editor', 0b1_0000_0010],
+      [7, 7],
+      [0, 0],
+      [nil, nil]
+    ]
+  end
 
-      expect(raw_value(ghosted)).to(eq(expected_raw))
+  # Decision table: value assigned -> raw column afterwards for the ghosted row.
+  it 'stores the right bitmask for every form of value', :aggregate_failures do
+    decisions.each do |value, expected_raw|
+      plant_raw_value(ghosted, 0b1_0000_0101)
+      model.where(id: ghosted.id).update_all(roles: value)
+      aggregate_failures("roles: #{value.inspect}") { expect(raw_value(ghosted)).to(eq(expected_raw)) }
     end
   end
 

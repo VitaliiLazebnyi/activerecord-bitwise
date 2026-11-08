@@ -173,6 +173,9 @@ GEM
       rubocop-ast (>= 1.49.0, < 2.0)
       ruby-progressbar (~> 1.7)
       unicode-display_width (>= 2.4.0, < 4.0)
+    rubocop-ai (0.2.1)
+      rubocop (>= 1.50)
+      sorbet-runtime (>= 0.5)
     rubocop-ast (1.50.0)
       parser (>= 3.3.7.2)
       prism (~> 1.7)
@@ -301,6 +304,7 @@ DEPENDENCIES
   reek (~> 6.6)
   rspec (~> 3.13)
   rubocop (~> 1.92)
+  rubocop-ai (~> 0.2)
   rubocop-md (~> 3.0)
   rubocop-packaging (~> 0.6)
   rubocop-performance (~> 1.27)
@@ -382,6 +386,7 @@ CHECKSUMS
   rspec-mocks (3.13.9) sha256=ea5c7ff3054a6098ca6039aacef80aec69d5a8a3ef80be8fc88337359b672a30
   rspec-support (3.13.8) sha256=e4160030309b7e3e9d9863dfe720a35dfcc577162f5402cd68fc8c5258a0ffd6
   rubocop (1.92.2) sha256=14fb31eed143a0dc6f78186c550c1715e81cd38f59d05d1165050e445c1f5382
+  rubocop-ai (0.2.1) sha256=f39ed768f0de3290e91fecd6291bee60cf28daddd82871609d914ff0afd62586
   rubocop-ast (1.50.0) sha256=b9ca88300da0803ee222ad20cdb30494c0a784eed06fdc35d254b06d662788db
   rubocop-md (3.0.0) sha256=d2e43f9af97268a1204a0e071ef541a47d6cdd43717b7511a3c0471b785bddb1
   rubocop-packaging (0.6.0) sha256=fb92bd0fb48e6f8cdb1648d2249b0cd51c2497dcc87340132d22f01edbf558a7

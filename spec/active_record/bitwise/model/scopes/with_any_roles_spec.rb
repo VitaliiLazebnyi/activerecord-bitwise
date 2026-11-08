@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -6,25 +6,31 @@
 RSpec.describe(ActiveRecord::Bitwise::Model, '.with_any_roles') do
   include_context 'with scope fixtures'
 
+  let(:decisions) do
+    [
+      [[:admin], %i[admin both three]],
+      [%i[author subscriber], %i[author both three]],
+      [[%i[author subscriber]], %i[author both three]],
+      [%w[author subscriber], %i[author both three]],
+      [%i[admin author], %i[admin author both three]],
+      [%i[author bogus], %i[author both three]],
+      [[:bogus], []],
+      [%w[bogus other], []],
+      [[0], []],
+      [[], %i[none admin author both three]],
+      [[[]], %i[none admin author both three]],
+      [[nil], %i[none admin author both three]],
+      [[''], %i[none admin author both three]],
+      [[nil, ''], %i[none admin author both three]]
+    ]
+  end
+
   # Decision table: arguments -> fixtures returned (records having ANY of the given flags).
-  [
-    [[:admin], %i[admin both three]],
-    [%i[author subscriber], %i[author both three]],
-    [[%i[author subscriber]], %i[author both three]],
-    [%w[author subscriber], %i[author both three]],
-    [%i[admin author], %i[admin author both three]],
-    [%i[author bogus], %i[author both three]],
-    [[:bogus], []],
-    [%w[bogus other], []],
-    [[0], []],
-    [[], %i[none admin author both three]],
-    [[[]], %i[none admin author both three]],
-    [[nil], %i[none admin author both three]],
-    [[''], %i[none admin author both three]],
-    [[nil, ''], %i[none admin author both three]]
-  ].each do |arguments, expected|
-    it "with #{arguments.inspect} returns #{expected.inspect}" do
-      expect(names_in.call(model.with_any_roles(*arguments))).to(eq(expected))
+  it 'returns the right records for every form of arguments', :aggregate_failures do
+    decisions.each do |arguments, expected|
+      aggregate_failures("with #{arguments.inspect} returns #{expected.inspect}") do
+        expect(names_in.call(model.with_any_roles(*arguments))).to(eq(expected))
+      end
     end
   end
 

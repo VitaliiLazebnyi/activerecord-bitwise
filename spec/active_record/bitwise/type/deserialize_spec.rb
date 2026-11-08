@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # Copyright (c) 2026 VitaliiLazebnyi
@@ -27,14 +27,20 @@ RSpec.describe(ActiveRecord::Bitwise::Type, '#deserialize') do
   end
 
   context 'with an Integer bitmask' do
-    {
-      0 => [],
-      1 => [:admin],
-      0b0110 => %i[editor author],
-      0b1111 => %i[admin editor author subscriber]
-    }.each do |bitmask, expected_flags|
-      it "maps #{bitmask} to #{expected_flags.inspect}" do
-        expect(type.deserialize(bitmask)).to(eq(expected_flags))
+    let(:bitmasks) do
+      {
+        0 => [],
+        1 => [:admin],
+        0b0110 => %i[editor author],
+        0b1111 => %i[admin editor author subscriber]
+      }
+    end
+
+    it 'maps every bitmask to its mapped flags', :aggregate_failures do
+      bitmasks.each do |bitmask, expected_flags|
+        aggregate_failures("maps #{bitmask} to #{expected_flags.inspect}") do
+          expect(type.deserialize(bitmask)).to(eq(expected_flags))
+        end
       end
     end
 
@@ -104,11 +110,12 @@ RSpec.describe(ActiveRecord::Bitwise::Type, '#deserialize') do
   end
 
   context 'when an Array cannot be cast' do
-    # No real input makes #cast return nil for an Array, so the guard is reached through a subclass
-    # whose #cast refuses.
+    # No real input makes #cast return nil for an Array, so the guard is reached through a type whose #cast
+    # refuses.
     let(:refusing_type) do
-      Class.new(described_class) { define_method(:cast) { |_value| nil } }
-        .new(:roles, { admin: 0 }, nil)
+      described_class.new(:roles, { admin: 0 }, nil).tap do |refusing|
+        allow(refusing).to(receive(:cast).and_return(nil))
+      end
     end
 
     it 'raises a descriptive error instead of returning nil' do

@@ -1,5 +1,8 @@
 --markup markdown
 --plugin sorbet
+--private
+--protected
 --exclude vendor/
 --exclude spec/
-
+lib/**/*.rb
+script/**/*.rb
